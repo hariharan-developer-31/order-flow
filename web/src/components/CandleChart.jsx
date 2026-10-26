@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { createChart, CrosshairMode } from 'lightweight-charts';
 import {
   Maximize2,
   Minimize2,
@@ -162,7 +163,6 @@ export default function CandleChart({
   const [showInChartProfile, setShowInChartProfile] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoverData, setHoverData] = useState(null);
-  const [lwReady, setLwReady] = useState(() => !!window.LightweightCharts);
 
   // Live Candle Countdown Timer State (Right-Side Corner like TradingView)
   const [countdownText, setCountdownText] = useState('00:00');
@@ -216,24 +216,9 @@ export default function CandleChart({
     return () => clearInterval(interval);
   }, [timeframe, barsData]);
 
-  // Poll for LightweightCharts CDN readiness
-  useEffect(() => {
-    if (window.LightweightCharts) {
-      setLwReady(true);
-      return;
-    }
-    const interval = setInterval(() => {
-      if (window.LightweightCharts) {
-        setLwReady(true);
-        clearInterval(interval);
-      }
-    }, 100);
-    return () => clearInterval(interval);
-  }, []);
-
   // 2. Initialize Lightweight Chart instance (Pure Candlestick Canvas, no bottom volume histogram)
   useEffect(() => {
-    if (!chartContainerRef.current || !window.LightweightCharts || chartView !== 'candles') return;
+    if (!chartContainerRef.current || chartView !== 'candles') return;
 
     if (chartRef.current) {
       try {
@@ -245,70 +230,56 @@ export default function CandleChart({
     const containerWidth = chartContainerRef.current.clientWidth || 800;
     const chartHeight = isFullscreen ? window.innerHeight - 110 : 540;
 
-    const chart = window.LightweightCharts.createChart(chartContainerRef.current, {
-      width: containerWidth,
-      height: chartHeight,
-      layout: {
-        background: { type: 'solid', color: '#ffffff' },
-        textColor: '#334155',
-        fontFamily: 'Inter, sans-serif',
-        fontSize: 12,
-      },
-      grid: {
-        vertLines: { color: '#f8fafc' },
-        horzLines: { color: '#f8fafc' },
-      },
-      crosshair: {
-        mode: window.LightweightCharts.CrosshairMode.Normal,
-        vertLine: {
-          color: '#cbd5e1',
-          width: 1,
-          style: 3,
-          labelBackgroundColor: '#0f172a',
+    let chart;
+    try {
+      chart = createChart(chartContainerRef.current, {
+        width: containerWidth,
+        height: chartHeight,
+        layout: {
+          background: { type: 'solid', color: '#ffffff' },
+          textColor: '#334155',
+          fontFamily: 'Inter, sans-serif',
+          fontSize: 12,
         },
-        horzLine: {
-          color: '#cbd5e1',
-          width: 1,
-          style: 3,
-          labelBackgroundColor: '#0f172a',
+        grid: {
+          vertLines: { color: '#f8fafc' },
+          horzLines: { color: '#f8fafc' },
         },
-      },
-      localization: {
-        locale: 'en-IN',
-        dateFormat: 'dd/MM/yyyy',
-        timeFormatter: (time) => {
-          const date = new Date(time * 1000);
-          return (
-            date.toLocaleTimeString('en-IN', {
-              timeZone: 'Asia/Kolkata',
-              hour: '2-digit',
-              minute: '2-digit',
-              hour12: false,
-            }) + ' IST'
-          );
+        crosshair: {
+          mode: CrosshairMode.Normal,
+          vertLine: {
+            color: '#cbd5e1',
+            width: 1,
+            style: 3,
+            labelBackgroundColor: '#0f172a',
+          },
+          horzLine: {
+            color: '#cbd5e1',
+            width: 1,
+            style: 3,
+            labelBackgroundColor: '#0f172a',
+          },
         },
-      },
-      rightPriceScale: {
-        borderColor: '#e2e8f0',
-        scaleMargins: { top: 0.08, bottom: 0.08 },
-      },
-      timeScale: {
-        borderColor: '#e2e8f0',
-        timeVisible: true,
-        secondsVisible: false,
-        rightOffset: 16,
-        barSpacing: 9,
-        tickMarkFormatter: (time) => {
-          const date = new Date(time * 1000);
-          return date.toLocaleTimeString('en-IN', {
-            timeZone: 'Asia/Kolkata',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: false,
-          });
+        localization: {
+          locale: 'en-IN',
+          dateFormat: 'dd/MM/yyyy',
         },
-      },
-    });
+        rightPriceScale: {
+          borderColor: '#e2e8f0',
+          scaleMargins: { top: 0.08, bottom: 0.08 },
+        },
+        timeScale: {
+          borderColor: '#e2e8f0',
+          timeVisible: true,
+          secondsVisible: false,
+          rightOffset: 16,
+          barSpacing: 9,
+        },
+      });
+    } catch (e) {
+      console.error('[CHART] createChart error:', e);
+      return;
+    }
 
     // Candlestick Series (Crisp green / red)
     const candleSeries = chart.addCandlestickSeries({
@@ -374,7 +345,7 @@ export default function CandleChart({
         chartRef.current = null;
       }
     };
-  }, [decimals, lwReady, chartView, isFullscreen]);
+  }, [decimals, chartView, isFullscreen]);
 
   // 3. Set Candlestick Bar Data & Recalibrate Time Scale Immediately
   useEffect(() => {
@@ -409,7 +380,7 @@ export default function CandleChart({
     } catch (err) {
       console.warn('[CHART] Error applying bar data:', err);
     }
-  }, [barsData, lwReady, chartView, timeframe]);
+  }, [barsData, chartView, timeframe]);
 
   // 4. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
   useEffect(() => {
@@ -451,7 +422,7 @@ export default function CandleChart({
         priceLinesRef.current.push(line);
       } catch (e) {}
     }
-  }, [of, decimals, lwReady, chartView]);
+  }, [of, decimals, chartView]);
 
   // 5. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER in Green & Red
   const renderInChartProfile = useCallback(() => {
