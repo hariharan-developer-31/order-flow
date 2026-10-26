@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import OrderFlowCards from './components/OrderFlowCards';
-import CandleChart from './components/CandleChart';
+import CandleChart, { calculateDynamicVolumeProfile } from './components/CandleChart';
 import FootprintChart from './components/FootprintChart';
 import VolumeProfileHistogram from './components/VolumeProfileHistogram';
 import SignalsFeed from './components/SignalsFeed';
@@ -242,6 +242,12 @@ export default function App() {
 
   const decimals = activeSymbol === 'XAUUSD' ? 2 : 5;
 
+  // Calculate unified dynamic Volume Profile directly from active candlestick bars
+  // Guarantees 100% synchronization between the Chart and all Data Boxes above!
+  const activeVP = useMemo(() => {
+    return calculateDynamicVolumeProfile(barsData, 55);
+  }, [barsData]);
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
       {/* 1. Top Navigation & Ticker Header */}
@@ -263,11 +269,12 @@ export default function App() {
 
       {/* 2. Main Terminal Content */}
       <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-        {/* Order Flow Top Cards */}
+        {/* Order Flow Top Cards (100% Synchronized with Chart VP) */}
         <OrderFlowCards
           symbol={activeSymbol}
           orderFlowData={orderFlowData}
           livePrice={currentPrice}
+          activeVP={activeVP}
         />
 
         {/* Charting & Execution Layout */}
@@ -281,6 +288,7 @@ export default function App() {
                 barsData={barsData}
                 footprintData={footprintData}
                 orderFlowData={orderFlowData}
+                activeVP={activeVP}
                 timeframe={timeframe}
                 onSelectTimeframe={handleSelectTimeframe}
                 decimals={decimals}
@@ -303,10 +311,11 @@ export default function App() {
             {/* Live Signals & MT5 Tickets */}
             <SignalsFeed signalsData={signalsData} />
 
-            {/* Horizontal Volume Profile Ladder */}
+            {/* Horizontal Volume Profile Ladder (100% Synchronized with Chart VP) */}
             <VolumeProfileHistogram
               symbol={activeSymbol}
               orderFlowData={orderFlowData}
+              activeVP={activeVP}
               decimals={decimals}
             />
           </div>

@@ -17,7 +17,6 @@ import {
   ArrowUp,
   ArrowDown,
   Clock,
-  Tv,
 } from 'lucide-react';
 
 const TIMEFRAMES = [
@@ -28,77 +27,11 @@ const TIMEFRAMES = [
 ];
 
 /**
- * Official TradingView OANDA Real-Time Interactive Widget.
- * Directly streams OANDA:XAUUSD with full native TradingView tools and indicators.
- */
-function TradingViewOandaWidget({ symbol = 'XAUUSD', timeframe = '1h', isFullscreen = false }) {
-  const containerRef = useRef(null);
-
-  const getTfInterval = (tf) => {
-    const t = (tf || '1h').toLowerCase();
-    if (t === '5m') return '5';
-    if (t === '15m') return '15';
-    if (t === '1h') return '60';
-    if (t === '4h') return '240';
-    return '60';
-  };
-
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const tvId = 'tv_oanda_embed_' + Math.random().toString(36).substring(7);
-    containerRef.current.innerHTML = `<div id="${tvId}" style="height: 100%; width: 100%;"></div>`;
-
-    const oandaSymbol = symbol === 'XAUUSD' ? 'OANDA:XAUUSD' : `OANDA:${symbol}`;
-
-    const initWidget = () => {
-      if (window.TradingView && document.getElementById(tvId)) {
-        new window.TradingView.widget({
-          autosize: true,
-          symbol: oandaSymbol,
-          interval: getTfInterval(timeframe),
-          timezone: 'Etc/UTC',
-          theme: 'light',
-          style: '1',
-          locale: 'en',
-          toolbar_bg: '#ffffff',
-          enable_publishing: false,
-          allow_symbol_change: true,
-          container_id: tvId,
-          hide_side_toolbar: false,
-          studies: ['Volume@tv-basicstudies'],
-        });
-      }
-    };
-
-    if (window.TradingView) {
-      initWidget();
-    } else {
-      const script = document.createElement('script');
-      script.src = 'https://s3.tradingview.com/tv.js';
-      script.async = true;
-      script.onload = initWidget;
-      document.head.appendChild(script);
-    }
-
-    return () => {
-      if (containerRef.current) containerRef.current.innerHTML = '';
-    };
-  }, [symbol, timeframe]);
-
-  const h = isFullscreen ? 'calc(100vh - 75px)' : '540px';
-
-  return (
-    <div className="w-full relative bg-white" style={{ height: h }}>
-      <div ref={containerRef} className="w-full h-full" style={{ height: h }} />
-    </div>
-  );
-}
-
-/**
- * Calculate dynamic Volume Profile across all visible candlestick bars.
+ * Calculate dynamic Volume Profile across candlestick bars.
  * Ensures the Volume Profile covers the full price height of active price action.
+ * Exported so that the Chart and all Above Data Boxes share the exact same POC, VAH, VAL!
  */
-function calculateDynamicVolumeProfile(bars, numBins = 55) {
+export function calculateDynamicVolumeProfile(bars, numBins = 55) {
   if (!bars || bars.length === 0) return null;
 
   let minP = Infinity;
@@ -201,83 +134,10 @@ function calculateDynamicVolumeProfile(bars, numBins = 55) {
     maxVol,
     minP,
     maxP,
+    pdh: maxP,
+    pdl: minP,
+    totalVol,
   };
-}
-
-/**
- * Detect current active institutional session in Indian Standard Time (IST, UTC+05:30)
- * Asian: 05:30 - 13:30 IST
- * London: 13:30 - 21:30 IST
- * New York: 18:30 - 03:30 IST
- */
-function getActiveSessionName() {
-  const now = new Date();
-  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
-  const istMins = (utcMins + 330) % 1440;
-  if (istMins >= 330 && istMins < 810) return 'asian';
-  if (istMins >= 810 && istMins < 1110) return 'london';
-  return 'ny';
-}
-
-/**
- * Filter bars for Volume Profile calculation based on Session VP or Fixed Range VP
- */
-function filterBarsForVP(bars, vpMode, vpSession, vpFixedBars) {
-  if (!bars || bars.length === 0) return { bars: [], label: 'NO BARS' };
-
-  if (vpMode === 'fixed') {
-    const count = Number(vpFixedBars) || 60;
-    const sliced = count >= bars.length ? bars : bars.slice(-count);
-    return {
-      bars: sliced,
-      label: count >= bars.length ? `FIXED RANGE VP (All ${bars.length} Bars)` : `FIXED RANGE VP (Last ${count} Bars)`,
-    };
-  }
-
-  // Session-based VP
-  const chosen = vpSession === 'auto' ? getActiveSessionName() : vpSession;
-  let filtered = [];
-  let label = '';
-
-  if (chosen === 'asian') {
-    label = 'ASIAN SESSION VP (05:30 - 13:30 IST)';
-    filtered = bars.filter((b) => {
-      const d = new Date(b.time * 1000);
-      const istMins = (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % 1440;
-      return istMins >= 330 && istMins < 810;
-    });
-  } else if (chosen === 'london') {
-    label = 'LONDON SESSION VP (13:30 - 21:30 IST)';
-    filtered = bars.filter((b) => {
-      const d = new Date(b.time * 1000);
-      const istMins = (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % 1440;
-      return istMins >= 810 && istMins < 1290;
-    });
-  } else if (chosen === 'ny') {
-    label = 'NEW YORK SESSION VP (18:30 - 03:30 IST)';
-    filtered = bars.filter((b) => {
-      const d = new Date(b.time * 1000);
-      const istMins = (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % 1440;
-      return istMins >= 1110 || istMins < 210;
-    });
-  } else {
-    label = "TODAY'S SESSION VP (05:30 IST - Now)";
-    const lastBar = bars[bars.length - 1];
-    const latestDayIST = new Date((lastBar.time + 19800) * 1000).getUTCDate();
-    filtered = bars.filter((b) => {
-      const bDay = new Date((b.time + 19800) * 1000).getUTCDate();
-      return bDay === latestDayIST;
-    });
-  }
-
-  // Safety fallback if session has very few bars
-  if (filtered.length < 3) {
-    const fallbackCount = Math.min(bars.length, 25);
-    filtered = bars.slice(-fallbackCount);
-    label += ` (Latest ${filtered.length} Bars)`;
-  }
-
-  return { bars: filtered, label };
 }
 
 export default function CandleChart({
@@ -285,6 +145,7 @@ export default function CandleChart({
   barsData,
   footprintData,
   orderFlowData,
+  activeVP,
   timeframe = '1h',
   onSelectTimeframe,
   decimals = 2,
@@ -297,20 +158,14 @@ export default function CandleChart({
   const profileCanvasRef = useRef(null);
 
   // States
-  const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint' | 'oanda_tv'
+  const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint'
   const [showInChartProfile, setShowInChartProfile] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoverData, setHoverData] = useState(null);
   const [lwReady, setLwReady] = useState(() => !!window.LightweightCharts);
 
-  // Volume Profile Switcher States (Session VP vs Fixed Range VP)
-  const [vpMode, setVpMode] = useState('session'); // 'session' | 'fixed'
-  const [vpSession, setVpSession] = useState('auto'); // 'auto' | 'ny' | 'london' | 'asian' | 'day'
-  const [vpFixedBars, setVpFixedBars] = useState(60); // 30 | 60 | 100 | 9999
-
-  // Live Candle Countdown Timer State (Right-Side Corner like TradingView in IST)
+  // Live Candle Countdown Timer State (Right-Side Corner like TradingView)
   const [countdownText, setCountdownText] = useState('00:00');
-  const [istCloseTime, setIstCloseTime] = useState('');
   const [currentPriceY, setCurrentPriceY] = useState(null);
 
   // TradingView Drawing Tools State
@@ -321,7 +176,7 @@ export default function CandleChart({
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const symbolDisplay = symbol === 'XAUUSD' ? 'XAUUSD (OANDA)' : symbol;
 
-  // 1. Live Candle Countdown Timer (Second-by-Second Countdown in IST)
+  // 1. Live Candle Countdown Timer (Second-by-Second Countdown)
   useEffect(() => {
     const updateCountdown = () => {
       const now = Math.floor(Date.now() / 1000);
@@ -334,16 +189,6 @@ export default function CandleChart({
 
       const elapsed = now % tfSeconds;
       const remaining = Math.max(0, tfSeconds - elapsed);
-      const closeEpoch = now + remaining;
-      const closeDate = new Date(closeEpoch * 1000);
-      const closeStr = closeDate.toLocaleTimeString('en-IN', {
-        timeZone: 'Asia/Kolkata',
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: false,
-      });
-      setIstCloseTime(closeStr);
 
       if (remaining >= 3600) {
         const h = Math.floor(remaining / 3600);
@@ -632,26 +477,13 @@ export default function CandleChart({
 
     if (!barsData || barsData.length === 0) return;
 
-    // Filter bars according to Session VP vs Fixed Range VP
-    const { bars: vpBars, label: vpLabel } = filterBarsForVP(barsData, vpMode, vpSession, vpFixedBars);
-    if (!vpBars || vpBars.length === 0) return;
-
-    // Calculate dynamic Volume Profile from selected bars
-    const vp = calculateDynamicVolumeProfile(vpBars, 55);
+    // Use activeVP if provided, otherwise compute from barsData
+    const vp = activeVP || calculateDynamicVolumeProfile(barsData, 55);
     if (!vp) return;
 
     // Anchor at LEFT SIDE CORNER (starting at x = 14)
     const startX = 14;
     const maxBarWidth = Math.min(230, width * 0.28);
-
-    // 0. Draw prominent VP Mode and Session Information Badge at Left Corner Top
-    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
-    const badgeText = `📍 ${vpLabel} • POC ${vp.pocPrice.toFixed(decimals)}`;
-    ctx.font = 'bold 9.5px monospace';
-    const textW = ctx.measureText(badgeText).width;
-    ctx.fillRect(startX, 10, textW + 16, 20);
-    ctx.fillStyle = '#38bdf8'; // Sky blue text
-    ctx.fillText(badgeText, startX + 8, 23.5);
 
     // A. Draw Horizontal Volume Bars (Two-Tone Green & Red Candlestick Colors)
     vp.bins.forEach((bin) => {
@@ -748,11 +580,11 @@ export default function CandleChart({
       ctx.font = 'bold 8.5px monospace';
       ctx.fillText(`VAL ${vp.valPrice.toFixed(decimals)}`, startX + 4, yVAL + 3.5);
     }
-  }, [barsData, showInChartProfile, decimals, vpMode, vpSession, vpFixedBars]);
+  }, [barsData, activeVP, showInChartProfile, decimals]);
 
   useEffect(() => {
     renderInChartProfile();
-  }, [renderInChartProfile, barsData, vpMode, vpSession, vpFixedBars]);
+  }, [renderInChartProfile, barsData, activeVP]);
 
   // Fullscreen Toggle
   const toggleFullscreen = () => {
@@ -898,7 +730,7 @@ export default function CandleChart({
             ))}
           </div>
 
-          {/* View Mode Toggle: Candles vs Footprint vs Official TradingView OANDA */}
+          {/* View Mode Toggle: Candles vs Footprint */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
             <button
               onClick={() => setChartView('candles')}
@@ -921,97 +753,23 @@ export default function CandleChart({
               <Flame className="w-3.5 h-3.5 text-amber-500" />
               Footprint
             </button>
-            <button
-              onClick={() => setChartView('oanda_tv')}
-              className={`px-2.5 py-1 rounded-md transition flex items-center gap-1 ${
-                chartView === 'oanda_tv'
-                  ? 'bg-white text-blue-700 font-bold shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-              title="Official TradingView OANDA Chart Widget"
-            >
-              <Tv className="w-3.5 h-3.5 text-blue-600" />
-              OANDA TradingView
-            </button>
           </div>
 
-          {/* Volume Profile Switcher: Session VP vs Fixed Range VP with Toggle Switch Button */}
+          {/* In-Chart Volume Profile Toggle Button */}
           {chartView === 'candles' && (
-            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
-              {/* Session VP Switch Button */}
-              <button
-                onClick={() => {
-                  setVpMode('session');
-                  setShowInChartProfile(true);
-                }}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition ${
-                  vpMode === 'session' && showInChartProfile
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Session-Based Volume Profile (Calculated per Trading Session in Indian Standard Time)"
-              >
-                <Layers className="w-3.5 h-3.5" />
-                Session VP
-              </button>
-
-              {/* Fixed Range VP Switch Button */}
-              <button
-                onClick={() => {
-                  setVpMode('fixed');
-                  setShowInChartProfile(true);
-                }}
-                className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition ${
-                  vpMode === 'fixed' && showInChartProfile
-                    ? 'bg-blue-600 text-white shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-                title="Fixed Range Volume Profile (Calculated across fixed number of bars)"
-              >
-                <BarChart3 className="w-3.5 h-3.5" />
-                Fixed Range VP
-              </button>
-
-              {/* Session VP Options Dropdown (IST Sessions) */}
-              {showInChartProfile && vpMode === 'session' && (
-                <select
-                  value={vpSession}
-                  onChange={(e) => setVpSession(e.target.value)}
-                  className="bg-white border border-slate-200 text-[11px] font-bold text-slate-700 rounded px-1.5 py-0.5 ml-0.5 focus:outline-none"
-                  title="Select Institutional Trading Session (Indian Standard Time)"
-                >
-                  <option value="auto">Auto (Active Session)</option>
-                  <option value="ny">New York (18:30 - 03:30 IST)</option>
-                  <option value="london">London (13:30 - 21:30 IST)</option>
-                  <option value="asian">Asian (05:30 - 13:30 IST)</option>
-                  <option value="day">Today's Day (05:30 IST - Now)</option>
-                </select>
-              )}
-
-              {/* Fixed Range Options Dropdown */}
-              {showInChartProfile && vpMode === 'fixed' && (
-                <select
-                  value={vpFixedBars}
-                  onChange={(e) => setVpFixedBars(Number(e.target.value))}
-                  className="bg-white border border-slate-200 text-[11px] font-bold text-slate-700 rounded px-1.5 py-0.5 ml-0.5 focus:outline-none"
-                  title="Select Fixed Range Bar Count"
-                >
-                  <option value={30}>Last 30 Bars</option>
-                  <option value={60}>Last 60 Bars</option>
-                  <option value={100}>Last 100 Bars</option>
-                  <option value={9999}>All Loaded Bars</option>
-                </select>
-              )}
-
-              {/* Toggle Profile Visibility */}
-              <button
-                onClick={() => setShowInChartProfile((v) => !v)}
-                className="p-1 text-slate-400 hover:text-slate-700 rounded transition ml-0.5"
-                title={showInChartProfile ? 'Hide Volume Profile' : 'Show Volume Profile'}
-              >
-                {showInChartProfile ? <Eye className="w-3 h-3 text-blue-600" /> : <EyeOff className="w-3 h-3" />}
-              </button>
-            </div>
+            <button
+              onClick={() => setShowInChartProfile((v) => !v)}
+              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition ${
+                showInChartProfile
+                  ? 'bg-blue-50 text-blue-700 border-blue-200 font-bold'
+                  : 'bg-slate-50 text-slate-500 border-slate-200'
+              }`}
+              title="Toggle Left-Corner Volume Profile"
+            >
+              <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
+              <span>Left-Corner VP</span>
+              {showInChartProfile ? <Eye className="w-3 h-3 text-blue-600" /> : <EyeOff className="w-3 h-3" />}
+            </button>
           )}
 
           {/* OHLC Bar Legend & Active Timeframe Badge */}
@@ -1030,17 +788,14 @@ export default function CandleChart({
 
         {/* Right: Candle Countdown Timer & Fullscreen Toggle */}
         <div className="flex items-center gap-2">
-          {/* Live Candle Countdown Pill (Top Right Corner with IST Close Time) */}
+          {/* Live Candle Countdown Pill (Top Right Corner - Clean, no IST text) */}
           <div
             className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs"
-            title={`Current ${timeframe.toUpperCase()} candle closes at ${istCloseTime} IST`}
+            title={`Time remaining until current ${timeframe.toUpperCase()} candle closes`}
           >
             <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
             <span className="text-[10px] font-semibold text-slate-500 uppercase">{timeframe}:</span>
             <span className="text-slate-900">{countdownText}</span>
-            {istCloseTime && (
-              <span className="text-[10px] text-slate-500 hidden sm:inline">({istCloseTime} IST)</span>
-            )}
           </div>
 
           {chartView === 'candles' && (
@@ -1185,11 +940,6 @@ export default function CandleChart({
                 <div className="bg-slate-900/95 text-white font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-l shadow-lg border border-r-0 border-slate-700 flex items-center gap-1.5 backdrop-blur-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span>{countdownText}</span>
-                  {istCloseTime && (
-                    <span className="text-[9px] text-amber-300 font-semibold border-l border-slate-700 pl-1.5 ml-0.5">
-                      {istCloseTime} IST
-                    </span>
-                  )}
                 </div>
               </div>
             )}
@@ -1330,7 +1080,7 @@ export default function CandleChart({
           </div>
         )}
 
-        {/* View 2: Authentic In-Chart Footprint Chart View */}
+        {/* In-Chart Footprint View */}
         {chartView === 'footprint' && (
           <div className="flex-1 p-4 bg-slate-50/50 overflow-x-auto flex flex-col" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
             <div className="mb-2.5 flex items-center justify-between px-1 shrink-0">
@@ -1438,14 +1188,6 @@ export default function CandleChart({
           </div>
         )}
 
-        {/* View 3: Official TradingView OANDA Real-Time Interactive Chart */}
-        {chartView === 'oanda_tv' && (
-          <TradingViewOandaWidget
-            symbol={symbol}
-            timeframe={timeframe}
-            isFullscreen={isFullscreen}
-          />
-        )}
       </div>
     </div>
   );

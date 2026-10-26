@@ -1,9 +1,20 @@
 import React from 'react';
 import { BarChart3, Target, Layers } from 'lucide-react';
 
-export default function VolumeProfileHistogram({ symbol, orderFlowData, decimals = 2 }) {
+export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP, decimals = 2 }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
-  const profile = of?.profile || [];
+
+  // Synchronize 100% with the active chart Volume Profile
+  const profile = (activeVP?.bins && activeVP.bins.length > 0)
+    ? activeVP.bins.map((b) => ({
+        price: b.price,
+        volume: b.totalVol,
+        is_poc: b.isPOC,
+        in_va: b.inVA,
+      }))
+    : (of?.profile || []);
+
+  const pocPrice = activeVP?.pocPrice ?? of?.pPOC ?? 0;
 
   if (!profile || profile.length === 0) {
     return (
@@ -27,7 +38,7 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, decimals
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-amber-500" />
           <h3 className="font-extrabold text-slate-900 text-xs">
-            Horizontal Volume Profile (24H Auction)
+            Horizontal Volume Profile (Active Auction)
           </h3>
         </div>
         <span className="text-[10px] font-mono font-bold text-slate-500">
@@ -38,7 +49,7 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, decimals
       {/* Legend */}
       <div className="px-4 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-semibold">
         <span className="text-amber-800 flex items-center gap-1">
-          <span className="w-2.5 h-2.5 rounded bg-amber-500"></span> POC ({of.pPOC?.toFixed(decimals)})
+          <span className="w-2.5 h-2.5 rounded bg-amber-500"></span> POC ({pocPrice ? pocPrice.toFixed(decimals) : '---'})
         </span>
         <span className="text-blue-700 flex items-center gap-1">
           <span className="w-2.5 h-2.5 rounded bg-blue-400"></span> 70% Value Area

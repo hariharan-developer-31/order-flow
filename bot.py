@@ -447,22 +447,18 @@ def get_london_orb(bars: List[Dict[str, Any]], idx: int) -> Optional[Tuple[float
 
 
 def compute_order_flow_profile(bars: List[Dict[str, Any]], dec: int, is_gold: bool = False) -> Dict[str, Any]:
-    """Computes yesterday's Volume Profile, POC, and 70% Value Area (VAH/VAL) as detailed in AK Order Flow Ch 5 & 6."""
-    dates = sorted(list(set(b["time"].date() for b in bars)))
-    if len(dates) < 2:
+    """Computes active auction Volume Profile, POC, and 70% Value Area (VAH/VAL) as detailed in AK Order Flow Ch 5 & 6."""
+    if not bars:
         return {}
-    today = bars[-1]["time"].date()
-    yest_date = dates[-2] if len(dates) >= 2 else dates[-1]
-    yest_bars = [b for b in bars if b["time"].date() == yest_date]
-    if not yest_bars:
-        return {}
+    # Use active auction window (recent 48 bars) so POC, VAH, and VAL match current price action perfectly
+    recent_bars = bars[-min(len(bars), 48):]
 
-    pHigh = round(max(b["high"] for b in yest_bars), dec)
-    pLow = round(min(b["low"] for b in yest_bars), dec)
+    pHigh = round(max(b["high"] for b in recent_bars), dec)
+    pLow = round(min(b["low"] for b in recent_bars), dec)
 
     step = 1.0 if is_gold else (0.0005 if dec >= 4 else 0.05)
     prof = {}
-    for b in yest_bars:
+    for b in recent_bars:
         tp = round(((b["high"] + b["low"] + b["close"]) / 3.0) / step) * step
         tp = round(tp, dec)
         prof[tp] = prof.get(tp, 0.0) + b["volume"]

@@ -1,15 +1,16 @@
 import React from 'react';
 import { Target, Layers, ArrowUpRight, ArrowDownRight, ShieldCheck, Flame } from 'lucide-react';
 
-export default function OrderFlowCards({ symbol, orderFlowData, livePrice }) {
+export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const dec = symbol === 'XAUUSD' ? 2 : 5;
 
-  const poc = of?.pPOC ?? 0;
-  const vah = of?.pVAH ?? 0;
-  const val = of?.pVAL ?? 0;
-  const pHigh = of?.pHigh ?? 0;
-  const pLow = of?.pLow ?? 0;
+  // Synchronized directly with the chart auction so the above data box and chart match 100% perfectly!
+  const poc = activeVP?.pocPrice ?? of?.pPOC ?? 0;
+  const vah = activeVP?.vahPrice ?? of?.pVAH ?? 0;
+  const val = activeVP?.valPrice ?? of?.pVAL ?? 0;
+  const pHigh = activeVP?.pdh ?? of?.pHigh ?? 0;
+  const pLow = activeVP?.pdl ?? of?.pLow ?? 0;
 
   // Calculate distance to POC
   const distPOC = livePrice && poc ? livePrice - poc : 0;
@@ -47,7 +48,7 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice }) {
           </span>
         </div>
         <p className="text-[11px] text-slate-500 mt-2">
-          Highest transacted volume level of yesterday's auction.
+          Highest transacted volume level of active auction.
         </p>
       </div>
 
