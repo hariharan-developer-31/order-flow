@@ -14,7 +14,6 @@ import {
   Eye,
   EyeOff,
   Flame,
-  Activity,
   ArrowUp,
   ArrowDown,
 } from 'lucide-react';
@@ -25,6 +24,116 @@ const TIMEFRAMES = [
   { id: '1h', label: '1H' },
   { id: '4h', label: '4H' },
 ];
+
+/**
+ * Calculate dynamic Volume Profile across all visible candlestick bars.
+ * Ensures the Volume Profile covers the full price height of active price action.
+ */
+function calculateDynamicVolumeProfile(bars, numBins = 55) {
+  if (!bars || bars.length === 0) return null;
+
+  let minP = Infinity;
+  let maxP = -Infinity;
+  let totVol = 0;
+
+  for (let i = 0; i < bars.length; i++) {
+    const b = bars[i];
+    if (b.low < minP) minP = b.low;
+    if (b.high > maxP) maxP = b.high;
+    totVol += b.volume || 1;
+  }
+
+  if (minP >= maxP || totVol <= 0) return null;
+
+  const range = maxP - minP;
+  const binStep = range / numBins;
+
+  const bins = [];
+  for (let i = 0; i < numBins; i++) {
+    const low = minP + i * binStep;
+    const high = low + binStep;
+    bins.push({
+      price: (low + high) / 2,
+      low,
+      high,
+      buyVol: 0,
+      sellVol: 0,
+      totalVol: 0,
+    });
+  }
+
+  // Distribute volume per bar across overlapping price bins
+  for (let i = 0; i < bars.length; i++) {
+    const b = bars[i];
+    const bVol = b.volume || 1;
+    const isBull = b.close >= b.open;
+    const buyFrac = isBull ? 0.65 : 0.35;
+    const sellFrac = 1.0 - buyFrac;
+
+    const startBinIdx = Math.max(0, Math.min(numBins - 1, Math.floor((b.low - minP) / binStep)));
+    const endBinIdx = Math.max(0, Math.min(numBins - 1, Math.floor((b.high - minP) / binStep)));
+    const count = Math.max(1, endBinIdx - startBinIdx + 1);
+    const volEach = bVol / count;
+
+    for (let j = startBinIdx; j <= endBinIdx; j++) {
+      bins[j].buyVol += volEach * buyFrac;
+      bins[j].sellVol += volEach * sellFrac;
+      bins[j].totalVol += volEach;
+    }
+  }
+
+  // Find POC (Point of Control with maximum volume)
+  let maxVol = 0;
+  let pocIdx = 0;
+  for (let i = 0; i < numBins; i++) {
+    if (bins[i].totalVol > maxVol) {
+      maxVol = bins[i].totalVol;
+      pocIdx = i;
+    }
+  }
+
+  // Compute 70% Value Area
+  const targetVa = totVol * 0.7;
+  let vaSum = bins[pocIdx].totalVol;
+  const vaSet = new Set([pocIdx]);
+  let up = pocIdx + 1;
+  let dn = pocIdx - 1;
+
+  while (vaSum < targetVa && (up < numBins || dn >= 0)) {
+    const vUp = up < numBins ? bins[up].totalVol : -1;
+    const vDn = dn >= 0 ? bins[dn].totalVol : -1;
+    if (vUp >= vDn && vUp >= 0) {
+      vaSet.add(up);
+      vaSum += vUp;
+      up++;
+    } else if (vDn >= 0) {
+      vaSet.add(dn);
+      vaSum += vDn;
+      dn--;
+    } else {
+      break;
+    }
+  }
+
+  const vaArr = Array.from(vaSet);
+  const minVaIdx = Math.min(...vaArr);
+  const maxVaIdx = Math.max(...vaArr);
+
+  for (let i = 0; i < numBins; i++) {
+    bins[i].isPOC = i === pocIdx;
+    bins[i].inVA = vaSet.has(i);
+  }
+
+  return {
+    bins,
+    pocPrice: bins[pocIdx].price,
+    vahPrice: bins[maxVaIdx].high,
+    valPrice: bins[minVaIdx].low,
+    maxVol,
+    minP,
+    maxP,
+  };
+}
 
 export default function CandleChart({
   symbol,
@@ -50,7 +159,7 @@ export default function CandleChart({
   const [lwReady, setLwReady] = useState(() => !!window.LightweightCharts);
 
   // TradingView Drawing Tools State
-  const [activeTool, setActiveTool] = useState('cursor'); // 'cursor' | 'trendline' | 'horizontal' | 'fib' | 'long' | 'short'
+  const [activeTool, setActiveTool] = useState('cursor');
   const [drawings, setDrawings] = useState([]);
   const [drawingDraft, setDrawingDraft] = useState(null);
 
@@ -116,7 +225,7 @@ export default function CandleChart({
       },
       rightPriceScale: {
         borderColor: '#e2e8f0',
-        scaleMargins: { top: 0.08, bottom: 0.08 }, // Full vertical space for clean price action
+        scaleMargins: { top: 0.08, bottom: 0.08 },
       },
       timeScale: {
         borderColor: '#e2e8f0',
@@ -219,13 +328,13 @@ export default function CandleChart({
       if (chartRef.current) {
         chartRef.current.timeScale().fitContent();
       }
-      setTimeout(renderInChartProfile, 100);
+      setTimeout(renderInChartProfile, 80);
     } catch (err) {
       console.warn('[CHART] Error applying bar data:', err);
     }
   }, [barsData, lwReady, chartView]);
 
-  // 3. Render Institutional Price Lines (POC, VAH, VAL, PDH, PDL)
+  // 3. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
   useEffect(() => {
     if (!candleSeriesRef.current || !of || chartView !== 'candles') return;
 
@@ -236,83 +345,38 @@ export default function CandleChart({
     });
     priceLinesRef.current = [];
 
-    // POC Solid Gold Line
-    if (of.pPOC) {
-      try {
-        const line = candleSeriesRef.current.createPriceLine({
-          price: of.pPOC,
-          color: '#d97706',
-          lineWidth: 2,
-          lineStyle: 0,
-          axisLabelVisible: true,
-          title: `POC: ${of.pPOC.toFixed(decimals)}`,
-        });
-        priceLinesRef.current.push(line);
-      } catch (e) {}
-    }
-
-    // VAH Dashed Blue Line
-    if (of.pVAH) {
-      try {
-        const line = candleSeriesRef.current.createPriceLine({
-          price: of.pVAH,
-          color: '#2563eb',
-          lineWidth: 1.5,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: `VAH: ${of.pVAH.toFixed(decimals)}`,
-        });
-        priceLinesRef.current.push(line);
-      } catch (e) {}
-    }
-
-    // VAL Dashed Blue Line
-    if (of.pVAL) {
-      try {
-        const line = candleSeriesRef.current.createPriceLine({
-          price: of.pVAL,
-          color: '#2563eb',
-          lineWidth: 1.5,
-          lineStyle: 2,
-          axisLabelVisible: true,
-          title: `VAL: ${of.pVAL.toFixed(decimals)}`,
-        });
-        priceLinesRef.current.push(line);
-      } catch (e) {}
-    }
-
-    // PDH
+    // Prior Day High (PDH)
     if (of.pHigh) {
       try {
         const line = candleSeriesRef.current.createPriceLine({
           price: of.pHigh,
-          color: '#64748b',
+          color: '#94a3b8',
           lineWidth: 1,
           lineStyle: 1,
           axisLabelVisible: true,
-          title: `PDH: ${of.pHigh.toFixed(decimals)}`,
+          title: `PDH`,
         });
         priceLinesRef.current.push(line);
       } catch (e) {}
     }
 
-    // PDL
+    // Prior Day Low (PDL)
     if (of.pLow) {
       try {
         const line = candleSeriesRef.current.createPriceLine({
           price: of.pLow,
-          color: '#64748b',
+          color: '#94a3b8',
           lineWidth: 1,
           lineStyle: 1,
           axisLabelVisible: true,
-          title: `PDL: ${of.pLow.toFixed(decimals)}`,
+          title: `PDL`,
         });
         priceLinesRef.current.push(line);
       } catch (e) {}
     }
   }, [of, decimals, lwReady, chartView]);
 
-  // 4. Draw In-Chart Volume Profile Overlaid on Canvas (VPVR)
+  // 4. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER (Just like Image 1)
   const renderInChartProfile = useCallback(() => {
     if (!profileCanvasRef.current || !candleSeriesRef.current || !chartContainerRef.current || !showInChartProfile) {
       if (profileCanvasRef.current) {
@@ -334,44 +398,105 @@ export default function CandleChart({
     const ctx = canvas.getContext('2d');
     ctx.clearRect(0, 0, width, height);
 
-    const profile = of?.profile || [];
-    if (profile.length === 0) return;
+    if (!barsData || barsData.length === 0) return;
 
-    const maxVol = Math.max(...profile.map((p) => p.volume), 1);
-    const maxBarWidth = Math.min(220, width * 0.26); // Occupy right edge of chart
-    const rightMargin = 65; // Price scale offset
+    // Calculate dynamic Volume Profile from loaded bars
+    const vp = calculateDynamicVolumeProfile(barsData, 55);
+    if (!vp) return;
 
-    profile.forEach((bin) => {
+    // Anchor at LEFT SIDE CORNER (starting at x = 14)
+    const startX = 14;
+    const maxBarWidth = Math.min(230, width * 0.28);
+
+    // A. Draw Horizontal Volume Bars (Two-Tone Stacked Up/Down Volume)
+    vp.bins.forEach((bin) => {
       const y = candleSeriesRef.current.priceToCoordinate(bin.price);
-      if (y == null || y < 0 || y > height) return;
+      if (y == null || y < -10 || y > height + 10) return;
 
-      const barWidth = Math.max(3, (bin.volume / maxVol) * maxBarWidth);
-      const startX = width - rightMargin - barWidth;
-      const barHeight = 8;
+      const yTop = candleSeriesRef.current.priceToCoordinate(bin.high);
+      const yBtm = candleSeriesRef.current.priceToCoordinate(bin.low);
+      const barH = Math.max(3, Math.abs((yBtm || 0) - (yTop || 0)));
 
-      if (bin.is_poc) {
-        // Point of Control (Rich Gold)
-        ctx.fillStyle = 'rgba(217, 119, 6, 0.85)';
-        ctx.fillRect(startX, y - barHeight / 2, barWidth, barHeight);
-        ctx.strokeStyle = '#b45309';
-        ctx.lineWidth = 1;
-        ctx.strokeRect(startX, y - barHeight / 2, barWidth, barHeight);
+      const totalW = (bin.totalVol / vp.maxVol) * maxBarWidth;
+      const buyW = (bin.buyVol / bin.totalVol) * totalW;
+      const sellW = Math.max(0, totalW - buyW);
 
-        // POC Text Tag
-        ctx.fillStyle = '#b45309';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText('POC', startX - 28, y + 3);
-      } else if (bin.in_va) {
-        // 70% Value Area (Institutional Blue)
-        ctx.fillStyle = 'rgba(37, 99, 235, 0.40)';
-        ctx.fillRect(startX, y - barHeight / 2, barWidth, barHeight);
+      if (bin.inVA) {
+        // Value Area (70%) - Slate & Blue Two-Tone (Image 1 Style)
+        ctx.fillStyle = '#475569'; // Up / Buy Vol (Dark Slate)
+        ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
+
+        ctx.fillStyle = '#94a3b8'; // Down / Sell Vol (Muted Slate)
+        ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
       } else {
-        // Outside Value Area (Soft Slate)
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.25)';
-        ctx.fillRect(startX, y - barHeight / 2, barWidth, barHeight);
+        // Outside Value Area - Soft Translucent
+        ctx.fillStyle = 'rgba(148, 163, 184, 0.40)';
+        ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
+
+        ctx.fillStyle = 'rgba(203, 213, 225, 0.30)';
+        ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
       }
     });
-  }, [of, showInChartProfile]);
+
+    // B. Draw Prominent Red POC Line across the chart (Just like Image 1)
+    const yPOC = candleSeriesRef.current.priceToCoordinate(vp.pocPrice);
+    if (yPOC != null && yPOC >= 0 && yPOC <= height) {
+      // Solid Red Line across chart
+      ctx.beginPath();
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1.6;
+      ctx.moveTo(startX, yPOC);
+      ctx.lineTo(width - 65, yPOC);
+      ctx.stroke();
+
+      // Red POC Tag at left corner
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(startX, yPOC - 8, 74, 16);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText(`POC ${vp.pocPrice.toFixed(decimals)}`, startX + 4, yPOC + 3.5);
+    }
+
+    // C. Draw VAH Boundary Line across chart (Just like Image 1)
+    const yVAH = candleSeriesRef.current.priceToCoordinate(vp.vahPrice);
+    if (yVAH != null && yVAH >= 0 && yVAH <= height) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([5, 4]);
+      ctx.moveTo(startX, yVAH);
+      ctx.lineTo(width - 65, yVAH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // VAH Tag at left corner
+      ctx.fillStyle = '#2563eb';
+      ctx.fillRect(startX, yVAH - 7, 68, 14);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8.5px monospace';
+      ctx.fillText(`VAH ${vp.vahPrice.toFixed(decimals)}`, startX + 4, yVAH + 3.5);
+    }
+
+    // D. Draw VAL Boundary Line across chart (Just like Image 1)
+    const yVAL = candleSeriesRef.current.priceToCoordinate(vp.valPrice);
+    if (yVAL != null && yVAL >= 0 && yVAL <= height) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([5, 4]);
+      ctx.moveTo(startX, yVAL);
+      ctx.lineTo(width - 65, yVAL);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // VAL Tag at left corner
+      ctx.fillStyle = '#2563eb';
+      ctx.fillRect(startX, yVAL - 7, 68, 14);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8.5px monospace';
+      ctx.fillText(`VAL ${vp.valPrice.toFixed(decimals)}`, startX + 4, yVAL + 3.5);
+    }
+  }, [barsData, showInChartProfile, decimals]);
 
   useEffect(() => {
     renderInChartProfile();
@@ -382,7 +507,6 @@ export default function CandleChart({
     setIsFullscreen((prev) => !prev);
   };
 
-  // Close fullscreen on ESC key
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isFullscreen) {
@@ -412,16 +536,15 @@ export default function CandleChart({
           type: 'horizontal',
           price,
           y,
-          color: '#2563eb',
         },
       ]);
       setActiveTool('cursor');
     } else if (activeTool === 'long') {
-      const riskDistance = (symbol === 'XAUUSD' ? 6.0 : 0.0025);
+      const riskDistance = symbol === 'XAUUSD' ? 6.0 : 0.0025;
       const entry = price;
       const sl = entry - riskDistance;
-      const tp1 = entry + riskDistance; // 1:1 RR Banker
-      const tp2 = entry + riskDistance * 2; // 1:2 RR High-Win Target
+      const tp1 = entry + riskDistance; // 1:1 Banker
+      const tp2 = entry + riskDistance * 2; // 1:2 Runner
       setDrawings((prev) => [
         ...prev,
         {
@@ -436,11 +559,11 @@ export default function CandleChart({
       ]);
       setActiveTool('cursor');
     } else if (activeTool === 'short') {
-      const riskDistance = (symbol === 'XAUUSD' ? 6.0 : 0.0025);
+      const riskDistance = symbol === 'XAUUSD' ? 6.0 : 0.0025;
       const entry = price;
       const sl = entry + riskDistance;
-      const tp1 = entry - riskDistance; // 1:1 RR Banker
-      const tp2 = entry - riskDistance * 2; // 1:2 RR Target
+      const tp1 = entry - riskDistance;
+      const tp2 = entry - riskDistance * 2;
       setDrawings((prev) => [
         ...prev,
         {
@@ -554,13 +677,13 @@ export default function CandleChart({
               onClick={() => setShowInChartProfile((v) => !v)}
               className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition ${
                 showInChartProfile
-                  ? 'bg-blue-50 text-blue-700 border-blue-200'
+                  ? 'bg-blue-50 text-blue-700 border-blue-200 font-bold'
                   : 'bg-slate-50 text-slate-500 border-slate-200'
               }`}
-              title="Toggle Volume Profile Overlay on Chart"
+              title="Toggle Left-Corner Volume Profile"
             >
               <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
-              <span>Volume Profile</span>
+              <span>Left-Corner Volume Profile</span>
               {showInChartProfile ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
             </button>
           )}
@@ -576,18 +699,15 @@ export default function CandleChart({
           )}
         </div>
 
-        {/* Right: Legend Pills & Fullscreen Toggle */}
+        {/* Right: Legend & Fullscreen Toggle */}
         <div className="flex items-center gap-2">
           {chartView === 'candles' && (
             <div className="hidden md:flex items-center gap-2 text-[11px] font-semibold">
-              <span className="flex items-center gap-1 text-amber-800 bg-amber-50 px-2 py-0.5 rounded border border-amber-200">
-                <span className="w-2 h-0.5 bg-amber-500 rounded"></span> POC
+              <span className="flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                <span className="w-2.5 h-0.5 bg-rose-500 rounded"></span> POC Line (Red)
               </span>
               <span className="flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                <span className="w-2 h-0.5 bg-blue-600 rounded"></span> VAH/VAL (70%)
-              </span>
-              <span className="flex items-center gap-1 text-slate-600 bg-slate-50 px-2 py-0.5 rounded border border-slate-200">
-                <span className="w-2 h-0.5 bg-slate-400 rounded"></span> PDH/PDL
+                <span className="w-2.5 h-0.5 bg-blue-600 rounded"></span> 70% VA Range
               </span>
             </div>
           )}
@@ -630,7 +750,7 @@ export default function CandleChart({
 
             <button
               onClick={() => setActiveTool('horizontal')}
-              title="Horizontal Support/Resistance Ray"
+              title="Horizontal Support/Resistance Line"
               className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
                 activeTool === 'horizontal' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'
               }`}
@@ -693,13 +813,13 @@ export default function CandleChart({
           </div>
         )}
 
-        {/* View 1: Candlestick Chart + Overlaid Volume Profile */}
+        {/* View 1: Candlestick Chart + Left-Corner Volume Profile */}
         {chartView === 'candles' ? (
           <div className="flex-1 relative overflow-hidden" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
-            {/* Lightweight Charts Canvas (Pure Candles, no bottom volume histogram) */}
+            {/* Pure Candlestick Canvas (No bottom volume histogram) */}
             <div ref={chartContainerRef} className="w-full h-full" />
 
-            {/* In-Chart Volume Profile Canvas Overlay (VPVR) */}
+            {/* In-Chart Left-Corner Volume Profile Canvas (Just like Image 1) */}
             <canvas
               ref={profileCanvasRef}
               className="absolute inset-0 pointer-events-none z-10"
@@ -774,7 +894,7 @@ export default function CandleChart({
 
                   return (
                     <g key={d.id}>
-                      {/* Stop Loss Zone (Above Entry) */}
+                      {/* Stop Loss Zone */}
                       <rect x={startX} y={ySL} width={boxWidth} height={Math.abs(yEntry - ySL)} fill="rgba(239, 68, 68, 0.25)" stroke="#dc2626" strokeWidth="1.5" />
                       <text x={startX + 8} y={ySL + 15} fill="#991b1b" fontSize="10" fontWeight="bold">
                         STOP LOSS: {d.sl?.toFixed(decimals)} (-1.0R)
@@ -783,7 +903,7 @@ export default function CandleChart({
                       {/* Entry Line */}
                       <line x1={startX} y1={yEntry} x2={startX + boxWidth} y2={yEntry} stroke="#2563eb" strokeWidth="2" />
 
-                      {/* TP1 Zone (Below Entry) */}
+                      {/* TP1 Zone */}
                       <rect x={startX} y={yEntry} width={boxWidth} height={Math.abs(yTP1 - yEntry)} fill="rgba(16, 185, 129, 0.40)" stroke="#059669" strokeWidth="1.5" />
                       <text x={startX + 8} y={yTP1 - 6} fill="#065f46" fontSize="10" fontWeight="bold">
                         TP1 (1:1 RR): {d.tp1?.toFixed(decimals)}
@@ -935,7 +1055,7 @@ export default function CandleChart({
                       })}
                     </div>
 
-                    {/* Bottom Net Delta & CVD */}
+                    {/* Bottom Net Delta */}
                     <div className="p-2 border-t border-slate-100 bg-slate-50 text-[10px] font-mono flex items-center justify-between">
                       <span className="text-slate-500">Net Delta:</span>
                       <span className={`font-bold ${isDeltaPos ? 'text-emerald-700' : 'text-rose-700'}`}>
