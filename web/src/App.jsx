@@ -17,6 +17,7 @@ const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'AUDUSD', 'USDCAD'];
 
 export default function App() {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');
+  const [timeframe, setTimeframe] = useState('1h'); // '5m' | '15m' | '1h' | '4h'
   const [activeView, setActiveView] = useState('all'); // 'all' | 'candles' | 'footprint'
 
   // Smart API URL resolution: handles localhost, 127.0.0.1, custom ports, or saved URL
@@ -24,21 +25,19 @@ export default function App() {
     const saved = localStorage.getItem('tb_api_url');
     if (saved !== null) return saved;
     const host = window.location.hostname;
-    // When running locally, default to backend port 8080
     if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || !host) {
       return 'http://localhost:8080';
     }
-    // On cloud or Vercel, if not configured, use empty string to stay in Demo Mode until user adds backend
     return '';
   });
 
   // Pre-seed state with high-fidelity realistic data immediately so chart & candles NEVER show blank
   const [orderFlowData, setOrderFlowData] = useState(() => getFallbackOrderFlow('XAUUSD'));
-  const [barsData, setBarsData] = useState(() => getFallbackBars('XAUUSD', 120));
-  const [footprintData, setFootprintData] = useState(() => getFallbackFootprint('XAUUSD', 12));
+  const [barsData, setBarsData] = useState(() => getFallbackBars('XAUUSD', 120, '1h'));
+  const [footprintData, setFootprintData] = useState(() => getFallbackFootprint('XAUUSD', 12, '1h'));
   const [signalsData, setSignalsData] = useState(() => getFallbackSignals());
   const [currentPrice, setCurrentPrice] = useState(() => {
-    const initBars = getFallbackBars('XAUUSD', 1);
+    const initBars = getFallbackBars('XAUUSD', 1, '1h');
     return initBars[0]?.close || 2742.5;
   });
 
@@ -57,8 +56,8 @@ export default function App() {
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime); // D5
-      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1); // A5
+      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
+      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
       gain.gain.setValueAtTime(0.25, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
       osc.connect(gain);
@@ -73,13 +72,19 @@ export default function App() {
   // Handle symbol change smoothly without clearing canvas to blank
   const handleSelectSymbol = (sym) => {
     setActiveSymbol(sym);
-    // Instantly populate new symbol's data so there is zero flicker
-    setBarsData(getFallbackBars(sym, 120));
-    setFootprintData(getFallbackFootprint(sym, 12));
+    setBarsData(getFallbackBars(sym, 120, timeframe));
+    setFootprintData(getFallbackFootprint(sym, 12, timeframe));
     const of = orderFlowData.find((o) => o.symbol === sym);
     if (of?.current_price) {
       setCurrentPrice(of.current_price);
     }
+  };
+
+  // Handle timeframe change smoothly
+  const handleSelectTimeframe = (newTf) => {
+    setTimeframe(newTf);
+    setBarsData(getFallbackBars(activeSymbol, 120, newTf));
+    setFootprintData(getFallbackFootprint(activeSymbol, 12, newTf));
   };
 
   // Fetch all live data from backend (if available)
@@ -106,10 +111,11 @@ export default function App() {
         }
       }
 
-      // 2. Fetch Candlestick Bars for active symbol
-      const barsRes = await fetch(`${cleanUrl}/api/bars?symbol=${activeSymbol}&limit=120`, {
-        mode: 'cors',
-      });
+      // 2. Fetch Candlestick Bars for active symbol & timeframe (5m, 15m, 1h, 4h)
+      const barsRes = await fetch(
+        `${cleanUrl}/api/bars?symbol=${activeSymbol}&timeframe=${timeframe}&limit=120`,
+        { mode: 'cors' }
+      );
       if (barsRes.ok) {
         const barsJson = await barsRes.json();
         if (Array.isArray(barsJson.bars) && barsJson.bars.length > 0) {
@@ -121,9 +127,10 @@ export default function App() {
       }
 
       // 3. Fetch Footprint Clusters for active symbol
-      const fpRes = await fetch(`${cleanUrl}/api/footprint?symbol=${activeSymbol}&limit=12`, {
-        mode: 'cors',
-      });
+      const fpRes = await fetch(
+        `${cleanUrl}/api/footprint?symbol=${activeSymbol}&limit=12`,
+        { mode: 'cors' }
+      );
       if (fpRes.ok) {
         const fpJson = await fpRes.json();
         if (Array.isArray(fpJson.footprint) && fpJson.footprint.length > 0) {
@@ -137,7 +144,6 @@ export default function App() {
         const sigJson = await sigRes.json();
         setSignalsData(sigJson);
 
-        // Check for new signals
         const currentCount = sigJson.trades_count || 0;
         if (prevSignalsCountRef.current > 0 && currentCount > prevSignalsCountRef.current) {
           playAlertSound();
@@ -147,13 +153,12 @@ export default function App() {
 
       setIsConnected(true);
     } catch (err) {
-      // Backend offline or unreachable — keep displaying high-fidelity simulation
       console.info('[TERMINAL] Backend offline. Running high-fidelity simulation mode.');
       setIsConnected(false);
     } finally {
       setIsLoading(false);
     }
-  }, [apiUrl, activeSymbol, playAlertSound]);
+  }, [apiUrl, activeSymbol, timeframe, playAlertSound]);
 
   // Initial fetch and auto-refresh every 15 seconds
   useEffect(() => {
@@ -170,7 +175,7 @@ export default function App() {
       setBarsData((prevBars) => {
         if (!prevBars || prevBars.length === 0) return prevBars;
         const last = { ...prevBars[prevBars.length - 1] };
-        const microNoise = (Math.random() - 0.5) * (activeSymbol === 'XAUUSD' ? 0.4 : 0.00015);
+        const microNoise = (Math.random() - 0.5) * (activeSymbol === 'XAUUSD' ? 0.35 : 0.00012);
         const newClose = Number((last.close + microNoise).toFixed(activeSymbol === 'XAUUSD' ? 2 : 5));
         const newHigh = Math.max(last.high, newClose);
         const newLow = Math.min(last.low, newClose);
@@ -224,17 +229,20 @@ export default function App() {
         <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
           {/* Main Visuals Column (8 cols on XL) */}
           <div className="xl:col-span-8 space-y-6">
-            {/* Candlestick & Volume Profile Overlay View */}
+            {/* Candlestick & In-Chart Footprint/Volume Profile Terminal */}
             {(activeView === 'all' || activeView === 'candles') && (
               <CandleChart
                 symbol={activeSymbol}
                 barsData={barsData}
+                footprintData={footprintData}
                 orderFlowData={orderFlowData}
+                timeframe={timeframe}
+                onSelectTimeframe={handleSelectTimeframe}
                 decimals={decimals}
               />
             )}
 
-            {/* Footprint Clusters View */}
+            {/* Standalone Footprint Clusters Matrix View */}
             {(activeView === 'all' || activeView === 'footprint') && (
               <FootprintChart
                 symbol={activeSymbol}

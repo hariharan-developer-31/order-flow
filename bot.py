@@ -257,10 +257,27 @@ def fetch_spot_gold_price() -> Optional[float]:
     return None
 
 
-def fetch_1h_bars(y_sym: str, dec: int) -> Tuple[List[Dict[str, Any]], float]:
-    """Fetches clean 1H bars from Yahoo Finance HTTPS and returns (bars, live_tick_price). Safe against rate limits and network drops.
+def fetch_bars(y_sym: str, dec: int, tf: str = "1h") -> Tuple[List[Dict[str, Any]], float]:
+    """Fetches clean multi-timeframe bars (5m, 15m, 1h, 4h) from Yahoo Finance HTTPS.
+    Safe against rate limits and network drops.
     Automatically aligns COMEX Gold Futures (GC=F) to Spot XAUUSD so prices match MT5 to the exact cent."""
-    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{y_sym}?interval=1h&range=60d"
+    tf_clean = tf.lower()
+    if tf_clean not in ("5m", "15m", "1h", "4h"):
+        tf_clean = "1h"
+
+    interval = "1h"
+    y_range = "60d"
+    if tf_clean == "5m":
+        interval = "5m"
+        y_range = "5d"
+    elif tf_clean == "15m":
+        interval = "15m"
+        y_range = "14d"
+    elif tf_clean == "4h":
+        interval = "1h"
+        y_range = "60d"
+
+    url = f"https://query2.finance.yahoo.com/v8/finance/chart/{y_sym}?interval={interval}&range={y_range}"
     req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
     try:
         with urllib.request.urlopen(req, timeout=10) as r:
@@ -281,7 +298,7 @@ def fetch_1h_bars(y_sym: str, dec: int) -> Tuple[List[Dict[str, Any]], float]:
             lows = q.get("low", [])
             volumes = q.get("volume", [])
 
-            bars = []
+            raw_bars = []
             live_p = 0.0
             for i in range(len(ts_list)):
                 if i >= len(closes):
@@ -291,18 +308,38 @@ def fetch_1h_bars(y_sym: str, dec: int) -> Tuple[List[Dict[str, Any]], float]:
                     continue
                 live_p = round(float(c), dec)
                 t = ts_list[i]
-                if t % 3600 == 0:
-                    bars.append({
-                        "time": dt.datetime.fromtimestamp(t, tz=dt.timezone.utc),
-                        "ts": t,
-                        "open": round(float(opens[i] if (i < len(opens) and opens[i] is not None) else c), dec),
-                        "high": round(float(highs[i] if (i < len(highs) and highs[i] is not None) else c), dec),
-                        "low": round(float(lows[i] if (i < len(lows) and lows[i] is not None) else c), dec),
-                        "close": round(float(c), dec),
-                        "volume": float(volumes[i] if (i < len(volumes) and volumes[i] is not None) else 1.0),
-                    })
+                raw_bars.append({
+                    "time": dt.datetime.fromtimestamp(t, tz=dt.timezone.utc),
+                    "ts": t,
+                    "open": round(float(opens[i] if (i < len(opens) and opens[i] is not None) else c), dec),
+                    "high": round(float(highs[i] if (i < len(highs) and highs[i] is not None) else c), dec),
+                    "low": round(float(lows[i] if (i < len(lows) and lows[i] is not None) else c), dec),
+                    "close": round(float(c), dec),
+                    "volume": float(volumes[i] if (i < len(volumes) and volumes[i] is not None) else 1.0),
+                })
 
-            # Align Gold Futures (GC=F) to Spot Gold (XAUUSD) so MT5 chart levels are 100% identical
+            # If 4h requested, aggregate 1h bars into 4h periods
+            if tf_clean == "4h":
+                agg_bars = []
+                chunk = []
+                for b in raw_bars:
+                    chunk.append(b)
+                    if len(chunk) == 4:
+                        agg_bars.append({
+                            "time": chunk[0]["time"],
+                            "ts": chunk[0]["ts"],
+                            "open": chunk[0]["open"],
+                            "high": round(max(x["high"] for x in chunk), dec),
+                            "low": round(min(x["low"] for x in chunk), dec),
+                            "close": chunk[-1]["close"],
+                            "volume": sum(x["volume"] for x in chunk),
+                        })
+                        chunk = []
+                bars = agg_bars if agg_bars else raw_bars
+            else:
+                bars = raw_bars
+
+            # Align Gold Futures (GC=F) to Spot Gold (XAUUSD)
             if y_sym == "GC=F" and bars:
                 spot_p = fetch_spot_gold_price()
                 if spot_p and spot_p > 1000.0:
@@ -319,8 +356,13 @@ def fetch_1h_bars(y_sym: str, dec: int) -> Tuple[List[Dict[str, Any]], float]:
             fallback_p = live_p if live_p > 0 else (bars[-1]["close"] if bars else 0.0)
             return bars, fallback_p
     except Exception as e:
-        print(f"[FETCH ERROR] {y_sym}: {e}")
+        print(f"[FETCH ERROR] {y_sym} {tf_clean}: {e}")
         return [], 0.0
+
+
+def fetch_1h_bars(y_sym: str, dec: int) -> Tuple[List[Dict[str, Any]], float]:
+    """Compatibility wrapper for 1H bar fetching."""
+    return fetch_bars(y_sym, dec, "1h")
 
 
 def compute_ema(series: List[float], period: int) -> List[Optional[float]]:
@@ -1631,10 +1673,13 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
             self.wfile.write(json.dumps(payload).encode("utf-8"))
             return
 
-        # 4. Candlestick Bars API (for TradingView Lightweight Charts)
+        # 4. Candlestick Bars API (for TradingView Lightweight Charts - 5m, 15m, 1h, 4h)
         if path == "/api/bars":
             sym = query.get("symbol", ["XAUUSD"])[0].upper()
-            limit = int(query.get("limit", [100])[0])
+            tf = query.get("timeframe", ["1h"])[0].lower()
+            if tf not in ("5m", "15m", "1h", "4h"):
+                tf = "1h"
+            limit = int(query.get("limit", [120])[0])
             limit = max(10, min(limit, 300))
 
             inst = next((x for x in INSTRUMENTS if x[0] == sym), None)
@@ -1644,15 +1689,16 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
                 return
 
             now_ts = time.time()
+            cache_key = f"{sym}_{tf}"
             with _api_cache_lock:
-                c_bars = _api_cache["bars"].get(sym, {})
-                if c_bars.get("data") and (now_ts - c_bars.get("ts", 0) < 25.0):
+                c_bars = _api_cache["bars"].get(cache_key, {})
+                if c_bars.get("data") and (now_ts - c_bars.get("ts", 0) < 20.0):
                     self._set_cors_headers(200)
                     self.wfile.write(json.dumps(c_bars["data"]).encode("utf-8"))
                     return
 
             try:
-                bars, live_p = fetch_1h_bars(inst[2], inst[1])
+                bars, live_p = fetch_bars(inst[2], inst[1], tf)
                 recent = bars[-limit:]
                 formatted_bars = [
                     {
@@ -1667,13 +1713,14 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
                 ]
                 out_payload = {
                     "symbol": sym,
+                    "timeframe": tf,
                     "decimals": inst[1],
                     "live_price": live_p,
                     "count": len(formatted_bars),
                     "bars": formatted_bars,
                 }
                 with _api_cache_lock:
-                    _api_cache["bars"][sym] = {"data": out_payload, "ts": now_ts}
+                    _api_cache["bars"][cache_key] = {"data": out_payload, "ts": now_ts}
 
                 self._set_cors_headers(200)
                 self.wfile.write(json.dumps(out_payload).encode("utf-8"))

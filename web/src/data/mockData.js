@@ -1,9 +1,7 @@
 /**
  * High-fidelity fallback / demo data generator for TRADING BOY Terminal.
- * Ensures the terminal renders rich, interactive 1H candlestick charts,
- * POC/Value Area levels, Footprint clusters with buy/sell imbalances,
- * 24H volume profile ladders, and live signal tickets even when the
- * backend is starting up, disconnected, or running offline.
+ * Supports multi-timeframe (5m, 15m, 1h, 4h), POC/Value Area levels,
+ * Footprint clusters with buy/sell imbalances, and live signal tickets.
  */
 
 const BASE_SPECS = {
@@ -69,36 +67,44 @@ const BASE_SPECS = {
   },
 };
 
+const TF_MAP = {
+  '5m': { seconds: 300, volMult: 0.28, volQty: 0.1 },
+  '15m': { seconds: 900, volMult: 0.52, volQty: 0.25 },
+  '1h': { seconds: 3600, volMult: 1.0, volQty: 1.0 },
+  '4h': { seconds: 14400, volMult: 2.1, volQty: 4.0 },
+};
+
 /**
- * Generate 100 historical 1-hour candlestick bars
+ * Generate historical candlestick bars for any timeframe (5m, 15m, 1h, 4h)
  */
-export function getFallbackBars(symbol = 'XAUUSD', count = 100) {
+export function getFallbackBars(symbol = 'XAUUSD', count = 100, timeframe = '1h') {
   const spec = BASE_SPECS[symbol] || BASE_SPECS.XAUUSD;
+  const tf = TF_MAP[timeframe.toLowerCase()] || TF_MAP['1h'];
+
   const now = Math.floor(Date.now() / 1000);
-  const oneHour = 3600;
-  // Start from (count) hours ago up to current hour
-  const startTs = Math.floor(now / oneHour) * oneHour - count * oneHour;
+  const step = tf.seconds;
+  const startTs = Math.floor(now / step) * step - count * step;
 
+  const adjustedVol = spec.volatility * tf.volMult;
   const bars = [];
-  let currentPrice = spec.basePrice - (count / 2) * (spec.volatility * 0.15);
+  let currentPrice = spec.basePrice - (count / 2) * (adjustedVol * 0.12);
 
-  // Deterministic pseudo-random seed to create consistent smooth realistic market waves
   for (let i = 0; i < count; i++) {
-    const barTs = startTs + i * oneHour;
-    const wave = Math.sin(i / 6.5) * spec.volatility * 1.4;
-    const microNoise = Math.sin(i * 1.7) * (spec.volatility * 0.6);
-    const trendStep = (i / count - 0.5) * spec.volatility * 2.0;
+    const barTs = startTs + i * step;
+    const wave = Math.sin(i / 7.2) * adjustedVol * 1.3;
+    const microNoise = Math.sin(i * 2.1) * (adjustedVol * 0.55);
+    const trendStep = (i / count - 0.5) * adjustedVol * 1.8;
 
-    const open = Number((currentPrice).toFixed(spec.decimals));
+    const open = Number(currentPrice.toFixed(spec.decimals));
     const delta = wave + microNoise + trendStep;
     const close = Number((open + delta).toFixed(spec.decimals));
 
-    const wickHigh = Math.abs(Math.sin(i * 2.3)) * spec.volatility * 0.8;
-    const wickLow = Math.abs(Math.cos(i * 2.1)) * spec.volatility * 0.8;
+    const wickHigh = Math.abs(Math.sin(i * 2.7)) * adjustedVol * 0.75;
+    const wickLow = Math.abs(Math.cos(i * 2.4)) * adjustedVol * 0.75;
 
     const high = Number((Math.max(open, close) + wickHigh).toFixed(spec.decimals));
     const low = Number((Math.min(open, close) - wickLow).toFixed(spec.decimals));
-    const volume = Math.round(spec.typicalVolume * (0.6 + Math.abs(Math.sin(i * 0.8)) * 0.8));
+    const volume = Math.round(spec.typicalVolume * tf.volQty * (0.6 + Math.abs(Math.sin(i * 0.8)) * 0.8));
 
     bars.push({
       time: barTs,
@@ -124,24 +130,23 @@ export function getFallbackOrderFlow(activeSymbol = 'XAUUSD') {
   return symbols.map((sym) => {
     const spec = BASE_SPECS[sym] || BASE_SPECS.XAUUSD;
     const dec = spec.decimals;
-    const bars = getFallbackBars(sym, 24);
+    const bars = getFallbackBars(sym, 24, '1h');
     const lastBar = bars[bars.length - 1];
     const livePrice = lastBar ? lastBar.close : spec.basePrice;
 
-    // Generate 22 horizontal volume profile bins around the price range
-    const minP = spec.pdl - spec.volatility * 0.5;
-    const maxP = spec.pdh + spec.volatility * 0.5;
-    const step = (maxP - minP) / 22;
+    // Generate 26 horizontal volume profile bins around the price range
+    const minP = spec.pdl - spec.volatility * 0.6;
+    const maxP = spec.pdh + spec.volatility * 0.6;
+    const step = (maxP - minP) / 26;
 
     const profile = [];
-    for (let i = 0; i < 22; i++) {
+    for (let i = 0; i < 26; i++) {
       const price = Number((minP + i * step).toFixed(dec));
       const distToPOC = Math.abs(price - spec.poc);
-      // Gaussian distribution peaking at POC
-      const normDist = distToPOC / (spec.volatility * 1.5);
+      const normDist = distToPOC / (spec.volatility * 1.4);
       const binVol = Math.round(
-        (spec.typicalVolume * 0.9) * Math.exp(-0.5 * normDist * normDist) +
-          spec.typicalVolume * 0.08 * (0.5 + Math.abs(Math.sin(i * 1.5)))
+        spec.typicalVolume * 0.95 * Math.exp(-0.5 * normDist * normDist) +
+          spec.typicalVolume * 0.1 * (0.5 + Math.abs(Math.sin(i * 1.5)))
       );
 
       const isPOC = Math.abs(price - spec.poc) < step * 0.6;
@@ -155,7 +160,6 @@ export function getFallbackOrderFlow(activeSymbol = 'XAUUSD') {
       });
     }
 
-    // Determine auction state
     let auctionState = 'INSIDE VALUE AREA';
     if (livePrice > spec.vah) auctionState = 'ABOVE VALUE (BULLISH AUCTION)';
     else if (livePrice < spec.val) auctionState = 'BELOW VALUE (BEARISH AUCTION)';
@@ -179,12 +183,12 @@ export function getFallbackOrderFlow(activeSymbol = 'XAUUSD') {
 }
 
 /**
- * Generate 12 Footprint Bars with Bid x Ask cluster ladders & imbalances
+ * Generate Footprint Bars with Bid x Ask cluster ladders & imbalances
  */
-export function getFallbackFootprint(symbol = 'XAUUSD', count = 12) {
+export function getFallbackFootprint(symbol = 'XAUUSD', count = 12, timeframe = '1h') {
   const spec = BASE_SPECS[symbol] || BASE_SPECS.XAUUSD;
   const dec = spec.decimals;
-  const bars = getFallbackBars(symbol, count);
+  const bars = getFallbackBars(symbol, count, timeframe);
 
   let runningCvd = 0;
 
@@ -194,7 +198,8 @@ export function getFallbackFootprint(symbol = 'XAUUSD', count = 12) {
     const month = String(d.getUTCMonth() + 1).padStart(2, '0');
     const day = String(d.getUTCDate()).padStart(2, '0');
     const hour = String(d.getUTCHours()).padStart(2, '0');
-    const datetimeStr = `${month}/${day} ${hour}:00`;
+    const min = String(d.getUTCMinutes()).padStart(2, '0');
+    const datetimeStr = timeframe === '5m' || timeframe === '15m' ? `${month}/${day} ${hour}:${min}` : `${month}/${day} ${hour}:00`;
 
     // 8-10 price levels within the bar's High-Low range
     const clusterCount = 8;
@@ -206,17 +211,15 @@ export function getFallbackFootprint(symbol = 'XAUUSD', count = 12) {
 
     for (let c = 0; c < clusterCount; c++) {
       const p = Number((bar.low + c * step).toFixed(dec));
-      // Base bid/ask
       let baseBid = Math.round(40 + Math.abs(Math.sin(idx * 3 + c)) * 140);
       let baseAsk = Math.round(40 + Math.abs(Math.cos(idx * 3 + c)) * 140);
 
-      // Create institutional imbalances (>= 300% / 3x) at key reversal levels
       let imbalance = null;
       if (isBull && c >= clusterCount - 2) {
-        baseAsk = Math.round(baseBid * 3.4); // Aggressive market buyers lifting the ask
+        baseAsk = Math.round(baseBid * 3.4);
         imbalance = 'BUY';
       } else if (!isBull && c <= 1) {
-        baseBid = Math.round(baseAsk * 3.4); // Aggressive market sellers hitting the bid
+        baseBid = Math.round(baseAsk * 3.4);
         imbalance = 'SELL';
       }
 
@@ -284,7 +287,7 @@ export function getFallbackSignals() {
         closed: false,
         time: `${dateStr} 13:31:00 UTC`,
         setup: 'asian_range_breakout',
-        reason: '1H Institutional Liquidity Sweep & POC Acceptance above $2738.00 with >300% Delta Footprint Confirmation.',
+        reason: 'Institutional Liquidity Sweep & POC Acceptance above $2738.00 with >300% Delta Footprint Confirmation.',
       },
     ],
     trades_list: [
