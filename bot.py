@@ -208,8 +208,8 @@ def generate_chart_url(sym: str, bars: List[Dict[str, Any]], entry: float, sl: f
                 {"label": f"{sym} 1H", "data": closes, "borderColor": color, "borderWidth": 2.5, "fill": False, "pointRadius": 2},
                 {"label": f"Entry ({entry})", "data": [entry] * len(labels), "borderColor": "#ffffff", "borderDash": [5, 5], "borderWidth": 1.5, "pointRadius": 0},
                 {"label": f"SL ({sl})", "data": [sl] * len(labels), "borderColor": "#ff1744", "borderWidth": 2, "pointRadius": 0},
-                {"label": f"TP1 (+0.5R: {tp1})", "data": [tp1] * len(labels), "borderColor": "#00e676", "borderDash": [4, 4], "borderWidth": 1.5, "pointRadius": 0},
-                {"label": f"TP2 (1:5R: {tp2})", "data": [tp2] * len(labels), "borderColor": "#00c853", "borderWidth": 2, "pointRadius": 0},
+                {"label": f"TP1 (1:1R: {tp1})", "data": [tp1] * len(labels), "borderColor": "#00e676", "borderDash": [4, 4], "borderWidth": 1.5, "pointRadius": 0},
+                {"label": f"TP2 (1:2R: {tp2})", "data": [tp2] * len(labels), "borderColor": "#00c853", "borderWidth": 2, "pointRadius": 0},
             ]
         },
         "options": {
@@ -859,8 +859,8 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                 print(f"[REJECT] {sym}: Stop loss distance is 0.0 (entry == sl)")
                 continue
 
-            tp1 = round(entry + 0.50 * dist if sig["side"] == "BUY" else entry - 0.50 * dist, dec)
-            tp2 = round(entry + 5.00 * dist if sig["side"] == "BUY" else entry - 5.00 * dist, dec)
+            tp1 = round(entry + 1.00 * dist if sig["side"] == "BUY" else entry - 1.00 * dist, dec)
+            tp2 = round(entry + 2.00 * dist if sig["side"] == "BUY" else entry - 2.00 * dist, dec)
 
             # Sizing for $45 risk with FundingPips $5,000 challenge margin safeguards
             if sym == "XAUUSD":
@@ -948,21 +948,21 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
             if t["half2"] >= 0.01:
                 order_block = (
                     f"📲 <b>MT5 TWIN ORDER EXECUTION:</b>\n\n"
-                    f"1️⃣ <b>Order A (Bank Profit):</b> {t['side']} {t['sym']}\n"
+                    f"1️⃣ <b>Order A (1:1 Banker):</b> {t['side']} {t['sym']}\n"
                     f"   • Volume: <b>{t['half1']:.2f} lots</b>\n"
                     f"   • Stop Loss: <code>{t['sl']:.{d}f}</code>\n"
-                    f"   • Take Profit (TP1): <code>{t['tp1']:.{d}f}</code>\n\n"
-                    f"2️⃣ <b>Order B (1:5R Runner):</b> {t['side']} {t['sym']}\n"
+                    f"   • Take Profit (TP1 - 1:1R): <code>{t['tp1']:.{d}f}</code>\n\n"
+                    f"2️⃣ <b>Order B (1:2 High-Win Target):</b> {t['side']} {t['sym']}\n"
                     f"   • Volume: <b>{t['half2']:.2f} lots</b>\n"
                     f"   • Stop Loss: <code>{t['sl']:.{d}f}</code>\n"
-                    f"   • Take Profit (TP2): <code>{t['tp2']:.{d}f}</code>\n"
+                    f"   • Take Profit (TP2 - 1:2R): <code>{t['tp2']:.{d}f}</code>\n"
                 )
             else:
                 order_block = (
                     f"📲 <b>MT5 SINGLE ORDER EXECUTION (0.01 Min Lot):</b>\n\n"
                     f"• <b>Volume:</b> <b>{t['half1']:.2f} lots</b>\n"
                     f"• <b>Stop Loss:</b> <code>{t['sl']:.{d}f}</code>\n"
-                    f"• <b>Take Profit (TP2):</b> <code>{t['tp2']:.{d}f}</code> (1:5R Target)\n"
+                    f"• <b>Take Profit (TP2):</b> <code>{t['tp2']:.{d}f}</code> (1:2R Target)\n"
                     f"• <i>Management: When price reaches TP1 (<code>{t['tp1']:.{d}f}</code>), pull Stop Loss to Breakeven (<code>{t['entry']:.{d}f}</code>)!</i>\n"
                 )
 
@@ -974,15 +974,15 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"📍 <b>Entry Price:</b> <code>{t['entry']:.{d}f}</code>\n"
                 f"🛑 <b>Stop Loss:</b> <code>{t['sl']:.{d}f}</code>\n"
-                f"🎯 <b>TP1 (+0.50R - Locks BE):</b> <code>{t['tp1']:.{d}f}</code>\n"
-                f"🎯 <b>TP2 (+5.00R - 1:5R Target):</b> <code>{t['tp2']:.{d}f}</code>\n"
+                f"🎯 <b>TP1 (1:1R - Locks BE):</b> <code>{t['tp1']:.{d}f}</code>\n"
+                f"🎯 <b>TP2 (1:2R - High-Win Target):</b> <code>{t['tp2']:.{d}f}</code>\n"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
                 f"{order_block}"
                 f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🛡️ <b>BREAKEVEN RULE:</b> When Order A hits TP1, immediately pull Order B SL to Entry (<code>{t['entry']:.{d}f}</code>).\n"
-                f"🚀 <i>Order B runs with 100% ZERO RISK towards the 1:5R payout (+${TARGET_RISK_PER_TRADE * 2.5:.2f} to +${TARGET_RISK_PER_TRADE * 5.0:.2f})!</i>\n"
+                f"🛡️ <b>BREAKEVEN RULE:</b> When Order A hits TP1 (1:1R), immediately pull Order B SL to Entry (<code>{t['entry']:.{d}f}</code>).\n"
+                f"🚀 <i>Order B runs with 100% ZERO RISK towards the 1:2R target!</i>\n"
                 f"📈 <b>Live Chart:</b> <a href=\"{tv_url}\">Open Interactive TradingView Chart</a>\n"
-                f"💰 <b>Total Risk:</b> ${TARGET_RISK_PER_TRADE:.2f} | <b>Win Rate:</b> {stats['oos']}% (PF {stats['pf']})\n"
+                f"💰 <b>Risk:</b> 1.0% | <b>Target:</b> 1:1 + 1:2 RR (High Win Rate)\n"
                 f"📊 <b>Daily Pacing:</b> {daily_state['trades_count']}/{MAX_DAILY_TRADES} trades taken"
             )
             send_telegram(tg_msg)
@@ -1424,7 +1424,7 @@ def breakeven_monitor() -> None:
                     hit_tp1 = (side == "BUY" and live_p >= tp1) or (side == "SELL" and live_p <= tp1)
                     if hit_tp1:
                         diff_pips = abs(live_p - entry) / p_factor
-                        gain_order_a = round(TARGET_RISK_PER_TRADE * 0.25, 2)
+                        gain_order_a = round(TARGET_RISK_PER_TRADE * 0.50, 2)
                         with state_lock:
                             trade["be_alerted"] = True
                             daily_state["pnl"] = round(daily_state["pnl"] + gain_order_a, 2)
@@ -1437,18 +1437,18 @@ def breakeven_monitor() -> None:
 
                         if half2 > 0.0:
                             be_msg = (
-                                f"🔔 <b>BREAKEVEN ALERT: {side} {sym} REACHED TP1!</b>\n\n"
+                                f"🔔 <b>BREAKEVEN ALERT: {side} {sym} REACHED TP1 (1:1R)!</b>\n\n"
                                 f"🎯 <b>Price Hit Target:</b> <code>{live_p:.{dec}f}</code> (TP1: <code>{tp1:.{dec}f}</code>)\n"
-                                f"📈 <b>Order A Banked Profit:</b> +{diff_pips:.1f} {unit} (+${gain_order_a:.2f} / +0.50R)!\n\n"
+                                f"📈 <b>Order A Banked Profit:</b> +{diff_pips:.1f} {unit} (+${gain_order_a:.2f} / 1:1R)!\n\n"
                                 f"👉 <b>ACTION REQUIRED NOW IN MT5:</b>\n"
                                 f"Modify <b>Order B</b> and change its Stop Loss to <b>Breakeven (<code>{entry:.{dec}f}</code>)</b>.\n\n"
-                                f"🛡️ <i>Your trade is now 100% RISK-FREE. Order B is a pure runner for TP2 (<code>{tp2:.{dec}f}</code>)!</i>"
+                                f"🛡️ <i>Your trade is now 100% RISK-FREE. Order B is targeting TP2 (1:2R: <code>{tp2:.{dec}f}</code>)!</i>"
                             )
                         else:
                             be_msg = (
                                 f"🎯 <b>PROFIT BANKED: {side} {sym} REACHED TP1!</b>\n\n"
                                 f"• <b>Exit Price:</b> <code>{live_p:.{dec}f}</code> (+{diff_pips:.1f} {unit})\n"
-                                f"• <b>Profit:</b> +${gain_order_a:.2f} (+0.50R)\n"
+                                f"• <b>Profit:</b> +${gain_order_a:.2f} (1:1R)\n"
                                 f"• <b>Today's Net P&L:</b> <code>+${daily_state['pnl']:.2f}</code>\n"
                                 f"🛡️ <i>Single position completed. Active Position Guard cleared.</i>"
                             )
@@ -1458,10 +1458,10 @@ def breakeven_monitor() -> None:
 
                 # STAGE 2: Order A was banked; Order B is running with SL at Breakeven
                 else:
-                    # Check TP2 hit (+5.00R / 1:5R Structural Runner)
+                    # Check TP2 hit (1:2R High-Win Target)
                     hit_tp2 = (side == "BUY" and live_p >= tp2) or (side == "SELL" and live_p <= tp2)
                     if hit_tp2:
-                        gain_order_b = round(TARGET_RISK_PER_TRADE * 2.5, 2)
+                        gain_order_b = round(TARGET_RISK_PER_TRADE * 1.00, 2)
                         with state_lock:
                             trade["closed"] = True
                             trade["close_reason"] = "TP2_HIT"
@@ -1472,20 +1472,18 @@ def breakeven_monitor() -> None:
                             save_daily_state()
 
                         diff_pips = abs(live_p - entry) / p_factor
-                        tot_gain = round(gain_order_b + round(TARGET_RISK_PER_TRADE * 0.25, 2), 2)
-                        status_note = "ACHIEVED! Capital locked for today!" if daily_state["pnl"] >= DAILY_PROFIT_TARGET else f"Need +${max(0.0, DAILY_PROFIT_TARGET - daily_state['pnl']):.2f}"
+                        tot_gain = round(gain_order_b + round(TARGET_RISK_PER_TRADE * 0.50, 2), 2)
                         tp2_msg = (
-                            f"🏆 <b>1:5R STRUCTURAL RUNNER TARGET HIT!</b>\n"
+                            f"🏆 <b>1:2R HIGH-WIN TARGET HIT!</b>\n"
                             f"<b>Asset:</b> {side} <b>{sym}</b>\n\n"
                             f"🎯 <b>Price Reached TP2:</b> <code>{live_p:.{dec}f}</code> (+{diff_pips:.1f} {unit})\n"
-                            f"💰 <b>Order B Banked:</b> <b>+${gain_order_b:.2f} (+5.00R)</b>\n"
-                            f"🎉 <b>Total Trade Profit:</b> <b>+${tot_gain:.2f} (+2.75R Net)</b>\n\n"
+                            f"💰 <b>Order B Banked:</b> <b>+${gain_order_b:.2f} (1:2R)</b>\n"
+                            f"🎉 <b>Total Trade Profit:</b> <b>+${tot_gain:.2f} (+1.5R Net Combined)</b>\n\n"
                             f"📊 <b>Today's Net P&L:</b> <code>+${daily_state['pnl']:.2f}</code>\n"
-                            f"🎯 <b>Daily Target ($80-$100):</b> {status_note}\n\n"
                             f"🛡️ <i>Symbol {sym} position closed. Active Position Guard cleared for next session!</i>"
                         )
                         send_telegram(tp2_msg)
-                        print(f"[TP2 1:5R HIT] {side} {sym} reached TP2 ({tp2}) at {live_p}. Banked +${gain_order_b:.2f}.")
+                        print(f"[TP2 1:2R HIT] {side} {sym} reached TP2 ({tp2}) at {live_p}. Banked +${gain_order_b:.2f}.")
                         continue
 
                     # Check Breakeven exit on Order B
