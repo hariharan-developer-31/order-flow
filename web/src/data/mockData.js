@@ -188,6 +188,7 @@ export function getFallbackOrderFlow(activeSymbol = 'XAUUSD') {
 
 /**
  * Generate Footprint Bars with Bid x Ask cluster ladders & imbalances
+ * Formatted in Indian Standard Time (IST, UTC+05:30) and scaled per Timeframe.
  */
 export function getFallbackFootprint(symbol = 'XAUUSD', count = 12, timeframe = '1h') {
   const spec = BASE_SPECS[symbol] || BASE_SPECS.XAUUSD;
@@ -198,15 +199,21 @@ export function getFallbackFootprint(symbol = 'XAUUSD', count = 12, timeframe = 
 
   return bars.map((bar, idx) => {
     const isBull = bar.close >= bar.open;
-    const d = new Date(bar.time * 1000);
+    // Format timestamp in Indian Standard Time (IST: UTC + 5:30 = +19800s)
+    const d = new Date((bar.time + 19800) * 1000);
     const month = String(d.getUTCMonth() + 1).padStart(2, '0');
     const day = String(d.getUTCDate()).padStart(2, '0');
     const hour = String(d.getUTCHours()).padStart(2, '0');
     const min = String(d.getUTCMinutes()).padStart(2, '0');
-    const datetimeStr = timeframe === '5m' || timeframe === '15m' ? `${month}/${day} ${hour}:${min}` : `${month}/${day} ${hour}:00`;
+    const datetimeStr = timeframe === '5m' || timeframe === '15m'
+      ? `${day}/${month} ${hour}:${min} IST`
+      : `${day}/${month} ${hour}:00 IST`;
 
-    // 8-10 price levels within the bar's High-Low range
-    const clusterCount = 8;
+    // Timeframe-adapted cluster granularity
+    let clusterCount = 8;
+    if (timeframe === '5m' || timeframe === '15m') clusterCount = 10;
+    else if (timeframe === '4h') clusterCount = 12;
+
     const step = (bar.high - bar.low) / Math.max(1, clusterCount - 1);
     const clusters = [];
 
@@ -215,8 +222,8 @@ export function getFallbackFootprint(symbol = 'XAUUSD', count = 12, timeframe = 
 
     for (let c = 0; c < clusterCount; c++) {
       const p = Number((bar.low + c * step).toFixed(dec));
-      let baseBid = Math.round(40 + Math.abs(Math.sin(idx * 3 + c)) * 140);
-      let baseAsk = Math.round(40 + Math.abs(Math.cos(idx * 3 + c)) * 140);
+      let baseBid = Math.round(35 + Math.abs(Math.sin(idx * 3 + c)) * 130);
+      let baseAsk = Math.round(35 + Math.abs(Math.cos(idx * 3 + c)) * 130);
 
       let imbalance = null;
       if (isBull && c >= clusterCount - 2) {
@@ -252,6 +259,8 @@ export function getFallbackFootprint(symbol = 'XAUUSD', count = 12, timeframe = 
       volume: bar.volume,
       bid_volume: barBidTotal,
       ask_volume: barAskTotal,
+      total_bid: barBidTotal,
+      total_ask: barAskTotal,
       delta: barDelta,
       cvd: runningCvd,
       clusters,

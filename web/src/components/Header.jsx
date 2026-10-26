@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Activity,
   Volume2,
@@ -8,7 +8,8 @@ import {
   TrendingUp,
   Layers,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Clock,
 } from 'lucide-react';
 
 export default function Header({
@@ -27,6 +28,37 @@ export default function Header({
   onChangeView,
 }) {
   const currentOF = orderFlowData?.find((o) => o.symbol === activeSymbol);
+
+  // Live Indian Standard Time (IST - UTC+05:30) & Active Session
+  const [istClock, setIstClock] = useState('');
+  const [activeSession, setActiveSession] = useState('');
+
+  useEffect(() => {
+    const updateTime = () => {
+      const now = new Date();
+      const timeStr = now.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      setIstClock(timeStr);
+
+      const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+      const istMins = (utcMins + 330) % 1440;
+      if (istMins >= 330 && istMins < 810) {
+        setActiveSession('Asian Session (05:30 - 13:30 IST)');
+      } else if (istMins >= 810 && istMins < 1110) {
+        setActiveSession('London Session (13:30 - 21:30 IST)');
+      } else {
+        setActiveSession('New York Session (18:30 - 03:30 IST)');
+      }
+    };
+    updateTime();
+    const interval = setInterval(updateTime, 1000);
+    return () => clearInterval(interval);
+  }, []);
 
   const getBadgeClass = (state = '') => {
     if (state.includes('ABOVE')) {
@@ -80,6 +112,18 @@ export default function Header({
                 </button>
               );
             })}
+          </div>
+
+          {/* Live Indian Standard Time & Active Institutional Session */}
+          <div className="hidden md:flex items-center gap-2.5 bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-xl">
+            <div className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span>{istClock || 'Loading...'} IST</span>
+            </div>
+            <span className="text-slate-300">|</span>
+            <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+              {activeSession}
+            </span>
           </div>
 
           {/* Current Asset Live Stats */}

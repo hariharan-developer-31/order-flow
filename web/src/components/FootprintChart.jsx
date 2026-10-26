@@ -1,14 +1,14 @@
 import React, { useState } from 'react';
 import { Layers, ArrowUp, ArrowDown, Activity, Info } from 'lucide-react';
 
-export default function FootprintChart({ symbol, footprintData, decimals = 2 }) {
+export default function FootprintChart({ symbol, footprintData, timeframe = '1h', decimals = 2 }) {
   const [selectedBarIdx, setSelectedBarIdx] = useState(null);
 
   if (!footprintData || footprintData.length === 0) {
     return (
       <div className="bg-white border border-slate-200 rounded-2xl p-8 text-center text-slate-400">
         <Activity className="w-8 h-8 mx-auto mb-2 opacity-50 animate-pulse text-blue-500" />
-        <p className="text-sm font-semibold">Loading footprint clusters...</p>
+        <p className="text-sm font-semibold">Loading footprint clusters ({timeframe?.toUpperCase()})...</p>
       </div>
     );
   }
@@ -27,8 +27,11 @@ export default function FootprintChart({ symbol, footprintData, decimals = 2 }) 
           <h3 className="font-extrabold text-slate-900 text-sm">
             Institutional Footprint Clusters (Bid × Ask Delta)
           </h3>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
-            {symbol} 1H
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase">
+            {symbol} {timeframe}
+          </span>
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+            🇮🇳 IST (UTC+05:30)
           </span>
         </div>
 

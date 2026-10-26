@@ -12,6 +12,7 @@ Includes:
 """
 
 import datetime as dt
+from datetime import datetime, timezone, timedelta
 import http.server
 import json
 import math
@@ -1421,27 +1422,43 @@ def background_scheduler() -> None:
         time.sleep(20)
 
 
-def compute_footprint_bars(bars: List[Dict[str, Any]], dec: int, is_gold: bool, limit: int = 15) -> List[Dict[str, Any]]:
+def compute_footprint_bars(bars: List[Dict[str, Any]], dec: int, is_gold: bool, limit: int = 15, tf: str = "1h") -> List[Dict[str, Any]]:
     """Generates synthetic bid x ask footprint delta clusters per candle from finished auction distribution."""
-    step = 1.0 if is_gold else (0.0005 if dec >= 4 else 0.05)
+    tf_clean = (tf or "1h").lower()
+    if is_gold:
+        if tf_clean == "5m":
+            step = 0.25
+        elif tf_clean == "15m":
+            step = 0.50
+        elif tf_clean == "1h":
+            step = 1.00
+        elif tf_clean == "4h":
+            step = 2.50
+        else:
+            step = 1.00
+    else:
+        if dec >= 4:
+            step = 0.0002 if tf_clean in ("5m", "15m") else 0.0005
+        else:
+            step = 0.02 if tf_clean in ("5m", "15m") else 0.05
+
     recent = bars[-max(1, min(limit, 30)) :]
     footprint_bars = []
     running_cvd = 0.0
+    ist_offset = timedelta(hours=5, minutes=30)
 
     for b in recent:
         o, h, l, c = b["open"], b["high"], b["low"], b["close"]
         vol = b["volume"]
         rng = max(step, h - l)
 
-        levels = []
-        p = round(round(l / step) * step, dec)
-        end_p = round(round(h / step) * step, dec)
-        while p <= end_p + 1e-9:
-            levels.append(p)
-            p = round(p + step, dec)
-
-        if not levels:
-            levels = [c]
+        n_desired = 8 if tf_clean in ("5m", "15m") else 10
+        if (h - l) <= (0.1 if is_gold else 0.0002):
+            spread = 1.0 if is_gold else 0.0006
+            levels = [round(c - spread / 2 + i * (spread / (n_desired - 1)), dec) for i in range(n_desired)]
+        else:
+            actual_step = (h - l) / (n_desired - 1)
+            levels = [round(l + i * actual_step, dec) for i in range(n_desired)]
 
         clusters = []
         tot_ask = 0.0
@@ -1481,9 +1498,16 @@ def compute_footprint_bars(bars: List[Dict[str, Any]], dec: int, is_gold: bool, 
         bar_delta = round(tot_ask - tot_bid, 1)
         running_cvd = round(running_cvd + bar_delta, 1)
 
+        # Convert bar time to Indian Standard Time (IST: UTC + 5:30)
+        ist_dt = b["time"] + ist_offset
+        if tf_clean in ("5m", "15m"):
+            dt_str = ist_dt.strftime("%d/%m %H:%M IST")
+        else:
+            dt_str = ist_dt.strftime("%d/%m %H:00 IST")
+
         footprint_bars.append({
             "time": b["ts"],
-            "datetime": b["time"].strftime("%H:%M UTC"),
+            "datetime": dt_str,
             "open": o,
             "high": h,
             "low": l,
@@ -1729,11 +1753,14 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
             return
 
-        # 5. Footprint / Delta Cluster API
+        # 5. Footprint / Delta Cluster API (Multi-Timeframe & IST)
         if path == "/api/footprint":
             sym = query.get("symbol", ["XAUUSD"])[0].upper()
             limit = int(query.get("limit", [15])[0])
             limit = max(5, min(limit, 30))
+            tf = query.get("timeframe", ["1h"])[0].lower()
+            if tf not in ("5m", "15m", "1h", "4h"):
+                tf = "1h"
 
             inst = next((x for x in INSTRUMENTS if x[0] == sym), None)
             if not inst:
@@ -1742,25 +1769,28 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
                 return
 
             now_ts = time.time()
+            cache_key = f"{sym}_{tf}"
             with _api_cache_lock:
-                c_fp = _api_cache["footprint"].get(sym, {})
-                if c_fp.get("data") and (now_ts - c_fp.get("ts", 0) < 25.0):
+                c_fp = _api_cache["footprint"].get(cache_key, {})
+                if c_fp.get("data") and (now_ts - c_fp.get("ts", 0) < 15.0):
                     self._set_cors_headers(200)
                     self.wfile.write(json.dumps(c_fp["data"]).encode("utf-8"))
                     return
 
             try:
-                bars, live_p = fetch_1h_bars(inst[2], inst[1])
-                fp_data = compute_footprint_bars(bars, inst[1], inst[4], limit=limit)
+                bars, live_p = fetch_bars(inst[2], inst[1], tf=tf)
+                fp_data = compute_footprint_bars(bars, inst[1], inst[4], limit=limit, tf=tf)
                 out_payload = {
                     "symbol": sym,
+                    "timeframe": tf,
+                    "timezone": "Asia/Kolkata (IST, UTC+05:30)",
                     "decimals": inst[1],
                     "live_price": live_p,
                     "count": len(fp_data),
                     "footprint": fp_data,
                 }
                 with _api_cache_lock:
-                    _api_cache["footprint"][sym] = {"data": out_payload, "ts": now_ts}
+                    _api_cache["footprint"][cache_key] = {"data": out_payload, "ts": now_ts}
 
                 self._set_cors_headers(200)
                 self.wfile.write(json.dumps(out_payload).encode("utf-8"))

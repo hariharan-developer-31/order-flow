@@ -96,23 +96,34 @@ export default function App() {
     }
   };
 
-  // Handle timeframe change smoothly and fetch bars immediately
+  // Handle timeframe change smoothly and fetch bars & footprint immediately
   const handleSelectTimeframe = async (newTf) => {
     setTimeframe(newTf);
-    // 1. Instantly swap to distinct timeframe bars so chart changes visibly and instantly
+    // 1. Instantly swap to distinct timeframe bars & footprint so chart changes visibly and instantly
     setBarsData(getFallbackBars(activeSymbol, 120, newTf));
     setFootprintData(getFallbackFootprint(activeSymbol, 12, newTf));
 
-    // 2. Directly fetch live bars for new timeframe from backend without delay
+    // 2. Directly fetch live bars & footprint for new timeframe from backend without delay
     if (apiUrl) {
       try {
         const cleanUrl = apiUrl.replace(/\/+$/, '');
-        const res = await fetch(`${cleanUrl}/api/bars?symbol=${activeSymbol}&timeframe=${newTf}&limit=120`, { mode: 'cors' });
-        if (res.ok) {
-          const json = await res.json();
+        const [barsRes, fpRes] = await Promise.all([
+          fetch(`${cleanUrl}/api/bars?symbol=${activeSymbol}&timeframe=${newTf}&limit=120`, { mode: 'cors' }),
+          fetch(`${cleanUrl}/api/footprint?symbol=${activeSymbol}&timeframe=${newTf}&limit=12`, { mode: 'cors' }),
+        ]);
+
+        if (barsRes.ok) {
+          const json = await barsRes.json();
           if (Array.isArray(json.bars) && json.bars.length > 0) {
             setBarsData(json.bars);
             if (json.live_price) setCurrentPrice(json.live_price);
+          }
+        }
+
+        if (fpRes.ok) {
+          const fpJson = await fpRes.json();
+          if (Array.isArray(fpJson.footprint) && fpJson.footprint.length > 0) {
+            setFootprintData(fpJson.footprint);
           }
         }
       } catch (e) {
@@ -160,9 +171,9 @@ export default function App() {
         }
       }
 
-      // 3. Fetch Footprint Clusters for active symbol
+      // 3. Fetch Footprint Clusters for active symbol & selected timeframe
       const fpRes = await fetch(
-        `${cleanUrl}/api/footprint?symbol=${activeSymbol}&limit=12`,
+        `${cleanUrl}/api/footprint?symbol=${activeSymbol}&timeframe=${timeframe}&limit=12`,
         { mode: 'cors' }
       );
       if (fpRes.ok) {
@@ -281,6 +292,7 @@ export default function App() {
               <FootprintChart
                 symbol={activeSymbol}
                 footprintData={footprintData}
+                timeframe={timeframe}
                 decimals={decimals}
               />
             )}

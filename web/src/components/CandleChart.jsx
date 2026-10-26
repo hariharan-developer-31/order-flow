@@ -204,6 +204,82 @@ function calculateDynamicVolumeProfile(bars, numBins = 55) {
   };
 }
 
+/**
+ * Detect current active institutional session in Indian Standard Time (IST, UTC+05:30)
+ * Asian: 05:30 - 13:30 IST
+ * London: 13:30 - 21:30 IST
+ * New York: 18:30 - 03:30 IST
+ */
+function getActiveSessionName() {
+  const now = new Date();
+  const utcMins = now.getUTCHours() * 60 + now.getUTCMinutes();
+  const istMins = (utcMins + 330) % 1440;
+  if (istMins >= 330 && istMins < 810) return 'asian';
+  if (istMins >= 810 && istMins < 1110) return 'london';
+  return 'ny';
+}
+
+/**
+ * Filter bars for Volume Profile calculation based on Session VP or Fixed Range VP
+ */
+function filterBarsForVP(bars, vpMode, vpSession, vpFixedBars) {
+  if (!bars || bars.length === 0) return { bars: [], label: 'NO BARS' };
+
+  if (vpMode === 'fixed') {
+    const count = Number(vpFixedBars) || 60;
+    const sliced = count >= bars.length ? bars : bars.slice(-count);
+    return {
+      bars: sliced,
+      label: count >= bars.length ? `FIXED RANGE VP (All ${bars.length} Bars)` : `FIXED RANGE VP (Last ${count} Bars)`,
+    };
+  }
+
+  // Session-based VP
+  const chosen = vpSession === 'auto' ? getActiveSessionName() : vpSession;
+  let filtered = [];
+  let label = '';
+
+  if (chosen === 'asian') {
+    label = 'ASIAN SESSION VP (05:30 - 13:30 IST)';
+    filtered = bars.filter((b) => {
+      const d = new Date(b.time * 1000);
+      const istMins = (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % 1440;
+      return istMins >= 330 && istMins < 810;
+    });
+  } else if (chosen === 'london') {
+    label = 'LONDON SESSION VP (13:30 - 21:30 IST)';
+    filtered = bars.filter((b) => {
+      const d = new Date(b.time * 1000);
+      const istMins = (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % 1440;
+      return istMins >= 810 && istMins < 1290;
+    });
+  } else if (chosen === 'ny') {
+    label = 'NEW YORK SESSION VP (18:30 - 03:30 IST)';
+    filtered = bars.filter((b) => {
+      const d = new Date(b.time * 1000);
+      const istMins = (d.getUTCHours() * 60 + d.getUTCMinutes() + 330) % 1440;
+      return istMins >= 1110 || istMins < 210;
+    });
+  } else {
+    label = "TODAY'S SESSION VP (05:30 IST - Now)";
+    const lastBar = bars[bars.length - 1];
+    const latestDayIST = new Date((lastBar.time + 19800) * 1000).getUTCDate();
+    filtered = bars.filter((b) => {
+      const bDay = new Date((b.time + 19800) * 1000).getUTCDate();
+      return bDay === latestDayIST;
+    });
+  }
+
+  // Safety fallback if session has very few bars
+  if (filtered.length < 3) {
+    const fallbackCount = Math.min(bars.length, 25);
+    filtered = bars.slice(-fallbackCount);
+    label += ` (Latest ${filtered.length} Bars)`;
+  }
+
+  return { bars: filtered, label };
+}
+
 export default function CandleChart({
   symbol,
   barsData,
@@ -227,8 +303,14 @@ export default function CandleChart({
   const [hoverData, setHoverData] = useState(null);
   const [lwReady, setLwReady] = useState(() => !!window.LightweightCharts);
 
-  // Live Candle Countdown Timer State (Right-Side Corner like TradingView)
+  // Volume Profile Switcher States (Session VP vs Fixed Range VP)
+  const [vpMode, setVpMode] = useState('session'); // 'session' | 'fixed'
+  const [vpSession, setVpSession] = useState('auto'); // 'auto' | 'ny' | 'london' | 'asian' | 'day'
+  const [vpFixedBars, setVpFixedBars] = useState(60); // 30 | 60 | 100 | 9999
+
+  // Live Candle Countdown Timer State (Right-Side Corner like TradingView in IST)
   const [countdownText, setCountdownText] = useState('00:00');
+  const [istCloseTime, setIstCloseTime] = useState('');
   const [currentPriceY, setCurrentPriceY] = useState(null);
 
   // TradingView Drawing Tools State
@@ -239,7 +321,7 @@ export default function CandleChart({
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const symbolDisplay = symbol === 'XAUUSD' ? 'XAUUSD (OANDA)' : symbol;
 
-  // 1. Live Candle Countdown Timer (Second-by-Second Countdown)
+  // 1. Live Candle Countdown Timer (Second-by-Second Countdown in IST)
   useEffect(() => {
     const updateCountdown = () => {
       const now = Math.floor(Date.now() / 1000);
@@ -252,6 +334,16 @@ export default function CandleChart({
 
       const elapsed = now % tfSeconds;
       const remaining = Math.max(0, tfSeconds - elapsed);
+      const closeEpoch = now + remaining;
+      const closeDate = new Date(closeEpoch * 1000);
+      const closeStr = closeDate.toLocaleTimeString('en-IN', {
+        timeZone: 'Asia/Kolkata',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+        hour12: false,
+      });
+      setIstCloseTime(closeStr);
 
       if (remaining >= 3600) {
         const h = Math.floor(remaining / 3600);
@@ -336,6 +428,21 @@ export default function CandleChart({
           labelBackgroundColor: '#0f172a',
         },
       },
+      localization: {
+        locale: 'en-IN',
+        dateFormat: 'dd/MM/yyyy',
+        timeFormatter: (time) => {
+          const date = new Date(time * 1000);
+          return (
+            date.toLocaleTimeString('en-IN', {
+              timeZone: 'Asia/Kolkata',
+              hour: '2-digit',
+              minute: '2-digit',
+              hour12: false,
+            }) + ' IST'
+          );
+        },
+      },
       rightPriceScale: {
         borderColor: '#e2e8f0',
         scaleMargins: { top: 0.08, bottom: 0.08 },
@@ -346,6 +453,15 @@ export default function CandleChart({
         secondsVisible: false,
         rightOffset: 16,
         barSpacing: 9,
+        tickMarkFormatter: (time) => {
+          const date = new Date(time * 1000);
+          return date.toLocaleTimeString('en-IN', {
+            timeZone: 'Asia/Kolkata',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false,
+          });
+        },
       },
     });
 
@@ -516,13 +632,26 @@ export default function CandleChart({
 
     if (!barsData || barsData.length === 0) return;
 
-    // Calculate dynamic Volume Profile from loaded bars
-    const vp = calculateDynamicVolumeProfile(barsData, 55);
+    // Filter bars according to Session VP vs Fixed Range VP
+    const { bars: vpBars, label: vpLabel } = filterBarsForVP(barsData, vpMode, vpSession, vpFixedBars);
+    if (!vpBars || vpBars.length === 0) return;
+
+    // Calculate dynamic Volume Profile from selected bars
+    const vp = calculateDynamicVolumeProfile(vpBars, 55);
     if (!vp) return;
 
     // Anchor at LEFT SIDE CORNER (starting at x = 14)
     const startX = 14;
     const maxBarWidth = Math.min(230, width * 0.28);
+
+    // 0. Draw prominent VP Mode and Session Information Badge at Left Corner Top
+    ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+    const badgeText = `📍 ${vpLabel} • POC ${vp.pocPrice.toFixed(decimals)}`;
+    ctx.font = 'bold 9.5px monospace';
+    const textW = ctx.measureText(badgeText).width;
+    ctx.fillRect(startX, 10, textW + 16, 20);
+    ctx.fillStyle = '#38bdf8'; // Sky blue text
+    ctx.fillText(badgeText, startX + 8, 23.5);
 
     // A. Draw Horizontal Volume Bars (Two-Tone Green & Red Candlestick Colors)
     vp.bins.forEach((bin) => {
@@ -619,11 +748,11 @@ export default function CandleChart({
       ctx.font = 'bold 8.5px monospace';
       ctx.fillText(`VAL ${vp.valPrice.toFixed(decimals)}`, startX + 4, yVAL + 3.5);
     }
-  }, [barsData, showInChartProfile, decimals]);
+  }, [barsData, showInChartProfile, decimals, vpMode, vpSession, vpFixedBars]);
 
   useEffect(() => {
     renderInChartProfile();
-  }, [renderInChartProfile, barsData]);
+  }, [renderInChartProfile, barsData, vpMode, vpSession, vpFixedBars]);
 
   // Fullscreen Toggle
   const toggleFullscreen = () => {
@@ -806,21 +935,83 @@ export default function CandleChart({
             </button>
           </div>
 
-          {/* In-Chart Volume Profile Toggle Button */}
+          {/* Volume Profile Switcher: Session VP vs Fixed Range VP with Toggle Switch Button */}
           {chartView === 'candles' && (
-            <button
-              onClick={() => setShowInChartProfile((v) => !v)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition ${
-                showInChartProfile
-                  ? 'bg-blue-50 text-blue-700 border-blue-200 font-bold'
-                  : 'bg-slate-50 text-slate-500 border-slate-200'
-              }`}
-              title="Toggle Left-Corner Volume Profile"
-            >
-              <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
-              <span>Left-Corner VP</span>
-              {showInChartProfile ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
-            </button>
+            <div className="flex items-center gap-1 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+              {/* Session VP Switch Button */}
+              <button
+                onClick={() => {
+                  setVpMode('session');
+                  setShowInChartProfile(true);
+                }}
+                className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition ${
+                  vpMode === 'session' && showInChartProfile
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Session-Based Volume Profile (Calculated per Trading Session in Indian Standard Time)"
+              >
+                <Layers className="w-3.5 h-3.5" />
+                Session VP
+              </button>
+
+              {/* Fixed Range VP Switch Button */}
+              <button
+                onClick={() => {
+                  setVpMode('fixed');
+                  setShowInChartProfile(true);
+                }}
+                className={`px-2.5 py-1 rounded-md text-xs font-bold flex items-center gap-1.5 transition ${
+                  vpMode === 'fixed' && showInChartProfile
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+                title="Fixed Range Volume Profile (Calculated across fixed number of bars)"
+              >
+                <BarChart3 className="w-3.5 h-3.5" />
+                Fixed Range VP
+              </button>
+
+              {/* Session VP Options Dropdown (IST Sessions) */}
+              {showInChartProfile && vpMode === 'session' && (
+                <select
+                  value={vpSession}
+                  onChange={(e) => setVpSession(e.target.value)}
+                  className="bg-white border border-slate-200 text-[11px] font-bold text-slate-700 rounded px-1.5 py-0.5 ml-0.5 focus:outline-none"
+                  title="Select Institutional Trading Session (Indian Standard Time)"
+                >
+                  <option value="auto">Auto (Active Session)</option>
+                  <option value="ny">New York (18:30 - 03:30 IST)</option>
+                  <option value="london">London (13:30 - 21:30 IST)</option>
+                  <option value="asian">Asian (05:30 - 13:30 IST)</option>
+                  <option value="day">Today's Day (05:30 IST - Now)</option>
+                </select>
+              )}
+
+              {/* Fixed Range Options Dropdown */}
+              {showInChartProfile && vpMode === 'fixed' && (
+                <select
+                  value={vpFixedBars}
+                  onChange={(e) => setVpFixedBars(Number(e.target.value))}
+                  className="bg-white border border-slate-200 text-[11px] font-bold text-slate-700 rounded px-1.5 py-0.5 ml-0.5 focus:outline-none"
+                  title="Select Fixed Range Bar Count"
+                >
+                  <option value={30}>Last 30 Bars</option>
+                  <option value={60}>Last 60 Bars</option>
+                  <option value={100}>Last 100 Bars</option>
+                  <option value={9999}>All Loaded Bars</option>
+                </select>
+              )}
+
+              {/* Toggle Profile Visibility */}
+              <button
+                onClick={() => setShowInChartProfile((v) => !v)}
+                className="p-1 text-slate-400 hover:text-slate-700 rounded transition ml-0.5"
+                title={showInChartProfile ? 'Hide Volume Profile' : 'Show Volume Profile'}
+              >
+                {showInChartProfile ? <Eye className="w-3 h-3 text-blue-600" /> : <EyeOff className="w-3 h-3" />}
+              </button>
+            </div>
           )}
 
           {/* OHLC Bar Legend & Active Timeframe Badge */}
@@ -839,14 +1030,17 @@ export default function CandleChart({
 
         {/* Right: Candle Countdown Timer & Fullscreen Toggle */}
         <div className="flex items-center gap-2">
-          {/* Live Candle Countdown Pill (Top Right Corner) */}
+          {/* Live Candle Countdown Pill (Top Right Corner with IST Close Time) */}
           <div
             className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs"
-            title={`Time remaining until current ${timeframe.toUpperCase()} candle closes`}
+            title={`Current ${timeframe.toUpperCase()} candle closes at ${istCloseTime} IST`}
           >
             <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
             <span className="text-[10px] font-semibold text-slate-500 uppercase">{timeframe}:</span>
             <span className="text-slate-900">{countdownText}</span>
+            {istCloseTime && (
+              <span className="text-[10px] text-slate-500 hidden sm:inline">({istCloseTime} IST)</span>
+            )}
           </div>
 
           {chartView === 'candles' && (
@@ -991,6 +1185,11 @@ export default function CandleChart({
                 <div className="bg-slate-900/95 text-white font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-l shadow-lg border border-r-0 border-slate-700 flex items-center gap-1.5 backdrop-blur-sm">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
                   <span>{countdownText}</span>
+                  {istCloseTime && (
+                    <span className="text-[9px] text-amber-300 font-semibold border-l border-slate-700 pl-1.5 ml-0.5">
+                      {istCloseTime} IST
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -1133,8 +1332,22 @@ export default function CandleChart({
 
         {/* View 2: Authentic In-Chart Footprint Chart View */}
         {chartView === 'footprint' && (
-          <div className="flex-1 p-4 bg-slate-50/50 overflow-x-auto" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
-            <div className="flex items-start gap-3 min-w-max pb-2 h-full">
+          <div className="flex-1 p-4 bg-slate-50/50 overflow-x-auto flex flex-col" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
+            <div className="mb-2.5 flex items-center justify-between px-1 shrink-0">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-black text-slate-800">
+                  {symbolDisplay} {timeframe?.toUpperCase()} Footprint Delta Ladder
+                </span>
+                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
+                  🇮🇳 Indian Standard Time (IST, UTC+05:30)
+                </span>
+              </div>
+              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-2">
+                <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Granularity: {timeframe?.toUpperCase()}</span>
+                <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Imbalance: &ge;300%</span>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 min-w-max pb-2 flex-1">
               {(footprintData || []).map((bar, bIdx) => {
                 const isBull = bar.close >= bar.open;
                 const delta = bar.delta || 0;
