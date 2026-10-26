@@ -231,6 +231,8 @@ export default function CandleChart({
         borderColor: '#e2e8f0',
         timeVisible: true,
         secondsVisible: false,
+        rightOffset: 16,
+        barSpacing: 9,
       },
     });
 
@@ -422,19 +424,26 @@ export default function CandleChart({
       const sellW = Math.max(0, totalW - buyW);
 
       if (bin.inVA) {
-        // Value Area (70%) - Slate & Blue Two-Tone (Image 1 Style)
-        ctx.fillStyle = '#475569'; // Up / Buy Vol (Dark Slate)
+        // Value Area (70% Volume Rule) - High Contrast Vivid Green & Red (Candlestick Colors)
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)'; // Up / Buy Vol (Green)
         ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
 
-        ctx.fillStyle = '#94a3b8'; // Down / Sell Vol (Muted Slate)
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.85)'; // Down / Sell Vol (Red)
         ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
       } else {
-        // Outside Value Area - Soft Translucent
-        ctx.fillStyle = 'rgba(148, 163, 184, 0.40)';
+        // Outside Value Area (Tails / Rejection) - Translucent Soft Green & Red
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.28)'; // Soft Green
         ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
 
-        ctx.fillStyle = 'rgba(203, 213, 225, 0.30)';
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.28)'; // Soft Red
         ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
+      }
+
+      // Highlight POC Bar with crisp outline
+      if (bin.isPOC) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(startX, y - barH / 2, totalW, barH - 0.7);
       }
     });
 
@@ -703,11 +712,17 @@ export default function CandleChart({
         <div className="flex items-center gap-2">
           {chartView === 'candles' && (
             <div className="hidden md:flex items-center gap-2 text-[11px] font-semibold">
+              <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+                <span className="w-2 h-2 bg-emerald-500 rounded-sm"></span> Buy Vol (Green)
+              </span>
               <span className="flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                <span className="w-2.5 h-0.5 bg-rose-500 rounded"></span> POC Line (Red)
+                <span className="w-2 h-2 bg-rose-500 rounded-sm"></span> Sell Vol (Red)
+              </span>
+              <span className="flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
+                <span className="w-2.5 h-0.5 bg-rose-500 rounded"></span> POC Line
               </span>
               <span className="flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                <span className="w-2.5 h-0.5 bg-blue-600 rounded"></span> 70% VA Range
+                <span className="w-2.5 h-0.5 bg-blue-600 rounded"></span> 70% VA
               </span>
             </div>
           )}
