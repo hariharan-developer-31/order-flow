@@ -22,6 +22,70 @@ import {
 
 import { calculateDynamicVolumeProfile } from '../utils/volumeProfile';
 
+function toDate(time) {
+  if (typeof time === 'number') return new Date(time * 1000);
+  if (time && typeof time === 'object' && 'year' in time) {
+    return new Date(Date.UTC(time.year, time.month - 1, time.day));
+  }
+  return new Date(time);
+}
+
+function formatISTCrosshair(time) {
+  const d = toDate(time);
+  if (isNaN(d.getTime())) return '';
+  const dateStr = d.toLocaleDateString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+  const timeStr = d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return `${dateStr}  ${timeStr}`;
+}
+
+function formatISTTickMark(time, tickMarkType) {
+  const d = toDate(time);
+  if (isNaN(d.getTime())) return null;
+
+  if (tickMarkType === 3 || tickMarkType === 4) {
+    return d.toLocaleTimeString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    });
+  }
+  if (tickMarkType === 2) {
+    return d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: 'numeric',
+    });
+  }
+  if (tickMarkType === 1) {
+    return d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      month: 'short',
+    });
+  }
+  if (tickMarkType === 0) {
+    return d.toLocaleDateString('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      year: 'numeric',
+    });
+  }
+  return d.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+}
+
 const TIMEFRAMES = [
   { id: '5m', label: '5m' },
   { id: '15m', label: '15m' },
@@ -160,6 +224,7 @@ export default function CandleChart({
         localization: {
           locale: 'en-IN',
           dateFormat: 'dd/MM/yyyy',
+          timeFormatter: (time) => formatISTCrosshair(time),
         },
         rightPriceScale: {
           borderColor: '#e2e8f0',
@@ -171,6 +236,7 @@ export default function CandleChart({
           secondsVisible: false,
           rightOffset: 16,
           barSpacing: 9,
+          tickMarkFormatter: (time, tickMarkType) => formatISTTickMark(time, tickMarkType),
         },
       });
     } catch (e) {
