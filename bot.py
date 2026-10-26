@@ -228,17 +228,7 @@ def generate_chart_url(sym: str, bars: List[Dict[str, Any]], entry: float, sl: f
 
 
 def fetch_spot_gold_price() -> Optional[float]:
-    """Fetches real-time Spot XAUUSD price from Gold-API or TradingView to align COMEX Futures to MT5 Spot."""
-    try:
-        url = "https://api.gold-api.com/price/XAU"
-        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
-        with urllib.request.urlopen(req, timeout=4) as r:
-            data = json.loads(r.read().decode("utf-8"))
-            p = float(data.get("price", 0.0))
-            if p > 1000.0:
-                return round(p, 2)
-    except Exception:
-        pass
+    """Fetches real-time Spot XAUUSD price from OANDA (via TradingView CFD Scanner) or Gold-API."""
     try:
         url = "https://scanner.tradingview.com/cfd/scan"
         payload = {"symbols": {"tickers": ["OANDA:XAUUSD"]}, "columns": ["close"]}
@@ -250,6 +240,16 @@ def fetch_spot_gold_price() -> Optional[float]:
         with urllib.request.urlopen(req, timeout=4) as r:
             res = json.loads(r.read().decode("utf-8"))
             p = float(res.get("data", [{}])[0].get("d", [0.0])[0])
+            if p > 1000.0:
+                return round(p, 2)
+    except Exception:
+        pass
+    try:
+        url = "https://api.gold-api.com/price/XAU"
+        req = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
+        with urllib.request.urlopen(req, timeout=4) as r:
+            data = json.loads(r.read().decode("utf-8"))
+            p = float(data.get("price", 0.0))
             if p > 1000.0:
                 return round(p, 2)
     except Exception:

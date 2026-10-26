@@ -16,6 +16,8 @@ import {
   Flame,
   ArrowUp,
   ArrowDown,
+  Clock,
+  Tv,
 } from 'lucide-react';
 
 const TIMEFRAMES = [
@@ -24,6 +26,73 @@ const TIMEFRAMES = [
   { id: '1h', label: '1H' },
   { id: '4h', label: '4H' },
 ];
+
+/**
+ * Official TradingView OANDA Real-Time Interactive Widget.
+ * Directly streams OANDA:XAUUSD with full native TradingView tools and indicators.
+ */
+function TradingViewOandaWidget({ symbol = 'XAUUSD', timeframe = '1h', isFullscreen = false }) {
+  const containerRef = useRef(null);
+
+  const getTfInterval = (tf) => {
+    const t = (tf || '1h').toLowerCase();
+    if (t === '5m') return '5';
+    if (t === '15m') return '15';
+    if (t === '1h') return '60';
+    if (t === '4h') return '240';
+    return '60';
+  };
+
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const tvId = 'tv_oanda_embed_' + Math.random().toString(36).substring(7);
+    containerRef.current.innerHTML = `<div id="${tvId}" style="height: 100%; width: 100%;"></div>`;
+
+    const oandaSymbol = symbol === 'XAUUSD' ? 'OANDA:XAUUSD' : `OANDA:${symbol}`;
+
+    const initWidget = () => {
+      if (window.TradingView && document.getElementById(tvId)) {
+        new window.TradingView.widget({
+          autosize: true,
+          symbol: oandaSymbol,
+          interval: getTfInterval(timeframe),
+          timezone: 'Etc/UTC',
+          theme: 'light',
+          style: '1',
+          locale: 'en',
+          toolbar_bg: '#ffffff',
+          enable_publishing: false,
+          allow_symbol_change: true,
+          container_id: tvId,
+          hide_side_toolbar: false,
+          studies: ['Volume@tv-basicstudies'],
+        });
+      }
+    };
+
+    if (window.TradingView) {
+      initWidget();
+    } else {
+      const script = document.createElement('script');
+      script.src = 'https://s3.tradingview.com/tv.js';
+      script.async = true;
+      script.onload = initWidget;
+      document.head.appendChild(script);
+    }
+
+    return () => {
+      if (containerRef.current) containerRef.current.innerHTML = '';
+    };
+  }, [symbol, timeframe]);
+
+  const h = isFullscreen ? 'calc(100vh - 75px)' : '540px';
+
+  return (
+    <div className="w-full relative bg-white" style={{ height: h }}>
+      <div ref={containerRef} className="w-full h-full" style={{ height: h }} />
+    </div>
+  );
+}
 
 /**
  * Calculate dynamic Volume Profile across all visible candlestick bars.
@@ -152,11 +221,15 @@ export default function CandleChart({
   const profileCanvasRef = useRef(null);
 
   // States
-  const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint'
+  const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint' | 'oanda_tv'
   const [showInChartProfile, setShowInChartProfile] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoverData, setHoverData] = useState(null);
   const [lwReady, setLwReady] = useState(() => !!window.LightweightCharts);
+
+  // Live Candle Countdown Timer State (Right-Side Corner like TradingView)
+  const [countdownText, setCountdownText] = useState('00:00');
+  const [currentPriceY, setCurrentPriceY] = useState(null);
 
   // TradingView Drawing Tools State
   const [activeTool, setActiveTool] = useState('cursor');
@@ -164,6 +237,47 @@ export default function CandleChart({
   const [drawingDraft, setDrawingDraft] = useState(null);
 
   const of = orderFlowData?.find((o) => o.symbol === symbol);
+  const symbolDisplay = symbol === 'XAUUSD' ? 'XAUUSD (OANDA)' : symbol;
+
+  // 1. Live Candle Countdown Timer (Second-by-Second Countdown)
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = Math.floor(Date.now() / 1000);
+      let tfSeconds = 3600;
+      const tfLower = (timeframe || '1h').toLowerCase();
+      if (tfLower === '5m') tfSeconds = 300;
+      else if (tfLower === '15m') tfSeconds = 900;
+      else if (tfLower === '1h') tfSeconds = 3600;
+      else if (tfLower === '4h') tfSeconds = 14400;
+
+      const elapsed = now % tfSeconds;
+      const remaining = Math.max(0, tfSeconds - elapsed);
+
+      if (remaining >= 3600) {
+        const h = Math.floor(remaining / 3600);
+        const m = Math.floor((remaining % 3600) / 60);
+        const s = remaining % 60;
+        setCountdownText(`${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      } else {
+        const m = Math.floor(remaining / 60);
+        const s = remaining % 60;
+        setCountdownText(`${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`);
+      }
+
+      // Update current price coordinate for right-side corner badge
+      if (candleSeriesRef.current && barsData && barsData.length > 0) {
+        const lastClose = barsData[barsData.length - 1].close;
+        const y = candleSeriesRef.current.priceToCoordinate(lastClose);
+        if (y != null) {
+          setCurrentPriceY(y);
+        }
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+    return () => clearInterval(interval);
+  }, [timeframe, barsData]);
 
   // Poll for LightweightCharts CDN readiness
   useEffect(() => {
@@ -180,8 +294,7 @@ export default function CandleChart({
     return () => clearInterval(interval);
   }, []);
 
-  // 1. Initialize Chart instance with Pristine White Theme
-  // (NOTE: Volume indicator at bottom is COMPLETELY REMOVED per user request)
+  // 2. Initialize Lightweight Chart instance (Pure Candlestick Canvas, no bottom volume histogram)
   useEffect(() => {
     if (!chartContainerRef.current || !window.LightweightCharts || chartView !== 'candles') return;
 
@@ -302,7 +415,7 @@ export default function CandleChart({
     };
   }, [decimals, lwReady, chartView, isFullscreen]);
 
-  // 2. Set Candlestick Bar Data
+  // 3. Set Candlestick Bar Data & Recalibrate Time Scale Immediately
   useEffect(() => {
     if (!barsData || barsData.length === 0 || !candleSeriesRef.current || chartView !== 'candles') {
       return;
@@ -337,7 +450,7 @@ export default function CandleChart({
     }
   }, [barsData, lwReady, chartView, timeframe]);
 
-  // 3. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
+  // 4. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
   useEffect(() => {
     if (!candleSeriesRef.current || !of || chartView !== 'candles') return;
 
@@ -379,7 +492,7 @@ export default function CandleChart({
     }
   }, [of, decimals, lwReady, chartView]);
 
-  // 4. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER (Just like Image 1)
+  // 5. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER in Green & Red
   const renderInChartProfile = useCallback(() => {
     if (!profileCanvasRef.current || !candleSeriesRef.current || !chartContainerRef.current || !showInChartProfile) {
       if (profileCanvasRef.current) {
@@ -411,7 +524,7 @@ export default function CandleChart({
     const startX = 14;
     const maxBarWidth = Math.min(230, width * 0.28);
 
-    // A. Draw Horizontal Volume Bars (Two-Tone Stacked Up/Down Volume)
+    // A. Draw Horizontal Volume Bars (Two-Tone Green & Red Candlestick Colors)
     vp.bins.forEach((bin) => {
       const y = candleSeriesRef.current.priceToCoordinate(bin.price);
       if (y == null || y < -10 || y > height + 10) return;
@@ -448,7 +561,7 @@ export default function CandleChart({
       }
     });
 
-    // B. Draw Prominent Red POC Line across the chart (Just like Image 1)
+    // B. Draw Prominent Red POC Line across the chart
     const yPOC = candleSeriesRef.current.priceToCoordinate(vp.pocPrice);
     if (yPOC != null && yPOC >= 0 && yPOC <= height) {
       // Solid Red Line across chart
@@ -467,7 +580,7 @@ export default function CandleChart({
       ctx.fillText(`POC ${vp.pocPrice.toFixed(decimals)}`, startX + 4, yPOC + 3.5);
     }
 
-    // C. Draw VAH Boundary Line across chart (Just like Image 1)
+    // C. Draw VAH Boundary Line across chart
     const yVAH = candleSeriesRef.current.priceToCoordinate(vp.vahPrice);
     if (yVAH != null && yVAH >= 0 && yVAH <= height) {
       ctx.beginPath();
@@ -487,7 +600,7 @@ export default function CandleChart({
       ctx.fillText(`VAH ${vp.vahPrice.toFixed(decimals)}`, startX + 4, yVAH + 3.5);
     }
 
-    // D. Draw VAL Boundary Line across chart (Just like Image 1)
+    // D. Draw VAL Boundary Line across chart
     const yVAL = candleSeriesRef.current.priceToCoordinate(vp.valPrice);
     if (yVAL != null && yVAL >= 0 && yVAL <= height) {
       ctx.beginPath();
@@ -512,7 +625,7 @@ export default function CandleChart({
     renderInChartProfile();
   }, [renderInChartProfile, barsData]);
 
-  // 5. Fullscreen Toggle
+  // Fullscreen Toggle
   const toggleFullscreen = () => {
     setIsFullscreen((prev) => !prev);
   };
@@ -527,7 +640,7 @@ export default function CandleChart({
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isFullscreen]);
 
-  // 6. Interactive Drawing Canvas Clicks
+  // Interactive Drawing Canvas Clicks
   const handleCanvasClick = (e) => {
     if (activeTool === 'cursor' || chartView !== 'candles') return;
 
@@ -553,8 +666,8 @@ export default function CandleChart({
       const riskDistance = symbol === 'XAUUSD' ? 6.0 : 0.0025;
       const entry = price;
       const sl = entry - riskDistance;
-      const tp1 = entry + riskDistance; // 1:1 Banker
-      const tp2 = entry + riskDistance * 2; // 1:2 Runner
+      const tp1 = entry + riskDistance;
+      const tp2 = entry + riskDistance * 2;
       setDrawings((prev) => [
         ...prev,
         {
@@ -635,7 +748,7 @@ export default function CandleChart({
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
             <span className="font-extrabold text-slate-900 text-sm tracking-tight">
-              {symbol}
+              {symbolDisplay}
             </span>
           </div>
 
@@ -656,7 +769,7 @@ export default function CandleChart({
             ))}
           </div>
 
-          {/* View Mode Toggle: Candlesticks vs Footprint Chart */}
+          {/* View Mode Toggle: Candles vs Footprint vs Official TradingView OANDA */}
           <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
             <button
               onClick={() => setChartView('candles')}
@@ -666,7 +779,7 @@ export default function CandleChart({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              Candles
+              Candles + VP
             </button>
             <button
               onClick={() => setChartView('footprint')}
@@ -677,7 +790,19 @@ export default function CandleChart({
               }`}
             >
               <Flame className="w-3.5 h-3.5 text-amber-500" />
-              Footprint Chart
+              Footprint
+            </button>
+            <button
+              onClick={() => setChartView('oanda_tv')}
+              className={`px-2.5 py-1 rounded-md transition flex items-center gap-1 ${
+                chartView === 'oanda_tv'
+                  ? 'bg-white text-blue-700 font-bold shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Official TradingView OANDA Chart Widget"
+            >
+              <Tv className="w-3.5 h-3.5 text-blue-600" />
+              OANDA TradingView
             </button>
           </div>
 
@@ -693,12 +818,12 @@ export default function CandleChart({
               title="Toggle Left-Corner Volume Profile"
             >
               <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
-              <span>Left-Corner Volume Profile</span>
+              <span>Left-Corner VP</span>
               {showInChartProfile ? <Eye className="w-3 h-3" /> : <EyeOff className="w-3 h-3" />}
             </button>
           )}
 
-          {/* OHLC Bar Legend (Candles View) */}
+          {/* OHLC Bar Legend & Active Timeframe Badge */}
           {chartView === 'candles' && displayBar && (
             <div className="hidden xl:flex items-center gap-2.5 text-xs font-mono text-slate-500">
               <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 uppercase">
@@ -712,15 +837,25 @@ export default function CandleChart({
           )}
         </div>
 
-        {/* Right: Legend & Fullscreen Toggle */}
+        {/* Right: Candle Countdown Timer & Fullscreen Toggle */}
         <div className="flex items-center gap-2">
+          {/* Live Candle Countdown Pill (Top Right Corner) */}
+          <div
+            className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs"
+            title={`Time remaining until current ${timeframe.toUpperCase()} candle closes`}
+          >
+            <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+            <span className="text-[10px] font-semibold text-slate-500 uppercase">{timeframe}:</span>
+            <span className="text-slate-900">{countdownText}</span>
+          </div>
+
           {chartView === 'candles' && (
             <div className="hidden md:flex items-center gap-2 text-[11px] font-semibold">
               <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                <span className="w-2 h-2 bg-emerald-500 rounded-sm"></span> Buy Vol (Green)
+                <span className="w-2 h-2 bg-emerald-500 rounded-sm"></span> Buy Vol
               </span>
               <span className="flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                <span className="w-2 h-2 bg-rose-500 rounded-sm"></span> Sell Vol (Red)
+                <span className="w-2 h-2 bg-rose-500 rounded-sm"></span> Sell Vol
               </span>
               <span className="flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
                 <span className="w-2.5 h-0.5 bg-rose-500 rounded"></span> POC Line
@@ -742,7 +877,7 @@ export default function CandleChart({
         </div>
       </div>
 
-      {/* 2. Main Chart Layout with Left TradingView Toolbar */}
+      {/* 2. Main Chart Layout */}
       <div className="flex-1 flex items-stretch relative min-h-[500px]">
         {/* TradingView Left Drawing Toolbar */}
         {chartView === 'candles' && (
@@ -832,17 +967,33 @@ export default function CandleChart({
           </div>
         )}
 
-        {/* View 1: Candlestick Chart + Left-Corner Volume Profile */}
-        {chartView === 'candles' ? (
+        {/* View 1: Candlestick Chart + Left-Corner Volume Profile + Right Corner Countdown */}
+        {chartView === 'candles' && (
           <div className="flex-1 relative overflow-hidden" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
-            {/* Pure Candlestick Canvas (No bottom volume histogram) */}
+            {/* Pure Candlestick Canvas */}
             <div ref={chartContainerRef} className="w-full h-full" />
 
-            {/* In-Chart Left-Corner Volume Profile Canvas (Just like Image 1) */}
+            {/* In-Chart Left-Corner Volume Profile Canvas (Green & Red) */}
             <canvas
               ref={profileCanvasRef}
               className="absolute inset-0 pointer-events-none z-10"
             />
+
+            {/* TradingView-Style Candle Countdown on the Right-Side Price Scale */}
+            {currentPriceY != null && (
+              <div
+                className="absolute z-30 pointer-events-none transition-all duration-300 flex items-center"
+                style={{
+                  top: `${Math.max(15, Math.min(isFullscreen ? window.innerHeight - 150 : 500, currentPriceY - 11))}px`,
+                  right: '68px',
+                }}
+              >
+                <div className="bg-slate-900/95 text-white font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-l shadow-lg border border-r-0 border-slate-700 flex items-center gap-1.5 backdrop-blur-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                  <span>{countdownText}</span>
+                </div>
+              </div>
+            )}
 
             {/* TradingView Interactive Drawing Layer */}
             <svg
@@ -851,7 +1002,6 @@ export default function CandleChart({
                 activeTool !== 'cursor' ? 'cursor-crosshair pointer-events-auto' : 'pointer-events-none'
               }`}
             >
-              {/* Render Saved Drawings */}
               {drawings.map((d) => {
                 if (d.type === 'horizontal') {
                   const y = candleSeriesRef.current?.priceToCoordinate(d.price) || d.y;
@@ -876,25 +1026,21 @@ export default function CandleChart({
 
                   return (
                     <g key={d.id}>
-                      {/* TP2 Zone (1:2 Runner) */}
                       <rect x={startX} y={yTP2} width={boxWidth} height={Math.abs(yTP1 - yTP2)} fill="rgba(16, 185, 129, 0.25)" stroke="#059669" strokeWidth="1" />
                       <text x={startX + 8} y={yTP2 + 15} fill="#065f46" fontSize="10" fontWeight="bold">
                         TP2 (+1:2 RR): {d.tp2?.toFixed(decimals)}
                       </text>
 
-                      {/* TP1 Zone (1:1 Banker) */}
                       <rect x={startX} y={yTP1} width={boxWidth} height={Math.abs(yEntry - yTP1)} fill="rgba(16, 185, 129, 0.40)" stroke="#059669" strokeWidth="1.5" />
                       <text x={startX + 8} y={yTP1 + 15} fill="#065f46" fontSize="10" fontWeight="bold">
                         TP1 (+1:1 RR): {d.tp1?.toFixed(decimals)}
                       </text>
 
-                      {/* Entry Line */}
                       <line x1={startX} y1={yEntry} x2={startX + boxWidth} y2={yEntry} stroke="#2563eb" strokeWidth="2" />
                       <text x={startX + 8} y={yEntry - 4} fill="#1d4ed8" fontSize="10" fontWeight="bold">
                         ENTRY: {d.entry?.toFixed(decimals)}
                       </text>
 
-                      {/* Stop Loss Zone */}
                       <rect x={startX} y={yEntry} width={boxWidth} height={Math.abs(ySL - yEntry)} fill="rgba(239, 68, 68, 0.25)" stroke="#dc2626" strokeWidth="1.5" />
                       <text x={startX + 8} y={ySL - 6} fill="#991b1b" fontSize="10" fontWeight="bold">
                         STOP LOSS: {d.sl?.toFixed(decimals)} (-1.0R)
@@ -913,22 +1059,18 @@ export default function CandleChart({
 
                   return (
                     <g key={d.id}>
-                      {/* Stop Loss Zone */}
                       <rect x={startX} y={ySL} width={boxWidth} height={Math.abs(yEntry - ySL)} fill="rgba(239, 68, 68, 0.25)" stroke="#dc2626" strokeWidth="1.5" />
                       <text x={startX + 8} y={ySL + 15} fill="#991b1b" fontSize="10" fontWeight="bold">
                         STOP LOSS: {d.sl?.toFixed(decimals)} (-1.0R)
                       </text>
 
-                      {/* Entry Line */}
                       <line x1={startX} y1={yEntry} x2={startX + boxWidth} y2={yEntry} stroke="#2563eb" strokeWidth="2" />
 
-                      {/* TP1 Zone */}
                       <rect x={startX} y={yEntry} width={boxWidth} height={Math.abs(yTP1 - yEntry)} fill="rgba(16, 185, 129, 0.40)" stroke="#059669" strokeWidth="1.5" />
                       <text x={startX + 8} y={yTP1 - 6} fill="#065f46" fontSize="10" fontWeight="bold">
                         TP1 (1:1 RR): {d.tp1?.toFixed(decimals)}
                       </text>
 
-                      {/* TP2 Zone */}
                       <rect x={startX} y={yTP1} width={boxWidth} height={Math.abs(yTP2 - yTP1)} fill="rgba(16, 185, 129, 0.25)" stroke="#059669" strokeWidth="1" />
                       <text x={startX + 8} y={yTP2 - 6} fill="#065f46" fontSize="10" fontWeight="bold">
                         TP2 (1:2 RR): {d.tp2?.toFixed(decimals)}
@@ -987,8 +1129,10 @@ export default function CandleChart({
               })}
             </svg>
           </div>
-        ) : (
-          /* View 2: Authentic In-Chart Footprint Chart View */
+        )}
+
+        {/* View 2: Authentic In-Chart Footprint Chart View */}
+        {chartView === 'footprint' && (
           <div className="flex-1 p-4 bg-slate-50/50 overflow-x-auto" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
             <div className="flex items-start gap-3 min-w-max pb-2 h-full">
               {(footprintData || []).map((bar, bIdx) => {
@@ -1013,7 +1157,6 @@ export default function CandleChart({
                     key={bar.time || bIdx}
                     className="w-56 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col hover:border-blue-400 transition"
                   >
-                    {/* Footprint Bar Header */}
                     <div
                       className={`p-2 border-b text-xs font-mono flex items-center justify-between ${
                         isBull ? 'bg-emerald-50/80 border-emerald-200' : 'bg-rose-50/80 border-rose-200'
@@ -1026,14 +1169,12 @@ export default function CandleChart({
                       </span>
                     </div>
 
-                    {/* OHLC Mini Summary */}
                     <div className="px-2.5 py-1 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-500">
                       <span>O: {bar.open?.toFixed(decimals)}</span>
                       <span>C: {bar.close?.toFixed(decimals)}</span>
                       <span>Vol: {bar.volume ? Math.round(bar.volume).toLocaleString() : '---'}</span>
                     </div>
 
-                    {/* Bid x Ask Cluster Ladder (Footprint on Chart) */}
                     <div className="p-2 space-y-1 flex-1 overflow-y-auto max-h-[380px]">
                       {sortedClusters.map((c, cIdx) => {
                         const isPOC = c.price === barPoc;
@@ -1047,7 +1188,6 @@ export default function CandleChart({
                               isPOC ? 'bg-amber-50 border-amber-300 font-bold' : 'bg-white border-slate-100 hover:bg-slate-50'
                             }`}
                           >
-                            {/* Bid Volume */}
                             <div
                               className={`flex-1 text-right pr-2 py-0.5 rounded-l ${
                                 isSellImb ? 'bg-rose-500 text-white font-black shadow-sm' : 'text-rose-700 bg-rose-50/50'
@@ -1056,12 +1196,10 @@ export default function CandleChart({
                               {c.bid}
                             </div>
 
-                            {/* Center Price Tick */}
                             <div className={`px-1.5 font-bold text-center text-[10px] ${isPOC ? 'text-amber-800 font-extrabold' : 'text-slate-600'}`}>
                               {c.price?.toFixed(decimals)}
                             </div>
 
-                            {/* Ask Volume */}
                             <div
                               className={`flex-1 text-left pl-2 py-0.5 rounded-r ${
                                 isBuyImb ? 'bg-emerald-500 text-white font-black shadow-sm' : 'text-emerald-700 bg-emerald-50/50'
@@ -1074,7 +1212,6 @@ export default function CandleChart({
                       })}
                     </div>
 
-                    {/* Bottom Net Delta */}
                     <div className="p-2 border-t border-slate-100 bg-slate-50 text-[10px] font-mono flex items-center justify-between">
                       <span className="text-slate-500">Net Delta:</span>
                       <span className={`font-bold ${isDeltaPos ? 'text-emerald-700' : 'text-rose-700'}`}>
@@ -1086,6 +1223,15 @@ export default function CandleChart({
               })}
             </div>
           </div>
+        )}
+
+        {/* View 3: Official TradingView OANDA Real-Time Interactive Chart */}
+        {chartView === 'oanda_tv' && (
+          <TradingViewOandaWidget
+            symbol={symbol}
+            timeframe={timeframe}
+            isFullscreen={isFullscreen}
+          />
         )}
       </div>
     </div>
