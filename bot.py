@@ -132,14 +132,18 @@ def check_daily_reset() -> None:
             print(f"[DAILY RESET] New trading day: {today_utc}. Trade count reset to 0/3. Preserved {len(open_trades)} active trades.")
 
 
-def send_telegram(text: str) -> bool:
+def send_telegram(text: str, target_chat: Optional[str] = None) -> bool:
     """Sends HTML formatted message to Telegram."""
-    if not TELEGRAM_BOT_TOKEN or not TELEGRAM_CHAT_ID:
-        print("[TELEGRAM] Missing bot token or chat ID.")
+    if not TELEGRAM_BOT_TOKEN:
+        print("[TELEGRAM] Missing bot token.")
+        return False
+    dest = target_chat or TELEGRAM_CHAT_ID
+    if not dest:
+        print("[TELEGRAM] Missing chat ID.")
         return False
     try:
         url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
-        payload = {"chat_id": TELEGRAM_CHAT_ID, "text": text, "parse_mode": "HTML"}
+        payload = {"chat_id": dest, "text": text, "parse_mode": "HTML"}
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
             url,
@@ -988,6 +992,15 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
             send_telegram(tg_msg)
             print(f"[TRIGGER SENT TO TELEGRAM] {t['side']} {t['sym']}")
 
+            # Broadcast to all active subscribers
+            with state_lock:
+                extra_subs = [s for s in daily_state.get("subscribers", []) if str(s) != str(TELEGRAM_CHAT_ID)]
+            for sub_id in extra_subs:
+                try:
+                    send_telegram(tg_msg, target_chat=str(sub_id))
+                except Exception as e:
+                    print(f"[SUB BROADCAST ERROR] {e}")
+
             # Send visual chart snapshot directly to Telegram
             try:
                 chart_img = generate_chart_url(t["sym"], bars, t["entry"], t["sl"], t["tp1"], t["tp2"])
@@ -998,6 +1011,11 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                     f"📈 <a href=\"{tv_url}\">Open Live Chart on TradingView</a>"
                 )
                 send_telegram_photo(chart_img, chart_caption)
+                for sub_id in extra_subs:
+                    try:
+                        send_telegram_photo(chart_img, chart_caption, target_chat=str(sub_id))
+                    except Exception as e:
+                        print(f"[SUB PHOTO BROADCAST ERROR] {e}")
             except Exception as e:
                 print(f"[CHART PHOTO ERROR] {e}")
         summary_text = f"🚨 {len(triggers)} A+ Trade Triggered! Check your MT5."
@@ -1081,15 +1099,71 @@ def telegram_listener() -> None:
                                 save_daily_state()
                                 send_telegram(f"✅ <b>LEARNING GROUP DETECTED!</b>\nID: <code>{chat_id}</code>\nLinked for educational broadcasts.")
 
-                    # Only respond to authorized direct commands
-                    if chat_id != TELEGRAM_CHAT_ID and not chat_id.startswith("-"):
-                        continue
-
                     # Skip messages older than 120 seconds to prevent replaying stale commands
                     if time.time() - msg_date > 120:
                         continue
 
                     cmd = text.split("@")[0].strip()
+
+                    # 1. Welcome Message for ANY user (New Joiner or Existing) when clicking START
+                    if cmd in ("/start", "start"):
+                        user_info = msg.get("from", {})
+                        first_name = user_info.get("first_name", "Trader")
+                        welcome_text = (
+                            f"👋 <b>Welcome {first_name} to TRADING BOY AI TRADING ENGINE!</b>\n\n"
+                            "Your institutional trading assistant is <b>ONLINE & ACTIVE 24/7</b>.\n\n"
+                            "🏛️ <b>Account:</b> TRADING BOY ACCOUNT\n"
+                            "⚡ <b>Strategy:</b> 1H Institutional Dual-Confirmation (Order Flow + POC)\n"
+                            "📊 <b>Watchlist:</b> XAUUSD, EURUSD, GBPUSD, AUDUSD, USDCAD\n"
+                            "🛡️ <b>Risk per Trade:</b> 1.0%\n"
+                            "🎯 <b>Daily Target:</b> Unlimited\n"
+                            "🔒 <b>Max Trades/Day:</b> 3 (Hard Cap)\n"
+                            "⚖️ <b>Twin-Order Model:</b> 1:1 RR (Banker) + 1:2 RR (High-Win Target)\n\n"
+                            "━━━━━━━━━━━━━━━━━━━━━\n"
+                            "🤖 <b>Available Interactive Commands:</b>\n"
+                            "• <b>/status</b> or <b>/scan</b>: Check live market scan & active trades\n"
+                            "• <b>/levels</b>: View Institutional Order Flow Map (POC & Value Area)\n"
+                            "• <b>/chart gold</b>: Instant 1H chart with TP & SL lines\n"
+                            "• <b>/help</b>: View complete interactive guide\n\n"
+                            "🚀 <i>You will automatically receive trade execution tickets whenever an A+ setup confirms at :31 past the hour!</i>"
+                        )
+                        send_telegram(welcome_text, target_chat=chat_id)
+                        print(f"[NEW JOINER] Welcomed {first_name} (Chat ID: {chat_id})")
+
+                        # Save chat_id to subscribers list in daily_state
+                        with state_lock:
+                            subs = daily_state.setdefault("subscribers", [])
+                            if chat_id not in subs:
+                                subs.append(chat_id)
+                                save_daily_state()
+                        continue
+
+                    # 2. Public Help command for anyone
+                    if cmd in ("/help", "help"):
+                        help_text = (
+                            "🤖 <b>TRADING BOY AI Bot Interactive Menu:</b>\n\n"
+                            "• <b>status</b> or <b>scan</b>: Live scan across Elite 5 pairs + view active trades\n"
+                            "• <b>chart [gold/eur/gbp]</b>: Instant 1H chart snapshot with exact TP/SL levels\n"
+                            "• <b>levels</b>: View Institutional Order Flow Map (POC & Value Area)\n"
+                            "• <b>close [gold/eur/all]</b>: Manually mark open position closed to unlock next setup\n"
+                            "• <b>win</b>: Record a winning trade (+1R profit)\n"
+                            "• <b>loss</b>: Record a losing trade (-1R loss)\n"
+                            "• <b>be</b>: Record a breakeven trade (+Order A profit)\n"
+                            "• <b>reset</b>: Reset today's counter to 0/3\n\n"
+                            "📋 <b>Your Trading Rules:</b>\n"
+                            "• Account: <b>TRADING BOY ACCOUNT</b>\n"
+                            "• Risk per Trade: <b>1.0%</b>\n"
+                            "• Max Trades/Day: <b>3 (Hard Cap)</b>\n"
+                            "• Daily Target: <b>Unlimited</b>\n\n"
+                            "⚡ Scans automatically at <b>:31 past every hour</b> (24/7 on cloud)."
+                        )
+                        send_telegram(help_text, target_chat=chat_id)
+                        continue
+
+                    # Only respond to authorized direct commands for admin controls
+                    if chat_id != TELEGRAM_CHAT_ID and not chat_id.startswith("-"):
+                        send_telegram("🔒 <i>Admin access required for account modifications.</i>", target_chat=chat_id)
+                        continue
 
                     if cmd in ("/status", "status", "/scan", "scan", "check"):
                         with state_lock:
@@ -1241,24 +1315,7 @@ def telegram_listener() -> None:
                             )
                             send_telegram_photo(c_url, caption)
 
-                    elif cmd in ("/help", "help", "/start", "start"):
-                        send_telegram(
-                            "🤖 <b>TRADING BOY AI Bot Interactive Menu:</b>\n\n"
-                            "• <b>status</b> or <b>scan</b>: Live scan across Elite 5 pairs + view active trades\n"
-                            "• <b>chart [gold/eur/gbp]</b>: Instant 1H chart snapshot with exact TP/SL levels\n"
-                            "• <b>levels</b>: View Institutional Order Flow Map (POC & Value Area)\n"
-                            "• <b>close [gold/eur/all]</b>: Manually mark open position closed to unlock next setup\n"
-                            "• <b>win</b>: Record a winning trade (+1R profit)\n"
-                            "• <b>loss</b>: Record a losing trade (-1R loss)\n"
-                            "• <b>be</b>: Record a breakeven trade (+Order A profit)\n"
-                            "• <b>reset</b>: Reset today's counter to 0/3\n\n"
-                            "📋 <b>Your Trading Rules:</b>\n"
-                            "• Account: <b>TRADING BOY ACCOUNT</b>\n"
-                            "• Risk per Trade: <b>1.0%</b>\n"
-                            "• Max Trades/Day: <b>3 (Hard Cap)</b>\n"
-                            "• Daily Target: <b>Unlimited</b>\n\n"
-                            "⚡ Scans automatically at <b>:31 past every hour</b> (24/7 on cloud)."
-                        )
+
         except Exception:
             time.sleep(5)
 
