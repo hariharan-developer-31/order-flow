@@ -11,8 +11,20 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
   const handleTestConnection = async () => {
     setTesting(true);
     setTestResult(null);
+
+    const cleanUrl = (inputUrl || '').trim().replace(/\/+$/, '');
+    if (!cleanUrl) {
+      setTimeout(() => {
+        setTestResult({
+          ok: true,
+          msg: 'Simulation Mode active. Using built-in high-fidelity order flow simulation.',
+        });
+        setTesting(false);
+      }, 300);
+      return;
+    }
+
     try {
-      const cleanUrl = inputUrl.replace(/\/+$/, '');
       const res = await fetch(`${cleanUrl}/api/status`, { mode: 'cors' });
       if (res.ok) {
         const data = await res.json();
@@ -21,7 +33,10 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
         setTestResult({ ok: false, msg: `HTTP Error: ${res.status} ${res.statusText}` });
       }
     } catch (e) {
-      setTestResult({ ok: false, msg: `Connection failed: ${e.message}` });
+      setTestResult({
+        ok: false,
+        msg: `Connection failed: ${e.message}. If using Render, ensure your backend service is deployed and running.`,
+      });
     } finally {
       setTesting(false);
     }

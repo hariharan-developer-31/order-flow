@@ -22,10 +22,12 @@ export default function App() {
   const [timeframe, setTimeframe] = useState('1h'); // '5m' | '15m' | '1h' | '4h'
   const [activeView, setActiveView] = useState('all'); // 'all' | 'candles' | 'footprint'
 
-  // Smart API URL resolution: handles localhost, 127.0.0.1, custom ports, or saved URL
+  // Smart API URL resolution: handles localStorage, Vercel env variable, or localhost
   const [apiUrl, setApiUrl] = useState(() => {
     const saved = localStorage.getItem('tb_api_url');
     if (saved !== null) return saved;
+    const envUrl = import.meta.env?.VITE_API_URL;
+    if (envUrl) return envUrl.trim().replace(/\/+$/, '');
     const host = window.location.hostname;
     if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || !host) {
       return 'http://localhost:8080';
