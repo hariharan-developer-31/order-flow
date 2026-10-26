@@ -6,26 +6,41 @@ import FootprintChart from './components/FootprintChart';
 import VolumeProfileHistogram from './components/VolumeProfileHistogram';
 import SignalsFeed from './components/SignalsFeed';
 import SettingsModal from './components/SettingsModal';
+import {
+  getFallbackBars,
+  getFallbackOrderFlow,
+  getFallbackFootprint,
+  getFallbackSignals,
+} from './data/mockData';
 
 const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'AUDUSD', 'USDCAD'];
 
 export default function App() {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');
   const [activeView, setActiveView] = useState('all'); // 'all' | 'candles' | 'footprint'
+
+  // Smart API URL resolution: handles localhost, 127.0.0.1, custom ports, or saved URL
   const [apiUrl, setApiUrl] = useState(() => {
-    return (
-      localStorage.getItem('tb_api_url') ||
-      (window.location.hostname === 'localhost'
-        ? 'http://localhost:8080'
-        : 'https://order-flow-trader.onrender.com')
-    );
+    const saved = localStorage.getItem('tb_api_url');
+    if (saved !== null) return saved;
+    const host = window.location.hostname;
+    // When running locally, default to backend port 8080
+    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || !host) {
+      return 'http://localhost:8080';
+    }
+    // On cloud or Vercel, if not configured, use empty string to stay in Demo Mode until user adds backend
+    return '';
   });
 
-  const [orderFlowData, setOrderFlowData] = useState([]);
-  const [barsData, setBarsData] = useState([]);
-  const [footprintData, setFootprintData] = useState([]);
-  const [signalsData, setSignalsData] = useState(null);
-  const [currentPrice, setCurrentPrice] = useState(null);
+  // Pre-seed state with high-fidelity realistic data immediately so chart & candles NEVER show blank
+  const [orderFlowData, setOrderFlowData] = useState(() => getFallbackOrderFlow('XAUUSD'));
+  const [barsData, setBarsData] = useState(() => getFallbackBars('XAUUSD', 120));
+  const [footprintData, setFootprintData] = useState(() => getFallbackFootprint('XAUUSD', 12));
+  const [signalsData, setSignalsData] = useState(() => getFallbackSignals());
+  const [currentPrice, setCurrentPrice] = useState(() => {
+    const initBars = getFallbackBars('XAUUSD', 1);
+    return initBars[0]?.close || 2742.5;
+  });
 
   const [isConnected, setIsConnected] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,8 +70,25 @@ export default function App() {
     }
   }, [soundEnabled]);
 
-  // Fetch all live data from backend
+  // Handle symbol change smoothly without clearing canvas to blank
+  const handleSelectSymbol = (sym) => {
+    setActiveSymbol(sym);
+    // Instantly populate new symbol's data so there is zero flicker
+    setBarsData(getFallbackBars(sym, 120));
+    setFootprintData(getFallbackFootprint(sym, 12));
+    const of = orderFlowData.find((o) => o.symbol === sym);
+    if (of?.current_price) {
+      setCurrentPrice(of.current_price);
+    }
+  };
+
+  // Fetch all live data from backend (if available)
   const fetchAllData = useCallback(async () => {
+    if (!apiUrl) {
+      setIsConnected(false);
+      return;
+    }
+
     setIsLoading(true);
     const cleanUrl = apiUrl.replace(/\/+$/, '');
 
@@ -65,10 +97,12 @@ export default function App() {
       const ofRes = await fetch(`${cleanUrl}/api/orderflow`, { mode: 'cors' });
       if (ofRes.ok) {
         const ofJson = await ofRes.json();
-        setOrderFlowData(ofJson.orderflow || []);
-        const activeOF = (ofJson.orderflow || []).find((o) => o.symbol === activeSymbol);
-        if (activeOF?.current_price) {
-          setCurrentPrice(activeOF.current_price);
+        if (Array.isArray(ofJson.orderflow) && ofJson.orderflow.length > 0) {
+          setOrderFlowData(ofJson.orderflow);
+          const activeOF = ofJson.orderflow.find((o) => o.symbol === activeSymbol);
+          if (activeOF?.current_price) {
+            setCurrentPrice(activeOF.current_price);
+          }
         }
       }
 
@@ -78,9 +112,11 @@ export default function App() {
       });
       if (barsRes.ok) {
         const barsJson = await barsRes.json();
-        setBarsData(barsJson.bars || []);
-        if (barsJson.live_price) {
-          setCurrentPrice(barsJson.live_price);
+        if (Array.isArray(barsJson.bars) && barsJson.bars.length > 0) {
+          setBarsData(barsJson.bars);
+          if (barsJson.live_price) {
+            setCurrentPrice(barsJson.live_price);
+          }
         }
       }
 
@@ -90,7 +126,9 @@ export default function App() {
       });
       if (fpRes.ok) {
         const fpJson = await fpRes.json();
-        setFootprintData(fpJson.footprint || []);
+        if (Array.isArray(fpJson.footprint) && fpJson.footprint.length > 0) {
+          setFootprintData(fpJson.footprint);
+        }
       }
 
       // 4. Fetch Live Signals
@@ -109,7 +147,8 @@ export default function App() {
 
       setIsConnected(true);
     } catch (err) {
-      console.warn('API Fetch error:', err);
+      // Backend offline or unreachable — keep displaying high-fidelity simulation
+      console.info('[TERMINAL] Backend offline. Running high-fidelity simulation mode.');
       setIsConnected(false);
     } finally {
       setIsLoading(false);
@@ -123,9 +162,32 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
+  // Subtle live tick generator when in offline / simulation mode to keep charts feeling alive
+  useEffect(() => {
+    if (isConnected) return;
+
+    const tickInterval = setInterval(() => {
+      setBarsData((prevBars) => {
+        if (!prevBars || prevBars.length === 0) return prevBars;
+        const last = { ...prevBars[prevBars.length - 1] };
+        const microNoise = (Math.random() - 0.5) * (activeSymbol === 'XAUUSD' ? 0.4 : 0.00015);
+        const newClose = Number((last.close + microNoise).toFixed(activeSymbol === 'XAUUSD' ? 2 : 5));
+        const newHigh = Math.max(last.high, newClose);
+        const newLow = Math.min(last.low, newClose);
+        const updated = [...prevBars.slice(0, -1), { ...last, close: newClose, high: newHigh, low: newLow }];
+        setCurrentPrice(newClose);
+        return updated;
+      });
+    }, 3000);
+
+    return () => clearInterval(tickInterval);
+  }, [isConnected, activeSymbol]);
+
   const handleSaveApiUrl = (newUrl) => {
-    setApiUrl(newUrl);
-    localStorage.setItem('tb_api_url', newUrl);
+    const trimmed = newUrl ? newUrl.trim().replace(/\/+$/, '') : '';
+    setApiUrl(trimmed);
+    localStorage.setItem('tb_api_url', trimmed);
+    setTimeout(fetchAllData, 100);
   };
 
   const decimals = activeSymbol === 'XAUUSD' ? 2 : 5;
@@ -135,11 +197,7 @@ export default function App() {
       {/* 1. Top Navigation & Ticker Header */}
       <Header
         activeSymbol={activeSymbol}
-        onSelectSymbol={(sym) => {
-          setActiveSymbol(sym);
-          setBarsData([]);
-          setFootprintData([]);
-        }}
+        onSelectSymbol={handleSelectSymbol}
         symbols={SYMBOLS}
         orderFlowData={orderFlowData}
         currentPrice={currentPrice}
@@ -205,12 +263,16 @@ export default function App() {
       <footer className="bg-white border-t border-slate-200 mt-auto py-3 px-6 text-xs text-slate-500">
         <div className="max-w-[1720px] mx-auto flex flex-wrap items-center justify-between gap-3 font-mono">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
             <span>TRADING BOY AI TRADING ENGINE</span>
             <span className="text-slate-300">|</span>
             <span>Twin Orders: 1:1 + 1:2 RR</span>
             <span className="text-slate-300">|</span>
             <span>Risk: 1.0%</span>
+            <span className="text-slate-300">|</span>
+            <span className={isConnected ? 'text-emerald-600 font-bold' : 'text-amber-600 font-semibold'}>
+              {isConnected ? 'LIVE ENGINE SYNCED' : 'SIMULATION MODE'}
+            </span>
           </div>
 
           <div className="flex items-center gap-4 text-slate-400">

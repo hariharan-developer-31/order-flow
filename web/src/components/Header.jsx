@@ -177,16 +177,20 @@ export default function Header({
             </div>
 
             {/* Connection Indicator */}
-            <div className="flex items-center gap-1.5 pl-2 border-l border-slate-200">
+            <button
+              onClick={onOpenSettings}
+              className="flex items-center gap-1.5 pl-2.5 py-1 pr-1.5 border-l border-slate-200 hover:bg-slate-50 rounded-lg transition"
+              title={isConnected ? 'Connected to TRADING BOY Backend API' : 'Simulation Mode (Click to connect Live Backend)'}
+            >
               <span
                 className={`w-2.5 h-2.5 rounded-full ${
-                  isConnected ? 'bg-emerald-500 ring-2 ring-emerald-200' : 'bg-rose-500 ring-2 ring-rose-200'
+                  isConnected ? 'bg-emerald-500 ring-2 ring-emerald-200 animate-pulse' : 'bg-amber-400 ring-2 ring-amber-100'
                 }`}
               ></span>
-              <span className="text-[11px] font-semibold text-slate-500 hidden xl:inline">
-                {isConnected ? 'API Live' : 'Connecting'}
+              <span className="text-[11px] font-semibold text-slate-600 hidden xl:inline">
+                {isConnected ? 'API Live' : 'Simulation Mode'}
               </span>
-            </div>
+            </button>
           </div>
         </div>
       </div>

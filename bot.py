@@ -1487,6 +1487,47 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
         path = parsed.path.rstrip("/")
         query = urllib.parse.parse_qs(parsed.query)
 
+        # Serve static web terminal if built (cloud_bot/web/dist)
+        dist_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "web", "dist")
+        if os.path.exists(dist_dir) and not path.startswith("/api") and path != "/health":
+            clean_p = parsed.path.lstrip("/")
+            if not clean_p or clean_p == "index.html":
+                index_path = os.path.join(dist_dir, "index.html")
+                if os.path.exists(index_path):
+                    with open(index_path, "rb") as f:
+                        content = f.read()
+                    self.send_response(200)
+                    self.send_header("Content-Type", "text/html; charset=utf-8")
+                    self.send_header("Content-Length", str(len(content)))
+                    self.end_headers()
+                    self.wfile.write(content)
+                    return
+
+            asset_path = os.path.join(dist_dir, clean_p)
+            if os.path.exists(asset_path) and os.path.isfile(asset_path):
+                mime = "application/octet-stream"
+                if clean_p.endswith(".js"):
+                    mime = "application/javascript"
+                elif clean_p.endswith(".css"):
+                    mime = "text/css"
+                elif clean_p.endswith(".html"):
+                    mime = "text/html"
+                elif clean_p.endswith(".svg"):
+                    mime = "image/svg+xml"
+                elif clean_p.endswith(".png"):
+                    mime = "image/png"
+                elif clean_p.endswith(".json"):
+                    mime = "application/json"
+
+                with open(asset_path, "rb") as f:
+                    content = f.read()
+                self.send_response(200)
+                self.send_header("Content-Type", mime)
+                self.send_header("Content-Length", str(len(content)))
+                self.end_headers()
+                self.wfile.write(content)
+                return
+
         # 1. Healthcheck / Ping root
         if path in ("", "/health"):
             self._set_cors_headers(200)

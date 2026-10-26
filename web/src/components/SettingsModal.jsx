@@ -74,20 +74,27 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
             <span className="text-[11px] font-bold text-slate-500 block mb-1.5 uppercase">
               Quick Presets
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 onClick={() => setInputUrl('http://localhost:8080')}
                 className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
               >
-                Local Engine (:8080)
+                Localhost (:8080)
               </button>
               <button
                 type="button"
-                onClick={() => setInputUrl('https://order-flow-trader.onrender.com')}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 transition"
+                onClick={() => setInputUrl('http://127.0.0.1:8080')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 hover:bg-slate-200 text-slate-700 transition"
               >
-                Render Cloud Default
+                127.0.0.1 (:8080)
+              </button>
+              <button
+                type="button"
+                onClick={() => setInputUrl('')}
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition"
+              >
+                Simulation / Demo
               </button>
             </div>
           </div>

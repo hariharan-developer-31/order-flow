@@ -9,21 +9,41 @@ export default function CandleChart({ symbol, barsData, orderFlowData, decimals 
   const priceLinesRef = useRef([]);
 
   const [hoverData, setHoverData] = useState(null);
+  const [lwReady, setLwReady] = useState(() => !!window.LightweightCharts);
 
   const of = orderFlowData?.find((o) => o.symbol === symbol);
 
+  // Poll for window.LightweightCharts if it was slow to load from CDN
+  useEffect(() => {
+    if (window.LightweightCharts) {
+      setLwReady(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (window.LightweightCharts) {
+        setLwReady(true);
+        clearInterval(interval);
+      }
+    }, 150);
+    return () => clearInterval(interval);
+  }, []);
+
+  // 1. Initialize Chart instance with Pristine White Theme
   useEffect(() => {
     if (!chartContainerRef.current || !window.LightweightCharts) return;
 
     // Clean up previous instance
     if (chartRef.current) {
-      chartRef.current.remove();
+      try {
+        chartRef.current.remove();
+      } catch (e) {}
       chartRef.current = null;
     }
 
-    // 1. Initialize Chart with Pristine White Theme
+    const containerWidth = chartContainerRef.current.clientWidth || 800;
+
     const chart = window.LightweightCharts.createChart(chartContainerRef.current, {
-      width: chartContainerRef.current.clientWidth,
+      width: containerWidth,
       height: 480,
       layout: {
         background: { type: 'solid', color: '#ffffff' },
@@ -61,7 +81,7 @@ export default function CandleChart({ symbol, barsData, orderFlowData, decimals 
       },
     });
 
-    // 2. Add Candlestick Series (Crisp green/red)
+    // Candlestick Series (Crisp green / red)
     const candleSeries = chart.addCandlestickSeries({
       upColor: '#10b981',
       downColor: '#ef4444',
@@ -77,7 +97,7 @@ export default function CandleChart({ symbol, barsData, orderFlowData, decimals 
       },
     });
 
-    // 3. Add Volume Histogram at bottom
+    // Volume Histogram at bottom
     const volumeSeries = chart.addHistogramSeries({
       priceFormat: { type: 'volume' },
       priceScaleId: '',
@@ -95,10 +115,10 @@ export default function CandleChart({ symbol, barsData, orderFlowData, decimals 
     chart.subscribeCrosshairMove((param) => {
       if (
         !param.time ||
-        param.point.x < 0 ||
-        param.point.x > chartContainerRef.current.clientWidth ||
-        param.point.y < 0 ||
-        param.point.y > chartContainerRef.current.clientHeight
+        param.point?.x < 0 ||
+        param.point?.x > chartContainerRef.current?.clientWidth ||
+        param.point?.y < 0 ||
+        param.point?.y > chartContainerRef.current?.clientHeight
       ) {
         setHoverData(null);
       } else {
@@ -126,41 +146,65 @@ export default function CandleChart({ symbol, barsData, orderFlowData, decimals 
     return () => {
       window.removeEventListener('resize', handleResize);
       if (chartRef.current) {
-        chartRef.current.remove();
+        try {
+          chartRef.current.remove();
+        } catch (e) {}
         chartRef.current = null;
       }
     };
-  }, [decimals]);
+  }, [decimals, lwReady]);
 
-  // Update Candlestick and Volume Data
+  // 2. Update Candlestick and Volume Data
   useEffect(() => {
     if (!barsData || barsData.length === 0 || !candleSeriesRef.current || !volumeSeriesRef.current) {
       return;
     }
 
-    const formattedBars = barsData.map((b) => ({
-      time: b.time,
-      open: b.open,
-      high: b.high,
-      low: b.low,
-      close: b.close,
-    }));
+    try {
+      // Deduplicate and strictly sort bars ascending by timestamp
+      const timeMap = new Map();
+      barsData.forEach((b) => {
+        const t = Math.floor(Number(b.time));
+        if (!isNaN(t) && b.open != null && b.close != null) {
+          timeMap.set(t, {
+            time: t,
+            open: Number(b.open),
+            high: Number(b.high),
+            low: Number(b.low),
+            close: Number(b.close),
+            volume: Number(b.volume || 1),
+          });
+        }
+      });
 
-    const formattedVolumes = barsData.map((b) => ({
-      time: b.time,
-      value: b.volume || 1.0,
-      color: b.close >= b.open ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)',
-    }));
+      const sortedBars = Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
 
-    candleSeriesRef.current.setData(formattedBars);
-    volumeSeriesRef.current.setData(formattedVolumes);
+      const formattedBars = sortedBars.map((b) => ({
+        time: b.time,
+        open: b.open,
+        high: b.high,
+        low: b.low,
+        close: b.close,
+      }));
 
-    if (chartRef.current) {
-      chartRef.current.timeScale().fitContent();
+      const formattedVolumes = sortedBars.map((b) => ({
+        time: b.time,
+        value: b.volume || 1.0,
+        color: b.close >= b.open ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)',
+      }));
+
+      candleSeriesRef.current.setData(formattedBars);
+      volumeSeriesRef.current.setData(formattedVolumes);
+
+      if (chartRef.current) {
+        chartRef.current.timeScale().fitContent();
+      }
+    } catch (err) {
+      console.warn('[CHART] Error applying bar data:', err);
     }
-  }, [barsData]);
+  }, [barsData, lwReady]);
 
-  // Update Institutional Order Flow Price Lines (POC, VAH, VAL, PDH, PDL)
+  // 3. Update Institutional Order Flow Price Lines (POC, VAH, VAL, PDH, PDL)
   useEffect(() => {
     if (!candleSeriesRef.current || !of) return;
 
@@ -174,69 +218,79 @@ export default function CandleChart({ symbol, barsData, orderFlowData, decimals 
 
     // 1. Point of Control (Gold Solid Line)
     if (of.pPOC) {
-      const pocLine = candleSeriesRef.current.createPriceLine({
-        price: of.pPOC,
-        color: '#d97706',
-        lineWidth: 2,
-        lineStyle: 0, // Solid
-        axisLabelVisible: true,
-        title: `POC: ${of.pPOC.toFixed(decimals)}`,
-      });
-      priceLinesRef.current.push(pocLine);
+      try {
+        const pocLine = candleSeriesRef.current.createPriceLine({
+          price: of.pPOC,
+          color: '#d97706',
+          lineWidth: 2,
+          lineStyle: 0, // Solid
+          axisLabelVisible: true,
+          title: `POC: ${of.pPOC.toFixed(decimals)}`,
+        });
+        priceLinesRef.current.push(pocLine);
+      } catch (e) {}
     }
 
     // 2. Value Area High (VAH - Blue Line)
     if (of.pVAH) {
-      const vahLine = candleSeriesRef.current.createPriceLine({
-        price: of.pVAH,
-        color: '#2563eb',
-        lineWidth: 1.5,
-        lineStyle: 2, // Dashed
-        axisLabelVisible: true,
-        title: `VAH: ${of.pVAH.toFixed(decimals)}`,
-      });
-      priceLinesRef.current.push(vahLine);
+      try {
+        const vahLine = candleSeriesRef.current.createPriceLine({
+          price: of.pVAH,
+          color: '#2563eb',
+          lineWidth: 1.5,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: `VAH: ${of.pVAH.toFixed(decimals)}`,
+        });
+        priceLinesRef.current.push(vahLine);
+      } catch (e) {}
     }
 
     // 3. Value Area Low (VAL - Blue Line)
     if (of.pVAL) {
-      const valLine = candleSeriesRef.current.createPriceLine({
-        price: of.pVAL,
-        color: '#2563eb',
-        lineWidth: 1.5,
-        lineStyle: 2, // Dashed
-        axisLabelVisible: true,
-        title: `VAL: ${of.pVAL.toFixed(decimals)}`,
-      });
-      priceLinesRef.current.push(valLine);
+      try {
+        const valLine = candleSeriesRef.current.createPriceLine({
+          price: of.pVAL,
+          color: '#2563eb',
+          lineWidth: 1.5,
+          lineStyle: 2, // Dashed
+          axisLabelVisible: true,
+          title: `VAL: ${of.pVAL.toFixed(decimals)}`,
+        });
+        priceLinesRef.current.push(valLine);
+      } catch (e) {}
     }
 
-    // 4. Prior Day High (PDH)
+    // 4. Prior Day High (PDH - Slate Dashed)
     if (of.pHigh) {
-      const pdhLine = candleSeriesRef.current.createPriceLine({
-        price: of.pHigh,
-        color: '#10b981',
-        lineWidth: 1,
-        lineStyle: 3, // Dotted
-        axisLabelVisible: true,
-        title: `PDH: ${of.pHigh.toFixed(decimals)}`,
-      });
-      priceLinesRef.current.push(pdhLine);
+      try {
+        const pdhLine = candleSeriesRef.current.createPriceLine({
+          price: of.pHigh,
+          color: '#64748b',
+          lineWidth: 1,
+          lineStyle: 1, // Dotted
+          axisLabelVisible: true,
+          title: `PDH: ${of.pHigh.toFixed(decimals)}`,
+        });
+        priceLinesRef.current.push(pdhLine);
+      } catch (e) {}
     }
 
-    // 5. Prior Day Low (PDL)
+    // 5. Prior Day Low (PDL - Slate Dashed)
     if (of.pLow) {
-      const pdlLine = candleSeriesRef.current.createPriceLine({
-        price: of.pLow,
-        color: '#ef4444',
-        lineWidth: 1,
-        lineStyle: 3, // Dotted
-        axisLabelVisible: true,
-        title: `PDL: ${of.pLow.toFixed(decimals)}`,
-      });
-      priceLinesRef.current.push(pdlLine);
+      try {
+        const pdlLine = candleSeriesRef.current.createPriceLine({
+          price: of.pLow,
+          color: '#64748b',
+          lineWidth: 1,
+          lineStyle: 1, // Dotted
+          axisLabelVisible: true,
+          title: `PDL: ${of.pLow.toFixed(decimals)}`,
+        });
+        priceLinesRef.current.push(pdlLine);
+      } catch (e) {}
     }
-  }, [of, decimals]);
+  }, [of, decimals, lwReady]);
 
   const latestBar = barsData && barsData.length > 0 ? barsData[barsData.length - 1] : null;
   const displayBar = hoverData || latestBar;
