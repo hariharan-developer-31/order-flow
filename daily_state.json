@@ -1,0 +1,12 @@
+{
+  "date": "",
+  "trades_count": 0,
+  "pnl": 0.0,
+  "trades_list": [],
+  "consecutive_losses": 0,
+  "last_loss_ts": 0.0,
+  "pair_cooldowns": {},
+  "learning_channel_id": "",
+  "triggered_candles": {},
+  "active_trades": []
+}

@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: fundingpips-cloud-trader
+    env: python
+    buildCommand: ""
+    startCommand: python bot.py
+    plan: free
+    envVars:
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false
+      - key: LEARNING_CHANNEL_ID
+        sync: false
+      - key: TARGET_RISK_PER_TRADE
+        value: "45.0"
+      - key: RENDER_EXTERNAL_URL
+        sync: false
