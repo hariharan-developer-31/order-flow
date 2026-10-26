@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
-import { createChart, CrosshairMode } from 'lightweight-charts';
+import { createChart, CrosshairMode, CandlestickSeries } from 'lightweight-charts';
 import {
   Maximize2,
   Minimize2,
@@ -169,8 +169,8 @@ export default function CandleChart({
       return;
     }
 
-    // Candlestick Series (Crisp green / red)
-    const candleSeries = chart.addCandlestickSeries({
+    // Candlestick Series (Crisp green / red - compatible with lightweight-charts v4 and v5)
+    const candleOptions = {
       upColor: '#10b981',
       downColor: '#ef4444',
       borderVisible: true,
@@ -183,7 +183,11 @@ export default function CandleChart({
         precision: decimals,
         minMove: 1 / Math.pow(10, decimals),
       },
-    });
+    };
+
+    const candleSeries = typeof chart.addSeries === 'function' && CandlestickSeries
+      ? chart.addSeries(CandlestickSeries, candleOptions)
+      : chart.addCandlestickSeries(candleOptions);
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
