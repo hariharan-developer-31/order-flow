@@ -69,8 +69,8 @@ export default function App() {
     }
   }, [soundEnabled]);
 
-  // Handle symbol change smoothly without clearing canvas to blank
-  const handleSelectSymbol = (sym) => {
+  // Handle symbol change smoothly
+  const handleSelectSymbol = async (sym) => {
     setActiveSymbol(sym);
     setBarsData(getFallbackBars(sym, 120, timeframe));
     setFootprintData(getFallbackFootprint(sym, 12, timeframe));
@@ -78,13 +78,47 @@ export default function App() {
     if (of?.current_price) {
       setCurrentPrice(of.current_price);
     }
+
+    if (apiUrl) {
+      try {
+        const cleanUrl = apiUrl.replace(/\/+$/, '');
+        const res = await fetch(`${cleanUrl}/api/bars?symbol=${sym}&timeframe=${timeframe}&limit=120`, { mode: 'cors' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.bars) && json.bars.length > 0) {
+            setBarsData(json.bars);
+            if (json.live_price) setCurrentPrice(json.live_price);
+          }
+        }
+      } catch (e) {
+        console.warn('Direct symbol fetch:', e);
+      }
+    }
   };
 
-  // Handle timeframe change smoothly
-  const handleSelectTimeframe = (newTf) => {
+  // Handle timeframe change smoothly and fetch bars immediately
+  const handleSelectTimeframe = async (newTf) => {
     setTimeframe(newTf);
+    // 1. Instantly swap to distinct timeframe bars so chart changes visibly and instantly
     setBarsData(getFallbackBars(activeSymbol, 120, newTf));
     setFootprintData(getFallbackFootprint(activeSymbol, 12, newTf));
+
+    // 2. Directly fetch live bars for new timeframe from backend without delay
+    if (apiUrl) {
+      try {
+        const cleanUrl = apiUrl.replace(/\/+$/, '');
+        const res = await fetch(`${cleanUrl}/api/bars?symbol=${activeSymbol}&timeframe=${newTf}&limit=120`, { mode: 'cors' });
+        if (res.ok) {
+          const json = await res.json();
+          if (Array.isArray(json.bars) && json.bars.length > 0) {
+            setBarsData(json.bars);
+            if (json.live_price) setCurrentPrice(json.live_price);
+          }
+        }
+      } catch (e) {
+        console.warn('Direct timeframe fetch:', e);
+      }
+    }
   };
 
   // Fetch all live data from backend (if available)

@@ -328,13 +328,14 @@ export default function CandleChart({
       candleSeriesRef.current.setData(sortedBars);
 
       if (chartRef.current) {
+        chartRef.current.timeScale().resetTimeScale();
         chartRef.current.timeScale().fitContent();
       }
       setTimeout(renderInChartProfile, 80);
     } catch (err) {
       console.warn('[CHART] Error applying bar data:', err);
     }
-  }, [barsData, lwReady, chartView]);
+  }, [barsData, lwReady, chartView, timeframe]);
 
   // 3. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
   useEffect(() => {
@@ -699,7 +700,10 @@ export default function CandleChart({
 
           {/* OHLC Bar Legend (Candles View) */}
           {chartView === 'candles' && displayBar && (
-            <div className="hidden xl:flex items-center gap-3 text-xs font-mono text-slate-500">
+            <div className="hidden xl:flex items-center gap-2.5 text-xs font-mono text-slate-500">
+              <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 uppercase">
+                {timeframe} Candle
+              </span>
               <span>O: <b className="text-slate-900">{displayBar.open?.toFixed(decimals)}</b></span>
               <span>H: <b className="text-emerald-700">{displayBar.high?.toFixed(decimals)}</b></span>
               <span>L: <b className="text-rose-700">{displayBar.low?.toFixed(decimals)}</b></span>

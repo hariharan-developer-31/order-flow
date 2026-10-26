@@ -68,18 +68,20 @@ const BASE_SPECS = {
 };
 
 const TF_MAP = {
-  '5m': { seconds: 300, volMult: 0.28, volQty: 0.1 },
-  '15m': { seconds: 900, volMult: 0.52, volQty: 0.25 },
-  '1h': { seconds: 3600, volMult: 1.0, volQty: 1.0 },
-  '4h': { seconds: 14400, volMult: 2.1, volQty: 4.0 },
+  '5m': { seconds: 300, volMult: 0.22, volQty: 0.08, waveP: 2.6, noiseP: 3.7, trendP: 14.0 },
+  '15m': { seconds: 900, volMult: 0.45, volQty: 0.22, waveP: 5.1, noiseP: 2.7, trendP: 24.0 },
+  '1h': { seconds: 3600, volMult: 1.0, volQty: 1.0, waveP: 8.5, noiseP: 1.8, trendP: 45.0 },
+  '4h': { seconds: 14400, volMult: 2.2, volQty: 3.8, waveP: 16.5, noiseP: 1.1, trendP: 65.0 },
 };
 
 /**
- * Generate historical candlestick bars for any timeframe (5m, 15m, 1h, 4h)
+ * Generate historical candlestick bars for any timeframe (5m, 15m, 1h, 4h).
+ * Each timeframe features its own distinct market wave dynamics and microstructure.
  */
 export function getFallbackBars(symbol = 'XAUUSD', count = 100, timeframe = '1h') {
   const spec = BASE_SPECS[symbol] || BASE_SPECS.XAUUSD;
-  const tf = TF_MAP[timeframe.toLowerCase()] || TF_MAP['1h'];
+  const tfKey = (timeframe || '1h').toLowerCase();
+  const tf = TF_MAP[tfKey] || TF_MAP['1h'];
 
   const now = Math.floor(Date.now() / 1000);
   const step = tf.seconds;
@@ -87,24 +89,26 @@ export function getFallbackBars(symbol = 'XAUUSD', count = 100, timeframe = '1h'
 
   const adjustedVol = spec.volatility * tf.volMult;
   const bars = [];
-  let currentPrice = spec.basePrice - (count / 2) * (adjustedVol * 0.12);
+  let currentPrice = spec.basePrice - (count / 2) * (adjustedVol * 0.08);
 
   for (let i = 0; i < count; i++) {
     const barTs = startTs + i * step;
-    const wave = Math.sin(i / 7.2) * adjustedVol * 1.3;
-    const microNoise = Math.sin(i * 2.1) * (adjustedVol * 0.55);
-    const trendStep = (i / count - 0.5) * adjustedVol * 1.8;
+
+    // Distinct waveform per timeframe
+    const wave = Math.sin(i / tf.waveP) * adjustedVol * 1.25;
+    const microNoise = Math.sin(i * tf.noiseP) * Math.cos(i * 1.2) * (adjustedVol * 0.45);
+    const trend = Math.sin(i / tf.trendP) * adjustedVol * 1.6;
 
     const open = Number(currentPrice.toFixed(spec.decimals));
-    const delta = wave + microNoise + trendStep;
+    const delta = wave + microNoise + (trend * 0.3);
     const close = Number((open + delta).toFixed(spec.decimals));
 
-    const wickHigh = Math.abs(Math.sin(i * 2.7)) * adjustedVol * 0.75;
-    const wickLow = Math.abs(Math.cos(i * 2.4)) * adjustedVol * 0.75;
+    const wickHigh = Math.abs(Math.sin(i * 2.5 + tf.waveP)) * adjustedVol * 0.65;
+    const wickLow = Math.abs(Math.cos(i * 2.3 + tf.waveP)) * adjustedVol * 0.65;
 
     const high = Number((Math.max(open, close) + wickHigh).toFixed(spec.decimals));
     const low = Number((Math.min(open, close) - wickLow).toFixed(spec.decimals));
-    const volume = Math.round(spec.typicalVolume * tf.volQty * (0.6 + Math.abs(Math.sin(i * 0.8)) * 0.8));
+    const volume = Math.round(spec.typicalVolume * tf.volQty * (0.6 + Math.abs(Math.sin(i * 0.7)) * 0.7));
 
     bars.push({
       time: barTs,
