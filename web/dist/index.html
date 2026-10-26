@@ -2,8 +2,20 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
     <title>TRADING BOY | Live Order Flow, Volume Profile & Footprint Terminal</title>
+
+    <!-- PWA & Mobile Meta Tags -->
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#0284c7" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="TradingBoy" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="application-name" content="TradingBoy" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
@@ -16,6 +28,11 @@
       tailwind.config = {
         theme: {
           extend: {
+            screens: {
+              'xs': '420px',
+              '3xl': '1920px',
+              '4k': '2560px',
+            },
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace'],
@@ -61,7 +78,7 @@
         background: #94a3b8;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-DkGuMNOC.js"></script>
+    <script type="module" crossorigin src="/assets/index-D3vhJfpx.js"></script>
   </head>
   <body class="bg-slate-50 text-slate-900 antialiased min-h-screen">
     <div id="root"></div>

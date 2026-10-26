@@ -72,37 +72,37 @@ export default function Header({
 
   return (
     <header className="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-      <div className="max-w-[1720px] mx-auto px-4 sm:px-6 py-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto px-3 sm:px-6 3xl:px-10 py-2 sm:py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
           {/* Logo & Brand */}
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-extrabold text-lg shadow-md shadow-blue-500/20">
+          <div className="flex items-center gap-2.5 sm:gap-3">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-blue-600 text-white flex items-center justify-center font-extrabold text-base sm:text-lg shadow-md shadow-blue-500/20 shrink-0">
               TB
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-base font-bold tracking-tight text-slate-900">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <h1 className="text-sm sm:text-base font-black tracking-tight text-slate-900">
                   TRADING BOY
                 </h1>
-                <span className="text-[10px] font-semibold tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="text-[9px] sm:text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   Order Flow Pro
                 </span>
               </div>
-              <p className="text-xs text-slate-500 font-medium hidden sm:block">
+              <p className="text-[11px] text-slate-500 font-medium hidden md:block">
                 Institutional Volume Profile & Footprint Terminal
               </p>
             </div>
           </div>
 
-          {/* Asset Switcher Tabs */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200">
+          {/* Asset Switcher Tabs (Horizontally scrollable on mobile) */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto max-w-full no-scrollbar shrink-0">
             {symbols.map((sym) => {
               const active = sym === activeSymbol;
               return (
                 <button
                   key={sym}
                   onClick={() => onSelectSymbol(sym)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${
+                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
                     active
                       ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
                       : 'text-slate-600 hover:text-slate-900'

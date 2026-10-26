@@ -64,6 +64,15 @@ export default function CandleChart({
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const symbolDisplay = symbol === 'XAUUSD' ? 'XAUUSD (OANDA)' : symbol;
 
+  const getResponsiveHeight = useCallback(() => {
+    if (isFullscreen) return Math.max(380, window.innerHeight - 110);
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    if (w >= 2560) return 740; // 4K / Ultrawide
+    if (w >= 1920) return 620; // 1080p Full HD
+    if (w < 640) return 420;  // Mobile
+    return 540;               // Tablet & Laptop
+  }, [isFullscreen]);
+
   // 1. Live Candle Countdown Timer (Second-by-Second Countdown)
   useEffect(() => {
     const updateCountdown = () => {
@@ -116,7 +125,7 @@ export default function CandleChart({
     }
 
     const containerWidth = chartContainerRef.current.clientWidth || 800;
-    const chartHeight = isFullscreen ? window.innerHeight - 110 : 540;
+    const chartHeight = getResponsiveHeight();
 
     let chart;
     try {
@@ -218,7 +227,7 @@ export default function CandleChart({
     // Resize observer
     const handleResize = () => {
       if (chartContainerRef.current && chartRef.current) {
-        const newH = isFullscreen ? window.innerHeight - 110 : 540;
+        const newH = getResponsiveHeight();
         chartRef.current.applyOptions({
           width: chartContainerRef.current.clientWidth,
           height: newH,
@@ -781,7 +790,7 @@ export default function CandleChart({
 
         {/* View 1: Candlestick Chart + Left-Corner Volume Profile + Right Corner Countdown */}
         {chartView === 'candles' && (
-          <div className="flex-1 relative overflow-hidden" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
+          <div className="flex-1 relative overflow-hidden" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : `${getResponsiveHeight()}px` }}>
             {/* Pure Candlestick Canvas */}
             <div ref={chartContainerRef} className="w-full h-full" />
 
@@ -945,7 +954,7 @@ export default function CandleChart({
 
         {/* In-Chart Footprint View */}
         {chartView === 'footprint' && (
-          <div className="flex-1 p-4 bg-slate-50/50 overflow-x-auto flex flex-col" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : '540px' }}>
+          <div className="flex-1 p-4 bg-slate-50/50 overflow-x-auto flex flex-col" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : `${getResponsiveHeight()}px` }}>
             <div className="mb-2.5 flex items-center justify-between px-1 shrink-0">
               <div className="flex items-center gap-2">
                 <span className="text-xs font-black text-slate-800">

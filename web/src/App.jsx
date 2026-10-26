@@ -7,6 +7,7 @@ import FootprintChart from './components/FootprintChart';
 import VolumeProfileHistogram from './components/VolumeProfileHistogram';
 import SignalsFeed from './components/SignalsFeed';
 import SettingsModal from './components/SettingsModal';
+import BottomNav from './components/BottomNav';
 import {
   getFallbackBars,
   getFallbackOrderFlow,
@@ -213,6 +214,15 @@ export default function App() {
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
+  // Register Progressive Web App (PWA) Service Worker
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .register('/sw.js')
+        .catch((err) => console.info('[PWA] Service worker note:', err));
+    }
+  }, []);
+
   // Subtle live tick generator when in offline / simulation mode to keep charts feeling alive
   useEffect(() => {
     if (isConnected) return;
@@ -268,8 +278,8 @@ export default function App() {
         onChangeView={setActiveView}
       />
 
-      {/* 2. Main Terminal Content */}
-      <main className="flex-1 max-w-[1720px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+      {/* 2. Main Terminal Content (Mobile to 4K Responsive Grid) */}
+      <main className="flex-1 max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] w-full mx-auto px-2 sm:px-4 md:px-6 3xl:px-10 py-3 sm:py-6 space-y-4 sm:space-y-6 pb-24 lg:pb-8">
         {/* Order Flow Top Cards (100% Synchronized with Chart VP) */}
         <OrderFlowCards
           symbol={activeSymbol}
@@ -279,53 +289,61 @@ export default function App() {
         />
 
         {/* Charting & Execution Layout */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-          {/* Main Visuals Column (8 cols on XL) */}
-          <div className="xl:col-span-8 space-y-6">
+        <div className="grid grid-cols-1 xl:grid-cols-12 3xl:grid-cols-12 gap-4 sm:gap-6 items-start">
+          {/* Main Visuals Column (8 cols on XL/3XL) */}
+          <div className="xl:col-span-8 3xl:col-span-8 space-y-4 sm:space-y-6">
             {/* Candlestick & In-Chart Footprint/Volume Profile Terminal */}
             {(activeView === 'all' || activeView === 'candles') && (
-              <CandleChart
-                symbol={activeSymbol}
-                barsData={barsData}
-                footprintData={footprintData}
-                orderFlowData={orderFlowData}
-                activeVP={activeVP}
-                timeframe={timeframe}
-                onSelectTimeframe={handleSelectTimeframe}
-                decimals={decimals}
-              />
+              <div id="chart-section">
+                <CandleChart
+                  symbol={activeSymbol}
+                  barsData={barsData}
+                  footprintData={footprintData}
+                  orderFlowData={orderFlowData}
+                  activeVP={activeVP}
+                  timeframe={timeframe}
+                  onSelectTimeframe={handleSelectTimeframe}
+                  decimals={decimals}
+                />
+              </div>
             )}
 
             {/* Standalone Footprint Clusters Matrix View */}
             {(activeView === 'all' || activeView === 'footprint') && (
-              <FootprintChart
-                symbol={activeSymbol}
-                footprintData={footprintData}
-                timeframe={timeframe}
-                decimals={decimals}
-              />
+              <div id="footprint-section">
+                <FootprintChart
+                  symbol={activeSymbol}
+                  footprintData={footprintData}
+                  timeframe={timeframe}
+                  decimals={decimals}
+                />
+              </div>
             )}
           </div>
 
-          {/* Right Rail: Volume Profile Depth & Telegram Signals (4 cols on XL) */}
-          <div className="xl:col-span-4 space-y-6">
+          {/* Right Rail: Volume Profile Depth & Telegram Signals (4 cols on XL/3XL) */}
+          <div className="xl:col-span-4 3xl:col-span-4 space-y-4 sm:space-y-6">
             {/* Live Signals & MT5 Tickets */}
-            <SignalsFeed signalsData={signalsData} />
+            <div id="signals-section">
+              <SignalsFeed signalsData={signalsData} />
+            </div>
 
             {/* Horizontal Volume Profile Ladder (100% Synchronized with Chart VP) */}
-            <VolumeProfileHistogram
-              symbol={activeSymbol}
-              orderFlowData={orderFlowData}
-              activeVP={activeVP}
-              decimals={decimals}
-            />
+            <div id="volume-profile-section">
+              <VolumeProfileHistogram
+                symbol={activeSymbol}
+                orderFlowData={orderFlowData}
+                activeVP={activeVP}
+                decimals={decimals}
+              />
+            </div>
           </div>
         </div>
       </main>
 
       {/* 3. Footer Bar */}
-      <footer className="bg-white border-t border-slate-200 mt-auto py-3 px-6 text-xs text-slate-500">
-        <div className="max-w-[1720px] mx-auto flex flex-wrap items-center justify-between gap-3 font-mono">
+      <footer className="bg-white border-t border-slate-200 mt-auto py-3 px-4 sm:px-6 text-xs text-slate-500 mb-16 lg:mb-0">
+        <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto flex flex-wrap items-center justify-between gap-3 font-mono">
           <div className="flex items-center gap-2">
             <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
             <span>TRADING BOY AI TRADING ENGINE</span>
@@ -346,6 +364,14 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* 4. Mobile & Tablet Native App Bottom Navigation Bar */}
+      <BottomNav
+        activeView={activeView}
+        onChangeView={setActiveView}
+        onOpenSettings={() => setIsSettingsOpen(true)}
+        signalsCount={signalsData?.trades_count || 0}
+      />
 
       {/* Settings Modal */}
       <SettingsModal

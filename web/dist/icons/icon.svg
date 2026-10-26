@@ -1,0 +1,52 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#075985"/>
+    </linearGradient>
+    <linearGradient id="bullGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#34d399"/>
+      <stop offset="100%" stop-color="#059669"/>
+    </linearGradient>
+    <linearGradient id="bearGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#f87171"/>
+      <stop offset="100%" stop-color="#dc2626"/>
+    </linearGradient>
+    <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="8" stdDeviation="12" flood-color="#000000" flood-opacity="0.25"/>
+    </filter>
+  </defs>
+
+  <!-- App Icon Background -->
+  <rect width="512" height="512" rx="115" fill="url(#bgGrad)"/>
+  
+  <!-- Subtle Grid Pattern in background -->
+  <path d="M64 160 H448 M64 256 H448 M64 352 H448 M160 64 V448 M256 64 V448 M352 64 V448" stroke="#ffffff" stroke-opacity="0.08" stroke-width="2"/>
+
+  <!-- Candlestick 1: Bullish Green -->
+  <!-- Wick -->
+  <line x1="168" y1="130" x2="168" y2="380" stroke="#34d399" stroke-width="8" stroke-linecap="round"/>
+  <!-- Candle Body -->
+  <rect x="140" y="210" width="56" height="130" rx="8" fill="url(#bullGrad)" filter="url(#shadow)"/>
+
+  <!-- Candlestick 2: Bearish Red -->
+  <!-- Wick -->
+  <line x1="260" y1="90" x2="260" y2="420" stroke="#f87171" stroke-width="8" stroke-linecap="round"/>
+  <!-- Candle Body -->
+  <rect x="232" y="160" width="56" height="190" rx="8" fill="url(#bearGrad)" filter="url(#shadow)"/>
+
+  <!-- Candlestick 3: Bullish Green Impulse -->
+  <!-- Wick -->
+  <line x1="352" y1="110" x2="352" y2="340" stroke="#34d399" stroke-width="8" stroke-linecap="round"/>
+  <!-- Candle Body -->
+  <rect x="324" y="140" width="56" height="150" rx="8" fill="url(#bullGrad)" filter="url(#shadow)"/>
+
+  <!-- Institutional POC Level Gold Line -->
+  <line x1="90" y1="260" x2="422" y2="260" stroke="#fbbf24" stroke-width="6" stroke-dasharray="14 8" stroke-linecap="round"/>
+  <rect x="74" y="246" width="60" height="28" rx="6" fill="#f59e0b"/>
+  <text x="104" y="265" fill="#ffffff" font-family="Inter, sans-serif" font-weight="900" font-size="14" text-anchor="middle">POC</text>
+
+  <!-- TB Modern Badge at Bottom -->
+  <rect x="180" y="396" width="152" height="52" rx="14" fill="#ffffff" filter="url(#shadow)"/>
+  <text x="256" y="433" fill="#0369a1" font-family="Inter, sans-serif" font-weight="900" font-size="28" text-anchor="middle" letter-spacing="1.5">TB PRO</text>
+</svg>
