@@ -83,15 +83,16 @@ export default function App() {
       setCurrentPrice(of.current_price);
     }
 
-    if (apiUrl) {
+    if (apiUrl !== 'simulation') {
       try {
-        const cleanUrl = apiUrl.replace(/\/+$/, '');
+        const cleanUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
         const res = await fetch(`${cleanUrl}/api/bars?symbol=${sym}&timeframe=${timeframe}&limit=120`, { mode: 'cors' });
         if (res.ok) {
           const json = await res.json();
           if (Array.isArray(json.bars) && json.bars.length > 0) {
             setBarsData(json.bars);
             if (json.live_price) setCurrentPrice(json.live_price);
+            setIsConnected(true);
           }
         }
       } catch (e) {
@@ -107,10 +108,10 @@ export default function App() {
     setBarsData(getFallbackBars(activeSymbol, 120, newTf));
     setFootprintData(getFallbackFootprint(activeSymbol, 12, newTf));
 
-    // 2. Directly fetch live bars & footprint for new timeframe from backend without delay
-    if (apiUrl) {
+    // 2. Directly fetch live bars & footprint for new timeframe from backend or Vercel cloud
+    if (apiUrl !== 'simulation') {
       try {
-        const cleanUrl = apiUrl.replace(/\/+$/, '');
+        const cleanUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
         const [barsRes, fpRes] = await Promise.all([
           fetch(`${cleanUrl}/api/bars?symbol=${activeSymbol}&timeframe=${newTf}&limit=120`, { mode: 'cors' }),
           fetch(`${cleanUrl}/api/footprint?symbol=${activeSymbol}&timeframe=${newTf}&limit=12`, { mode: 'cors' }),
@@ -121,6 +122,7 @@ export default function App() {
           if (Array.isArray(json.bars) && json.bars.length > 0) {
             setBarsData(json.bars);
             if (json.live_price) setCurrentPrice(json.live_price);
+            setIsConnected(true);
           }
         }
 
@@ -136,15 +138,15 @@ export default function App() {
     }
   };
 
-  // Fetch all live data from backend (if available)
+  // Fetch all live data from backend or 24/7 Vercel cloud endpoints
   const fetchAllData = useCallback(async () => {
-    if (!apiUrl) {
+    if (apiUrl === 'simulation') {
       setIsConnected(false);
       return;
     }
 
     setIsLoading(true);
-    const cleanUrl = apiUrl.replace(/\/+$/, '');
+    const cleanUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
 
     try {
       // 1. Fetch Order Flow across pairs
