@@ -750,7 +750,7 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
 
     # Circuit breaker checks
     if daily_state["pnl"] <= DAILY_LOSS_LIMIT:
-        msg = f"🛑 <b>DAILY CIRCUIT BREAKER ACTIVE</b>\nDaily Loss: <code>${daily_state['pnl']:.2f}</code> (Limit: ${DAILY_LOSS_LIMIT:.2f}). Trading halted for today to protect FundingPips 3% rule."
+        msg = f"🛑 <b>DAILY CIRCUIT BREAKER ACTIVE</b>\nDaily Loss: <code>${daily_state['pnl']:.2f}</code> (Limit: ${DAILY_LOSS_LIMIT:.2f}). Trading halted for today to protect Trading Boy Risk Management rules."
         if is_user_request:
             send_telegram(msg)
         return msg
@@ -767,13 +767,13 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
             send_telegram(msg)
         return msg
 
-    # Pre-trade forward risk check: Ensure next $45 risk cannot breach -$110 circuit breaker
+    # Pre-trade forward risk check: Ensure next risk cannot breach circuit breaker
     remaining_budget = daily_state["pnl"] - DAILY_LOSS_LIMIT
     if remaining_budget < TARGET_RISK_PER_TRADE:
         msg = (
             f"🛑 <b>DAILY RISK BUDGET EXHAUSTED</b>\n"
             f"Today's P&L: <code>${daily_state['pnl']:.2f}</code> | Buffer to Stop: <code>${remaining_budget:.2f}</code>.\n"
-            f"Next trade requires ${TARGET_RISK_PER_TRADE:.2f} risk. Trading halted to guarantee FundingPips -$150 daily limit is NEVER breached."
+            f"Next trade requires ${TARGET_RISK_PER_TRADE:.2f} risk. Trading halted to guarantee risk limit is NEVER breached."
         )
         if is_user_request:
             send_telegram(msg)
@@ -1243,7 +1243,7 @@ def telegram_listener() -> None:
 
                     elif cmd in ("/help", "help", "/start", "start"):
                         send_telegram(
-                            "🤖 <b>FundingPips $5,000 AI Bot Interactive Menu:</b>\n\n"
+                            "🤖 <b>TRADING BOY AI Bot Interactive Menu:</b>\n\n"
                             "• <b>status</b> or <b>scan</b>: Live scan across Elite 5 pairs + view active trades\n"
                             "• <b>chart [gold/eur/gbp]</b>: Instant 1H chart snapshot with exact TP/SL levels\n"
                             "• <b>levels</b>: View Institutional Order Flow Map (POC & Value Area)\n"
@@ -1252,11 +1252,11 @@ def telegram_listener() -> None:
                             "• <b>loss</b>: Record a losing trade (-1R loss)\n"
                             "• <b>be</b>: Record a breakeven trade (+Order A profit)\n"
                             "• <b>reset</b>: Reset today's counter to 0/3\n\n"
-                            "📋 <b>Your FundingPips Rules:</b>\n"
-                            "• Risk per Trade: <b>$45.00</b>\n"
-                            "• Max Trades/Day: <b>3</b> (Target: 2–3)\n"
-                            "• Daily Profit Target: <b>+$80.00</b>\n"
-                            "• Daily Circuit Breaker: <b>-$110.00</b>\n\n"
+                            "📋 <b>Your Trading Rules:</b>\n"
+                            "• Account: <b>TRADING BOY ACCOUNT</b>\n"
+                            "• Risk per Trade: <b>1.0%</b>\n"
+                            "• Max Trades/Day: <b>3 (Hard Cap)</b>\n"
+                            "• Daily Target: <b>Unlimited</b>\n\n"
                             "⚡ Scans automatically at <b>:31 past every hour</b> (24/7 on cloud)."
                         )
         except Exception:
@@ -1289,9 +1289,9 @@ def background_scheduler() -> None:
     send_telegram(
         "🚀 <b>24/7 CLOUD TRADING BOT IS ONLINE</b>\n\n"
         "Your automated trading engine is now running 24/7 on the cloud!\n\n"
-        "• <b>Account:</b> FundingPips $5,000\n"
-        "• <b>Risk Per Trade:</b> $45.00\n"
-        "• <b>Daily Target:</b> +$80.00 to +$100.00/day\n"
+        "• <b>Account:</b> TRADING BOY ACCOUNT\n"
+        "• <b>Risk Per Trade:</b> 1.0%\n"
+        "• <b>Daily Target:</b> Unlimited\n"
         "• <b>Max Trades/Day:</b> 3 (Hard Cap)\n"
         "• <b>Order Flow Engine:</b> Active (Volume Profile, POC & 70% Value Area)\n"
         "• <b>Interactive Control:</b> Send <b>status</b> or <b>levels</b> anytime!\n"

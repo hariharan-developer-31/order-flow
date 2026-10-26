@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: fundingpips-cloud-trader
+    name: trading-boy-cloud-trader
     env: python
     buildCommand: ""
     startCommand: python bot.py
