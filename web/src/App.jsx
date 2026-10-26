@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import Header from './components/Header';
 import OrderFlowCards from './components/OrderFlowCards';
-import CandleChart, { calculateDynamicVolumeProfile } from './components/CandleChart';
+import CandleChart from './components/CandleChart';
+import { calculateDynamicVolumeProfile } from './utils/volumeProfile';
 import FootprintChart from './components/FootprintChart';
 import VolumeProfileHistogram from './components/VolumeProfileHistogram';
 import SignalsFeed from './components/SignalsFeed';
