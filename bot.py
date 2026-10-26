@@ -462,6 +462,11 @@ def compute_order_flow_profile(bars: List[Dict[str, Any]], dec: int, is_gold: bo
     else:
         state = "INSIDE VALUE (Balance/Rotation)"
 
+    profile_data = [
+        {"price": p, "volume": round(prof[p], 1), "is_poc": bool(p == poc), "in_va": bool(val <= p <= vah)}
+        for p in sorted_prices
+    ]
+
     return {
         "pHigh": pHigh,
         "pLow": pLow,
@@ -470,6 +475,7 @@ def compute_order_flow_profile(bars: List[Dict[str, Any]], dec: int, is_gold: bo
         "pVAL": val,
         "state": state,
         "curr": curr,
+        "profile": profile_data,
     }
 
 
@@ -1373,31 +1379,336 @@ def background_scheduler() -> None:
         time.sleep(20)
 
 
-class HealthCheckHandler(http.server.BaseHTTPRequestHandler):
-    """Responds to cloud health check pings so Render keeps the service alive 24/7."""
-    def do_HEAD(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
+def compute_footprint_bars(bars: List[Dict[str, Any]], dec: int, is_gold: bool, limit: int = 15) -> List[Dict[str, Any]]:
+    """Generates synthetic bid x ask footprint delta clusters per candle from finished auction distribution."""
+    step = 1.0 if is_gold else (0.0005 if dec >= 4 else 0.05)
+    recent = bars[-max(1, min(limit, 30)) :]
+    footprint_bars = []
+    running_cvd = 0.0
+
+    for b in recent:
+        o, h, l, c = b["open"], b["high"], b["low"], b["close"]
+        vol = b["volume"]
+        rng = max(step, h - l)
+
+        levels = []
+        p = round(round(l / step) * step, dec)
+        end_p = round(round(h / step) * step, dec)
+        while p <= end_p + 1e-9:
+            levels.append(p)
+            p = round(p + step, dec)
+
+        if not levels:
+            levels = [c]
+
+        clusters = []
+        tot_ask = 0.0
+        tot_bid = 0.0
+        n_levels = len(levels)
+
+        for lvl in levels:
+            dist_c = abs(lvl - c) / (rng + 1e-9)
+            weight = max(0.2, 1.0 - dist_c)
+            lvl_vol = max(1.0, (vol / max(1, n_levels)) * weight)
+
+            ratio_ask = 0.55 if c >= o else 0.45
+            if lvl >= max(o, c):
+                ratio_ask = 0.65 if c >= o else 0.35
+            elif lvl <= min(o, c):
+                ratio_ask = 0.70 if c >= o else 0.30
+
+            ask_v = round(lvl_vol * ratio_ask, 1)
+            bid_v = round(lvl_vol * (1.0 - ratio_ask), 1)
+
+            imb = None
+            if ask_v >= 3.0 * max(1.0, bid_v):
+                imb = "BUY"
+            elif bid_v >= 3.0 * max(1.0, ask_v):
+                imb = "SELL"
+
+            clusters.append({
+                "price": lvl,
+                "bid": bid_v,
+                "ask": ask_v,
+                "delta": round(ask_v - bid_v, 1),
+                "imbalance": imb,
+            })
+            tot_ask += ask_v
+            tot_bid += bid_v
+
+        bar_delta = round(tot_ask - tot_bid, 1)
+        running_cvd = round(running_cvd + bar_delta, 1)
+
+        footprint_bars.append({
+            "time": b["ts"],
+            "datetime": b["time"].strftime("%H:%M UTC"),
+            "open": o,
+            "high": h,
+            "low": l,
+            "close": c,
+            "volume": vol,
+            "total_bid": round(tot_bid, 1),
+            "total_ask": round(tot_ask, 1),
+            "delta": bar_delta,
+            "cvd": running_cvd,
+            "clusters": clusters,
+        })
+    return footprint_bars
+
+
+_api_cache: Dict[str, Any] = {
+    "orderflow": {"data": None, "ts": 0.0},
+    "bars": {},
+    "footprint": {},
+}
+_api_cache_lock = threading.Lock()
+
+
+class APIServerHandler(http.server.BaseHTTPRequestHandler):
+    """Responds to cloud health check pings AND serves live REST API endpoints for Vercel WebApp."""
+
+    def _set_cors_headers(self, status: int = 200) -> None:
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_header("Access-Control-Allow-Origin", "*")
+        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS, HEAD")
+        self.send_header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With")
+        self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.end_headers()
 
+    def do_OPTIONS(self):
+        self._set_cors_headers(204)
+
+    def do_HEAD(self):
+        self._set_cors_headers(200)
+
     def do_GET(self):
-        self.send_response(200)
-        self.send_header("Content-Type", "application/json")
-        self.end_headers()
-        pnl_symbol = "+" if daily_state["pnl"] >= 0 else ""
-        response = {
-            "status": "online",
-            "time_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
-            "latest_status": latest_status_summary,
-            "today": daily_state["date"],
-            "trades_today": daily_state["trades_count"],
-            "max_trades": MAX_DAILY_TRADES,
-            "daily_pnl": f"{pnl_symbol}${daily_state['pnl']:.2f}",
-            "target_risk_usd": TARGET_RISK_PER_TRADE,
-            "order_flow_engine": "active",
-            "pairs": [x[0] for x in INSTRUMENTS],
-        }
-        self.wfile.write(json.dumps(response).encode("utf-8"))
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path.rstrip("/")
+        query = urllib.parse.parse_qs(parsed.query)
+
+        # 1. Healthcheck / Ping root
+        if path in ("", "/health"):
+            self._set_cors_headers(200)
+            pnl_symbol = "+" if daily_state["pnl"] >= 0 else ""
+            res = {
+                "status": "online",
+                "service": "TRADING BOY AI TRADING ENGINE & API",
+                "time_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "latest_status": latest_status_summary,
+                "today": daily_state["date"],
+                "trades_today": daily_state["trades_count"],
+                "max_trades": MAX_DAILY_TRADES,
+                "daily_pnl": f"{pnl_symbol}${daily_state['pnl']:.2f}",
+                "target_risk_per_trade": "1.0%",
+                "daily_target": "Unlimited",
+                "rr_model": "1:1 + 1:2 Twin Orders",
+                "order_flow_engine": "active",
+                "pairs": [x[0] for x in INSTRUMENTS],
+                "endpoints": [
+                    "/api/status",
+                    "/api/orderflow",
+                    "/api/bars?symbol=XAUUSD&limit=100",
+                    "/api/footprint?symbol=XAUUSD&limit=15",
+                    "/api/signals",
+                ],
+            }
+            self.wfile.write(json.dumps(res).encode("utf-8"))
+            return
+
+        # 2. General Engine Status API
+        if path == "/api/status":
+            self._set_cors_headers(200)
+            with state_lock:
+                active_count = len([at for at in daily_state.get("active_trades", []) if not at.get("closed", False)])
+                subs_count = len(daily_state.get("subscribers", []))
+                res = {
+                    "engine": "TRADING BOY AI TRADING ENGINE",
+                    "account": "TRADING BOY ACCOUNT",
+                    "status": "online",
+                    "time_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                    "risk_per_trade": "1.0%",
+                    "daily_target": "Unlimited",
+                    "max_trades_per_day": MAX_DAILY_TRADES,
+                    "rr_model": "1:1 + 1:2 Twin Orders",
+                    "trades_today": daily_state["trades_count"],
+                    "daily_pnl": daily_state["pnl"],
+                    "active_trades_count": active_count,
+                    "subscribers_count": subs_count,
+                    "instruments": [x[0] for x in INSTRUMENTS],
+                    "historical_stats": HISTORICAL_STATS,
+                }
+            self.wfile.write(json.dumps(res).encode("utf-8"))
+            return
+
+        # 3. Order Flow & Volume Profile API
+        if path == "/api/orderflow":
+            sym_filter = query.get("symbol", [None])[0]
+            if sym_filter:
+                sym_filter = sym_filter.upper()
+
+            now_ts = time.time()
+            with _api_cache_lock:
+                cached = _api_cache.get("orderflow", {})
+                if cached.get("data") and (now_ts - cached.get("ts", 0) < 25.0) and not sym_filter:
+                    self._set_cors_headers(200)
+                    self.wfile.write(json.dumps(cached["data"]).encode("utf-8"))
+                    return
+
+            of_results = []
+            for sym, dec, y_sym, pip_val, is_gold in INSTRUMENTS:
+                if sym_filter and sym != sym_filter:
+                    continue
+                try:
+                    bars, live_tick = fetch_1h_bars(y_sym, dec)
+                    of = compute_order_flow_profile(bars, dec, is_gold)
+                    if of:
+                        of_results.append({
+                            "symbol": sym,
+                            "current_price": of["curr"],
+                            "pPOC": of["pPOC"],
+                            "pVAH": of["pVAH"],
+                            "pVAL": of["pVAL"],
+                            "pHigh": of["pHigh"],
+                            "pLow": of["pLow"],
+                            "state": of["state"],
+                            "profile": of.get("profile", []),
+                        })
+                except Exception as e:
+                    of_results.append({"symbol": sym, "error": str(e)})
+
+            payload = {
+                "timestamp": int(now_ts),
+                "time_utc": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "orderflow": of_results,
+            }
+            if not sym_filter:
+                with _api_cache_lock:
+                    _api_cache["orderflow"] = {"data": payload, "ts": now_ts}
+
+            self._set_cors_headers(200)
+            self.wfile.write(json.dumps(payload).encode("utf-8"))
+            return
+
+        # 4. Candlestick Bars API (for TradingView Lightweight Charts)
+        if path == "/api/bars":
+            sym = query.get("symbol", ["XAUUSD"])[0].upper()
+            limit = int(query.get("limit", [100])[0])
+            limit = max(10, min(limit, 300))
+
+            inst = next((x for x in INSTRUMENTS if x[0] == sym), None)
+            if not inst:
+                self._set_cors_headers(404)
+                self.wfile.write(json.dumps({"error": f"Symbol {sym} not found"}).encode("utf-8"))
+                return
+
+            now_ts = time.time()
+            with _api_cache_lock:
+                c_bars = _api_cache["bars"].get(sym, {})
+                if c_bars.get("data") and (now_ts - c_bars.get("ts", 0) < 25.0):
+                    self._set_cors_headers(200)
+                    self.wfile.write(json.dumps(c_bars["data"]).encode("utf-8"))
+                    return
+
+            try:
+                bars, live_p = fetch_1h_bars(inst[2], inst[1])
+                recent = bars[-limit:]
+                formatted_bars = [
+                    {
+                        "time": b["ts"],
+                        "open": b["open"],
+                        "high": b["high"],
+                        "low": b["low"],
+                        "close": b["close"],
+                        "volume": b["volume"],
+                    }
+                    for b in recent
+                ]
+                out_payload = {
+                    "symbol": sym,
+                    "decimals": inst[1],
+                    "live_price": live_p,
+                    "count": len(formatted_bars),
+                    "bars": formatted_bars,
+                }
+                with _api_cache_lock:
+                    _api_cache["bars"][sym] = {"data": out_payload, "ts": now_ts}
+
+                self._set_cors_headers(200)
+                self.wfile.write(json.dumps(out_payload).encode("utf-8"))
+            except Exception as e:
+                self._set_cors_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        # 5. Footprint / Delta Cluster API
+        if path == "/api/footprint":
+            sym = query.get("symbol", ["XAUUSD"])[0].upper()
+            limit = int(query.get("limit", [15])[0])
+            limit = max(5, min(limit, 30))
+
+            inst = next((x for x in INSTRUMENTS if x[0] == sym), None)
+            if not inst:
+                self._set_cors_headers(404)
+                self.wfile.write(json.dumps({"error": f"Symbol {sym} not found"}).encode("utf-8"))
+                return
+
+            now_ts = time.time()
+            with _api_cache_lock:
+                c_fp = _api_cache["footprint"].get(sym, {})
+                if c_fp.get("data") and (now_ts - c_fp.get("ts", 0) < 25.0):
+                    self._set_cors_headers(200)
+                    self.wfile.write(json.dumps(c_fp["data"]).encode("utf-8"))
+                    return
+
+            try:
+                bars, live_p = fetch_1h_bars(inst[2], inst[1])
+                fp_data = compute_footprint_bars(bars, inst[1], inst[4], limit=limit)
+                out_payload = {
+                    "symbol": sym,
+                    "decimals": inst[1],
+                    "live_price": live_p,
+                    "count": len(fp_data),
+                    "footprint": fp_data,
+                }
+                with _api_cache_lock:
+                    _api_cache["footprint"][sym] = {"data": out_payload, "ts": now_ts}
+
+                self._set_cors_headers(200)
+                self.wfile.write(json.dumps(out_payload).encode("utf-8"))
+            except Exception as e:
+                self._set_cors_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        # 6. Live Trade Signals & Tickets API
+        if path == "/api/signals":
+            self._set_cors_headers(200)
+            with state_lock:
+                res = {
+                    "timestamp": int(time.time()),
+                    "date": daily_state["date"],
+                    "trades_count": daily_state["trades_count"],
+                    "max_trades": MAX_DAILY_TRADES,
+                    "pnl": daily_state["pnl"],
+                    "latest_summary": latest_status_summary,
+                    "active_trades": daily_state.get("active_trades", []),
+                    "trades_list": daily_state.get("trades_list", []),
+                    "rules": {
+                        "account": "TRADING BOY ACCOUNT",
+                        "risk_per_trade": "1.0%",
+                        "daily_target": "Unlimited",
+                        "max_trades_per_day": 3,
+                        "rr_order_a": "1:1",
+                        "rr_order_b": "1:2",
+                    },
+                }
+            self.wfile.write(json.dumps(res).encode("utf-8"))
+            return
+
+        # Not found
+        self._set_cors_headers(404)
+        self.wfile.write(json.dumps({"error": "Endpoint not found", "available": ["/health", "/api/status", "/api/orderflow", "/api/bars", "/api/footprint", "/api/signals"]}).encode("utf-8"))
 
     def log_message(self, format, *args):
         pass
@@ -1585,9 +1896,9 @@ def main():
     # 4. Start 24/7 Breakeven Price Watcher thread
     threading.Thread(target=breakeven_monitor, daemon=True).start()
 
-    # 5. Start HTTP health check server
-    server = http.server.HTTPServer(("0.0.0.0", PORT), HealthCheckHandler)
-    print(f"[HTTP] Health check server listening on port {PORT}")
+    # 5. Start HTTP health check & REST API server
+    server = http.server.HTTPServer(("0.0.0.0", PORT), APIServerHandler)
+    print(f"[HTTP] Order Flow REST API & health check server listening on port {PORT}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
