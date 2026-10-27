@@ -330,7 +330,11 @@ export default function App() {
             <span className="text-slate-300">|</span>
             <span>Twin Orders: 1:1 + 1:2 RR</span>
             <span className="text-slate-300">|</span>
-            <span>Risk: 1.0%</span>
+            <span>Target: +2.0% - 3.0% / Day</span>
+            <span className="text-slate-300">|</span>
+            <span>Capital Guard: -2.5%</span>
+            <span className="text-slate-300">|</span>
+            <span>Max 3 Trades/Day</span>
             <span className="text-slate-300">|</span>
             <span className="text-emerald-600 font-bold">
               LIVE ENGINE SYNCED

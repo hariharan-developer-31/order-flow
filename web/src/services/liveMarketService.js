@@ -489,7 +489,9 @@ export function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.5
   return {
     trades_count: 1,
     max_trades: 3,
-    today_pnl: '+$240.00',
+    today_pnl: '+1.15%',
+    daily_target: '+2.0% - 3.0%',
+    capital_guard: '-2.5%',
     signals_stream: [
       {
         id: 'amt_80',

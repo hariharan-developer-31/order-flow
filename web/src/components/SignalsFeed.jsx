@@ -90,9 +90,9 @@ export default function SignalsFeed({ signalsData }) {
 
   // Active trades stream from live market service
   const activeTrades = signalsData?.signals_stream || [];
-  const tradesCount = signalsData?.trades_count ?? 1;
+  const tradesCount = signalsData?.trades_count ?? 0;
   const maxTrades = 3;
-  const todayPnl = signalsData?.today_pnl || '+$240.00';
+  const todayPnl = signalsData?.today_pnl || '+0.00%';
 
   // Format current Indian Standard Time (IST, UTC+05:30)
   const getISTTimeStr = () => {
@@ -184,44 +184,44 @@ MANDATORY RISK RULES:
         </div>
       </div>
 
-      {/* 3. Active Strategy KPI Metric Dashboard (Matching User Screenshot Panel) */}
-      <div className="bg-gradient-to-br from-slate-900 to-slate-800 text-white p-4 border-b border-slate-700">
-        <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-700/60">
+      {/* 3. Active Strategy KPI Metric Dashboard (Pure White Theme) */}
+      <div className="bg-white text-slate-900 p-4 border-b border-slate-200">
+        <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
           <div>
-            <div className="text-[10px] font-mono text-emerald-400 uppercase tracking-wider font-bold">
+            <div className="text-[10px] font-mono text-emerald-600 uppercase tracking-wider font-bold">
               Strategy {activeStrat.number} • {activeStrat.tag}
             </div>
-            <h4 className="text-sm font-black text-white">{activeStrat.name}</h4>
+            <h4 className="text-sm font-black text-slate-900">{activeStrat.name}</h4>
           </div>
           <div className="text-right">
-            <span className="text-[10px] font-mono text-slate-400 block">Avg Reward : Risk</span>
-            <span className="text-xs font-black text-amber-400 font-mono">{activeStrat.avgRR}</span>
+            <span className="text-[10px] font-mono text-slate-500 block">Avg Reward : Risk</span>
+            <span className="text-xs font-black text-amber-600 font-mono">{activeStrat.avgRR}</span>
           </div>
         </div>
 
-        {/* 4 Metrics Grid */}
+        {/* 4 Metrics Grid (White Theme) */}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
-            <span className="text-[9px] text-slate-400 block font-sans">Target 1 Win Rate</span>
-            <span className="text-sm font-extrabold text-emerald-400">{activeStrat.winRatePOC}</span>
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
+            <span className="text-[9px] text-slate-500 block font-sans">Target 1 Win Rate</span>
+            <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRatePOC}</span>
             <span className="text-[9px] text-slate-500 block truncate">Scale 70% Off</span>
           </div>
 
-          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
-            <span className="text-[9px] text-slate-400 block font-sans">Full Target Win</span>
-            <span className="text-sm font-extrabold text-emerald-400">{activeStrat.winRateFull}</span>
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
+            <span className="text-[9px] text-slate-500 block font-sans">Full Target Win</span>
+            <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRateFull}</span>
             <span className="text-[9px] text-slate-500 block truncate">30% Runner</span>
           </div>
 
-          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
-            <span className="text-[9px] text-slate-400 block font-sans">Defined Stop Risk</span>
-            <span className="text-sm font-extrabold text-rose-400">{activeStrat.riskPips}</span>
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
+            <span className="text-[9px] text-slate-500 block font-sans">Defined Stop Risk</span>
+            <span className="text-sm font-extrabold text-rose-600">{activeStrat.riskPips}</span>
             <span className="text-[9px] text-slate-500 block truncate">Max 0.5% - 1.0%</span>
           </div>
 
-          <div className="bg-slate-800/80 p-2 rounded-lg border border-slate-700/60">
-            <span className="text-[9px] text-slate-400 block font-sans">Footprint Confluence</span>
-            <span className="text-xs font-extrabold text-amber-400 truncate block">
+          <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
+            <span className="text-[9px] text-slate-500 block font-sans">Footprint Confluence</span>
+            <span className="text-xs font-extrabold text-blue-700 truncate block">
               {activeStrat.footprintDelta}
             </span>
             <span className="text-[9px] text-slate-500 block truncate">Imbalance Shift</span>
@@ -229,7 +229,7 @@ MANDATORY RISK RULES:
         </div>
 
         {/* Strategy Context & Execution Timeframes */}
-        <div className="mt-2.5 pt-2 border-t border-slate-700/60 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-300 font-mono">
+        <div className="mt-2.5 pt-2 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2 text-[10px] text-slate-600 font-mono">
           <div>
             <span className="text-slate-400">Context Structure:</span> <b>{activeStrat.contextTf}</b>
           </div>
@@ -242,16 +242,16 @@ MANDATORY RISK RULES:
         </div>
       </div>
 
-      {/* 4. Daily Execution Pacing & 2-Strike Regime Rule Banner */}
-      <div className="bg-amber-500/10 border-b border-amber-500/20 px-4 py-2 flex items-center justify-between text-[11px] text-amber-900 font-mono">
+      {/* 4. Daily Execution Pacing & Capital Guard Safe Banner */}
+      <div className="bg-emerald-50/70 border-b border-emerald-200/60 px-4 py-2 flex items-center justify-between text-[11px] text-emerald-950 font-mono">
         <div className="flex items-center gap-1.5 font-bold">
-          <Shield className="w-3.5 h-3.5 text-amber-600" />
-          <span>Daily Pacing: {tradesCount} / {maxTrades} Executions</span>
-          <span className="text-amber-400">|</span>
-          <span className="text-emerald-700">Net Today: {todayPnl}</span>
+          <Shield className="w-3.5 h-3.5 text-emerald-600" />
+          <span>Daily Pacing: {tradesCount} / {maxTrades} Trades (Max 3)</span>
+          <span className="text-emerald-300">|</span>
+          <span className="text-emerald-700">Daily Target: +2.0% - 3.0%</span>
         </div>
-        <span className="text-[10px] font-semibold text-amber-800 hidden sm:inline">
-          2-Strike Regime Switch Active
+        <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">
+          🛡️ Capital Guard: Safe (Limit -2.5%)
         </span>
       </div>
 
@@ -348,11 +348,13 @@ MANDATORY RISK RULES:
         })}
       </div>
 
-      {/* 6. Footer Policy Note */}
+      {/* 6. Footer Policy Note (Percentage-based, Pure White Theme) */}
       <div className="p-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 font-mono">
-        <span>Daily Max Risk: 0.5% ($25-$50)</span>
+        <span>Daily Target: +2.0% - 3.0% / Day</span>
         <span>•</span>
-        <span>70% Target 1 Scale-Out Rule</span>
+        <span>Capital Guard Limit: -2.5%</span>
+        <span>•</span>
+        <span>Max 3 Trades/Day</span>
         <span>•</span>
         <span className="font-bold text-slate-700">TRADING BOY GOLD ONLY</span>
       </div>

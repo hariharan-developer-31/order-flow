@@ -906,8 +906,8 @@ export default function CandleChart({
                   right: '68px',
                 }}
               >
-                <div className="bg-slate-900/95 text-white font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-l shadow-lg border border-r-0 border-slate-700 flex items-center gap-1.5 backdrop-blur-sm">
-                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <div className="bg-white text-slate-800 font-mono text-[10px] font-extrabold px-2 py-0.5 rounded-l shadow-md border border-r-0 border-slate-300 flex items-center gap-1.5 backdrop-blur-sm">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
                   <span>{countdownText}</span>
                 </div>
               </div>

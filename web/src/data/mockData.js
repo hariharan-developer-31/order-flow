@@ -232,7 +232,9 @@ export function getFallbackSignals() {
     date: dateStr,
     trades_count: 1,
     max_trades: 3,
-    today_pnl: '+$240.00',
+    today_pnl: '+1.15%',
+    daily_target: '+2.0% - 3.0%',
+    capital_guard: '-2.5%',
     latest_summary: 'AMT 80% Value Area Rule Active: Order A reached POC (+1:1 RR banker). Order B stop loss safely moved to Breakeven.',
     signals_stream: [
       {

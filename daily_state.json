@@ -8,5 +8,6 @@
   "pair_cooldowns": {},
   "learning_channel_id": "",
   "triggered_candles": {},
-  "active_trades": []
+  "active_trades": [],
+  "pnl_pct": 0.0
 }

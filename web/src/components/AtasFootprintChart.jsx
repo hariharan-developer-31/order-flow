@@ -10,6 +10,9 @@ import {
   ArrowUp,
   ArrowDown,
   Info,
+  Activity,
+  Crosshair,
+  TrendingUp,
 } from 'lucide-react';
 
 export default function AtasFootprintChart({
@@ -26,45 +29,53 @@ export default function AtasFootprintChart({
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // View state: Bid x Ask vs Delta vs Volume Heatmap
-  const [displayMode, setDisplayMode] = useState('bid_ask'); // 'bid_ask' | 'delta' | 'volume'
-  const [colorTheme, setColorTheme] = useState('dark'); // 'dark' (ATAS Pro) | 'light'
+  // View modes: 'bid_ask' (ATAS classic side-by-side) | 'delta' (net delta) | 'volume' (total volume)
+  const [displayMode, setDisplayMode] = useState('bid_ask');
 
-  // Interactive Zoom & Pan State
-  // zoom: 0.6 (zoomed out) to 3.0 (ultra-detailed, giant numbers)
+  // Interactive Zoom & Pan State (Centered, fluid navigation)
   const [zoom, setZoom] = useState(1.15);
   const [panX, setPanX] = useState(0);
   const [panY, setPanY] = useState(0);
 
-  // Dragging interaction refs
+  // Dragging & Interaction Refs
   const isDraggingRef = useRef(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
   const panStartRef = useRef({ x: 0, y: 0 });
+  const [isCursorGrabbing, setIsCursorGrabbing] = useState(false);
 
   // Touch pinch interaction refs
   const touchStartDistRef = useRef(0);
   const touchStartZoomRef = useRef(1);
 
-  // Hovered cluster state for interactive tooltip
-  const [hoveredInfo, setHoveredInfo] = useState(null);
+  // Interactive Hover State for Cluster Inspection Tooltip
+  const [hoveredCluster, setHoveredCluster] = useState(null);
+  const [mousePos, setMousePos] = useState({ x: -1, y: -1 });
 
   // Auto-fit view when symbol or timeframe changes
   useEffect(() => {
     setPanX(0);
     setPanY(0);
     setZoom(1.15);
+    setHoveredCluster(null);
   }, [symbol, timeframe]);
 
-  // Handle Zoom In / Out / Reset
-  const handleZoomIn = () => setZoom((z) => Math.min(3.2, Number((z * 1.25).toFixed(2))));
-  const handleZoomOut = () => setZoom((z) => Math.max(0.5, Number((z / 1.25).toFixed(2))));
+  // Smooth Zoom In / Out / Reset
+  const handleZoomIn = () => {
+    setZoom((z) => Math.min(3.5, Number((z * 1.25).toFixed(2))));
+  };
+
+  const handleZoomOut = () => {
+    setZoom((z) => Math.max(0.55, Number((z / 1.25).toFixed(2))));
+  };
+
   const handleResetView = () => {
     setZoom(1.15);
     setPanX(0);
     setPanY(0);
+    setHoveredCluster(null);
   };
 
-  // Main Canvas Render Loop (60fps Crisp Canvas)
+  // Main Canvas Render Loop (60 FPS, High-DPI Retina, Pure White Theme)
   const drawChart = useCallback(() => {
     const canvas = canvasRef.current;
     const container = containerRef.current;
@@ -85,31 +96,30 @@ export default function AtasFootprintChart({
     ctx.save();
     ctx.scale(dpr, dpr);
 
-    // 1. Clear & Background
-    const isDark = colorTheme === 'dark';
-    ctx.fillStyle = isDark ? '#0b1120' : '#ffffff'; // ATAS Deep Navy / Obsidian
+    // 1. Pure Crisp White Canvas Background
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, chartHeight);
 
     if (!footprintData || footprintData.length === 0) {
-      ctx.fillStyle = isDark ? '#64748b' : '#94a3b8';
+      ctx.fillStyle = '#94a3b8';
       ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
-      ctx.fillText(`Waiting for ${symbol} Footprint Clusters...`, width / 2, chartHeight / 2);
+      ctx.fillText(`Loading live ${symbol} footprint clusters...`, width / 2, chartHeight / 2);
       ctx.restore();
       return;
     }
 
-    // Layout Dimensions (Scale dynamically with ZOOM!)
-    const rightMargin = 85; // Space for Price Scale
-    const bottomMargin = 48; // Space for Time & Delta Scale
+    // Layout Dimensions
+    const rightMargin = 85; // Space for Price Scale Ruler
+    const bottomMargin = 50; // Space for Time & Delta Scale
     const plotWidth = width - rightMargin;
     const plotHeight = chartHeight - bottomMargin;
 
     // Zoom scaling metrics:
-    // When zoomed in, bars become wider and rows become taller!
-    const baseBarWidth = 92;
+    // When zoomed in, bars become wider and rows become taller with bigger fonts
+    const baseBarWidth = 96;
     const barWidth = Math.round(baseBarWidth * zoom);
-    const barSpacing = Math.round(18 * zoom);
+    const barSpacing = Math.round(20 * zoom);
 
     // Determine global price range across visible bars
     let minPrice = Infinity;
@@ -124,37 +134,28 @@ export default function AtasFootprintChart({
     });
 
     if (minPrice >= maxPrice || !isFinite(minPrice) || !isFinite(maxPrice)) {
-      minPrice = 4000;
-      maxPrice = 4030;
+      minPrice = 2740;
+      maxPrice = 2765;
     }
 
     // Add 8% vertical padding
     const pRange = maxPrice - minPrice;
-    const paddedMin = minPrice - pRange * 0.05;
-    const paddedMax = maxPrice + pRange * 0.05;
+    const paddedMin = minPrice - pRange * 0.06;
+    const paddedMax = maxPrice + pRange * 0.06;
 
-    // Price to Y Coordinate Mapper (with vertical pan and vertical zoom)
+    // Price to Y Coordinate Mapper
     const priceSpan = paddedMax - paddedMin;
     const priceToY = (p) => {
       const norm = (p - paddedMin) / (priceSpan || 1);
       const baseY = plotHeight - norm * plotHeight;
-      // Apply vertical zoom and pan
       const centerY = plotHeight / 2;
       return centerY + (baseY - centerY) * zoom + panY;
     };
 
-    const yToPrice = (y) => {
-      const centerY = plotHeight / 2;
-      const unzoomedY = (y - panY - centerY) / zoom + centerY;
-      const norm = (plotHeight - unzoomedY) / plotHeight;
-      return paddedMin + norm * priceSpan;
-    };
-
-    // 2. Draw Subtle Background Grid
-    ctx.strokeStyle = isDark ? 'rgba(30, 41, 59, 0.45)' : 'rgba(241, 245, 249, 0.9)';
+    // 2. Subtle Background Grid (Light Slate #f8fafc / #f1f5f9)
+    ctx.strokeStyle = '#f1f5f9';
     ctx.lineWidth = 1;
 
-    // Horizontal Price Grid Lines
     const nPriceLines = 8;
     for (let i = 0; i <= nPriceLines; i++) {
       const gridP = paddedMin + (priceSpan / nPriceLines) * i;
@@ -169,23 +170,21 @@ export default function AtasFootprintChart({
 
     // 3. Render Footprint Candlestick Bars (Right-Aligned, scrolling left into history)
     const nBars = footprintData.length;
-    const totalBarsWidth = nBars * (barWidth + barSpacing);
-    const startX = plotWidth - barWidth - 14 + panX;
+    const startX = plotWidth - barWidth - 16 + panX;
 
-    // Clip to plot area for bars
+    // Clip to plot area for candlesticks & clusters
     ctx.save();
     ctx.beginPath();
     ctx.rect(0, 0, plotWidth, plotHeight);
     ctx.clip();
 
     footprintData.forEach((bar, idx) => {
-      // Calculate X coordinate for this bar
       const barRightX = startX - (nBars - 1 - idx) * (barWidth + barSpacing);
       const barLeftX = barRightX;
       const barCenterX = barLeftX + barWidth / 2;
 
-      // Skip if completely out of view
-      if (barRightX + barWidth < -40 || barLeftX > plotWidth + 40) return;
+      // Skip bars outside viewport for maximum rendering performance
+      if (barRightX + barWidth < -60 || barLeftX > plotWidth + 60) return;
 
       const isBull = bar.close >= bar.open;
       const oY = priceToY(bar.open);
@@ -193,25 +192,25 @@ export default function AtasFootprintChart({
       const hY = priceToY(bar.high);
       const lY = priceToY(bar.low);
 
-      // A. Draw High and Low Candle Wicks (Center vertical wick)
-      ctx.strokeStyle = isDark ? 'rgba(148, 163, 184, 0.65)' : 'rgba(100, 116, 139, 0.65)';
-      ctx.lineWidth = Math.max(1, Math.round(1.5 * zoom));
+      // A. Center Vertical Wick (Clean Slate)
+      ctx.strokeStyle = '#64748b';
+      ctx.lineWidth = Math.max(1.5, Math.round(2 * zoom));
       ctx.beginPath();
       ctx.moveTo(barCenterX, hY);
       ctx.lineTo(barCenterX, lY);
       ctx.stroke();
 
-      // B. Draw Left-Side Candle Open-Close Marker (ATAS style body edge)
-      const wickLeftX = barLeftX - Math.max(4, Math.round(6 * zoom));
-      ctx.strokeStyle = isBull ? '#10b981' : '#ef4444';
-      ctx.lineWidth = Math.max(3, Math.round(4.5 * zoom));
+      // B. Left-Side Open-Close Body Bar (ATAS Edge Marker)
+      const wickLeftX = barLeftX - Math.max(5, Math.round(7 * zoom));
+      ctx.strokeStyle = isBull ? '#16a34a' : '#dc2626';
+      ctx.lineWidth = Math.max(3.5, Math.round(5 * zoom));
       ctx.beginPath();
       ctx.moveTo(wickLeftX, oY);
       ctx.lineTo(wickLeftX, cY);
       ctx.stroke();
 
-      // Small tick for open and close
-      ctx.lineWidth = 1.5;
+      // Small Open & Close ticks
+      ctx.lineWidth = 1.8;
       ctx.beginPath();
       ctx.moveTo(wickLeftX - 3, oY);
       ctx.lineTo(wickLeftX, oY);
@@ -219,7 +218,7 @@ export default function AtasFootprintChart({
       ctx.lineTo(wickLeftX + 3, cY);
       ctx.stroke();
 
-      // Find Candle POC (Highest Volume Cluster)
+      // Find Candle POC (Highest Traded Volume Level)
       let maxVol = -1;
       let pocPrice = null;
       (bar.clusters || []).forEach((c) => {
@@ -233,160 +232,178 @@ export default function AtasFootprintChart({
       // C. Draw Cluster Price Rows (Footprint Delta Cells)
       const clusters = bar.clusters || [];
       if (clusters.length > 0) {
-        // Compute row height based on step
         const sorted = [...clusters].sort((a, b) => a.price - b.price);
         const step = sorted.length > 1 ? Math.abs(sorted[1].price - sorted[0].price) : 0.5;
-        const rowHeight = Math.max(10, Math.abs(priceToY(sorted[0].price) - priceToY(sorted[0].price + step)));
+        const rowHeight = Math.max(12, Math.abs(priceToY(sorted[0].price) - priceToY(sorted[0].price + step)));
 
-          // Dynamic font size: expands dynamically when zoomed in!
-          // As you zoom in, numbers get bigger, bolder, and more legible!
-          const fontSize = Math.min(18, Math.max(8, Math.round(rowHeight * 0.62 * Math.min(1.5, zoom))));
-          ctx.font = `bold ${fontSize}px "JetBrains Mono", Consolas, monospace`;
-          ctx.textBaseline = 'middle';
-          ctx.textAlign = 'center';
+        // Dynamic font size: expands smoothly when zoomed in!
+        const fontSize = Math.min(18, Math.max(9, Math.round(rowHeight * 0.62 * Math.min(1.4, zoom))));
+        ctx.font = `bold ${fontSize}px "JetBrains Mono", Consolas, monospace`;
+        ctx.textBaseline = 'middle';
+        ctx.textAlign = 'center';
 
-          clusters.forEach((c) => {
-            const cy = priceToY(c.price);
-            const cellTop = cy - rowHeight / 2;
-            const centerY = cellTop + rowHeight / 2;
+        clusters.forEach((c) => {
+          const cy = priceToY(c.price);
+          const cellTop = cy - rowHeight / 2;
+          const centerY = cellTop + rowHeight / 2;
 
-            // Skip if row is out of plot height
-            if (cellTop + rowHeight < 0 || cellTop > plotHeight) return;
+          if (cellTop + rowHeight < 0 || cellTop > plotHeight) return;
 
-            const isPOC = c.price === pocPrice;
-            const bid = c.bid || 0;
-            const ask = c.ask || 0;
-            const tot = bid + ask;
-            const delta = ask - bid;
+          const isPOC = c.price === pocPrice;
+          const bid = c.bid || 0;
+          const ask = c.ask || 0;
+          const tot = bid + ask;
+          const delta = ask - bid;
 
-            // Imbalance calculation: Ask >= Bid * 3 (Buy Imbalance) or Bid >= Ask * 3 (Sell Imbalance)
-            const isBuyImbalance = ask >= bid * 3 && ask > 0;
-            const isSellImbalance = bid >= ask * 3 && bid > 0;
-            const halfW = barWidth / 2;
-            const bidX = barLeftX + halfW * 0.5;
-            const askX = barLeftX + halfW * 1.5;
+          // Institutional Imbalance Rule (300%+ with minimum 30 contracts threshold)
+          const isBuyImbalance = ask >= bid * 3 && ask >= 30;
+          const isSellImbalance = bid >= ask * 3 && bid >= 30;
+          const halfW = barWidth / 2;
+          const bidX = barLeftX + halfW * 0.5;
+          const askX = barLeftX + halfW * 1.5;
 
-            if (displayMode === 'delta') {
-              // Delta View
-              let cellFill;
-              if (delta > 0) {
-                const alpha = Math.min(0.85, 0.25 + (delta / 1500) * 0.6);
-                cellFill = `rgba(16, 185, 129, ${alpha})`;
-              } else if (delta < 0) {
-                const alpha = Math.min(0.85, 0.25 + (Math.abs(delta) / 1500) * 0.6);
-                cellFill = `rgba(239, 68, 68, ${alpha})`;
-              } else {
-                cellFill = isDark ? 'rgba(30, 41, 59, 0.5)' : 'rgba(226, 232, 240, 0.5)';
-              }
-              ctx.fillStyle = cellFill;
-              ctx.fillRect(barLeftX, cellTop, barWidth, rowHeight - 1);
-
-              if (rowHeight >= 11 && barWidth >= 40) {
-                ctx.fillStyle = '#ffffff';
-                const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
-                ctx.fillText(deltaStr, barCenterX, centerY);
-              }
+          if (displayMode === 'delta') {
+            // Delta Heatmap View
+            let cellFill;
+            if (delta > 0) {
+              const alpha = Math.min(0.85, 0.20 + (delta / 1200) * 0.65);
+              cellFill = `rgba(22, 163, 74, ${alpha})`;
+            } else if (delta < 0) {
+              const alpha = Math.min(0.85, 0.20 + (Math.abs(delta) / 1200) * 0.65);
+              cellFill = `rgba(220, 38, 38, ${alpha})`;
             } else {
-              // ATAS Dual Bid x Ask Half-Cell Rendering
-              // Left Half: Bid (Red Sellers)
-              let bidFill;
-              if (isSellImbalance) {
-                bidFill = 'rgba(239, 68, 68, 0.88)'; // Strong Red Sell Imbalance
-              } else {
-                const bAlpha = Math.min(0.7, 0.15 + (bid / 1200) * 0.55);
-                bidFill = `rgba(239, 68, 68, ${bAlpha})`;
-              }
-              ctx.fillStyle = bidFill;
-              ctx.fillRect(barLeftX, cellTop, halfW, rowHeight - 1);
-
-              // Right Half: Ask (Green Buyers)
-              let askFill;
-              if (isBuyImbalance) {
-                askFill = 'rgba(16, 185, 129, 0.88)'; // Strong Green Buy Imbalance
-              } else {
-                const aAlpha = Math.min(0.7, 0.15 + (ask / 1200) * 0.55);
-                askFill = `rgba(16, 185, 129, ${aAlpha})`;
-              }
-              ctx.fillStyle = askFill;
-              ctx.fillRect(barLeftX + halfW, cellTop, halfW, rowHeight - 1);
-
-              // Center vertical divider
-              ctx.strokeStyle = isDark ? 'rgba(255, 255, 255, 0.2)' : 'rgba(0, 0, 0, 0.12)';
-              ctx.lineWidth = 0.8;
-              ctx.beginPath();
-              ctx.moveTo(barLeftX + halfW, cellTop);
-              ctx.lineTo(barLeftX + halfW, cellTop + rowHeight - 1);
-              ctx.stroke();
-
-              // Print Bid & Ask Numbers (Expands and gets bolder when zoomed in!)
-              if (rowHeight >= 10 && barWidth >= 38) {
-                // Bid text (Left)
-                ctx.fillStyle = isSellImbalance ? '#ffffff' : isDark ? '#fee2e2' : '#991b1b';
-                ctx.fillText(String(bid), bidX, centerY);
-
-                // Ask text (Right)
-                ctx.fillStyle = isBuyImbalance ? '#ffffff' : isDark ? '#dcfce7' : '#14532d';
-                ctx.fillText(String(ask), askX, centerY);
-              }
+              cellFill = 'rgba(241, 245, 249, 0.8)';
             }
+            ctx.fillStyle = cellFill;
+            ctx.fillRect(barLeftX, cellTop, barWidth, rowHeight - 1);
 
-            // Subtle cell border
-            ctx.strokeStyle = isDark ? 'rgba(15, 23, 42, 0.7)' : 'rgba(255, 255, 255, 0.6)';
-            ctx.lineWidth = 0.5;
-            ctx.strokeRect(barLeftX, cellTop, barWidth, rowHeight - 1);
-
-            // POC Box Outline (Distinctive Glowing Box in ATAS style)
-            if (isPOC) {
-              ctx.strokeStyle = '#f59e0b'; // Amber / Gold POC Border
-              ctx.lineWidth = Math.max(1.5, Math.round(2 * zoom));
-              ctx.strokeRect(barLeftX - 0.5, cellTop - 0.5, barWidth + 1, rowHeight);
-
-              // Small POC tag on side if zoomed in
-              if (zoom >= 1.0) {
-                ctx.fillStyle = '#f59e0b';
-                ctx.fillRect(barRightX + barWidth + 1, cellTop, 22, rowHeight - 1);
-                ctx.fillStyle = '#0f172a';
-                ctx.font = `bold ${Math.max(7, Math.round(fontSize * 0.75))}px monospace`;
-                ctx.fillText('POC', barRightX + barWidth + 12, centerY);
-                ctx.font = `bold ${fontSize}px "JetBrains Mono", Consolas, monospace`;
-              }
+            if (rowHeight >= 11 && barWidth >= 40) {
+              ctx.fillStyle = Math.abs(delta) > 300 ? '#ffffff' : (delta > 0 ? '#166534' : '#991b1b');
+              const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
+              ctx.fillText(deltaStr, barCenterX, centerY);
             }
-          });
+          } else if (displayMode === 'volume') {
+            // Total Volume View
+            const vAlpha = Math.min(0.75, 0.15 + (tot / 2500) * 0.6);
+            ctx.fillStyle = isPOC ? 'rgba(245, 158, 11, 0.35)' : `rgba(59, 130, 246, ${vAlpha})`;
+            ctx.fillRect(barLeftX, cellTop, barWidth, rowHeight - 1);
+
+            if (rowHeight >= 11 && barWidth >= 40) {
+              ctx.fillStyle = '#0f172a';
+              ctx.fillText(String(tot), barCenterX, centerY);
+            }
+          } else {
+            // ATAS Dual Bid x Ask Half-Cell Rendering (White Theme)
+            // Left Half: Bid Volume (Red Tones)
+            let bidFill;
+            if (isSellImbalance) {
+              bidFill = '#ef4444'; // Solid Vivid Red on Sell Imbalance
+            } else {
+              const bAlpha = Math.min(0.35, 0.08 + (bid / 1500) * 0.27);
+              bidFill = `rgba(239, 68, 68, ${bAlpha})`;
+            }
+            ctx.fillStyle = bidFill;
+            ctx.fillRect(barLeftX, cellTop, halfW, rowHeight - 1);
+
+            // Right Half: Ask Volume (Green Tones)
+            let askFill;
+            if (isBuyImbalance) {
+              askFill = '#10b981'; // Solid Vivid Emerald on Buy Imbalance
+            } else {
+              const aAlpha = Math.min(0.35, 0.08 + (ask / 1500) * 0.27);
+              askFill = `rgba(16, 185, 129, ${aAlpha})`;
+            }
+            ctx.fillStyle = askFill;
+            ctx.fillRect(barLeftX + halfW, cellTop, halfW, rowHeight - 1);
+
+            // Center vertical divider between Bid and Ask
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.7)';
+            ctx.lineWidth = 0.8;
+            ctx.beginPath();
+            ctx.moveTo(barLeftX + halfW, cellTop);
+            ctx.lineTo(barLeftX + halfW, cellTop + rowHeight - 1);
+            ctx.stroke();
+
+            // Bid & Ask Numbers (White Theme, High Contrast)
+            if (rowHeight >= 10 && barWidth >= 38) {
+              // Bid text
+              ctx.fillStyle = isSellImbalance ? '#ffffff' : '#991b1b';
+              ctx.fillText(String(bid), bidX, centerY);
+
+              // Ask text
+              ctx.fillStyle = isBuyImbalance ? '#ffffff' : '#14532d';
+              ctx.fillText(String(ask), askX, centerY);
+            }
+          }
+
+          // Subtle horizontal cell outline
+          ctx.strokeStyle = 'rgba(226, 232, 240, 0.85)';
+          ctx.lineWidth = 0.5;
+          ctx.strokeRect(barLeftX, cellTop, barWidth, rowHeight - 1);
+
+          // Candle POC Outline (Glowing Amber Box)
+          if (isPOC) {
+            ctx.strokeStyle = '#d97706'; // Rich Amber / Gold
+            ctx.lineWidth = Math.max(1.8, Math.round(2.2 * zoom));
+            ctx.strokeRect(barLeftX - 0.5, cellTop - 0.5, barWidth + 1, rowHeight);
+
+            // POC badge tag on right side when zoomed in
+            if (zoom >= 0.95) {
+              ctx.fillStyle = '#d97706';
+              ctx.fillRect(barRightX + barWidth + 1, cellTop, 24, rowHeight - 1);
+              ctx.fillStyle = '#ffffff';
+              ctx.font = `bold ${Math.max(8, Math.round(fontSize * 0.75))}px monospace`;
+              ctx.fillText('POC', barRightX + barWidth + 13, centerY);
+              ctx.font = `bold ${fontSize}px "JetBrains Mono", Consolas, monospace`;
+            }
+          }
+
+          // Interactive Hover Highlight on Cluster
+          if (
+            mousePos.x >= barLeftX &&
+            mousePos.x <= barLeftX + barWidth &&
+            mousePos.y >= cellTop &&
+            mousePos.y <= cellTop + rowHeight
+          ) {
+            ctx.strokeStyle = '#2563eb';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(barLeftX - 1, cellTop - 1, barWidth + 2, rowHeight + 1);
+          }
+        });
       }
 
-      // E. Draw Top / Bottom Summary Badges (Delta & Volume & IST Time)
+      // E. Bottom Candle Metrics (Delta & Volume & IST Time)
       const deltaVal = bar.delta || 0;
       const isDeltaPos = deltaVal >= 0;
 
-      // Delta Badge below the bar
+      // Delta Badge
       ctx.textAlign = 'center';
       ctx.font = `bold ${Math.min(13, Math.max(9, Math.round(11 * zoom)))}px monospace`;
-      ctx.fillStyle = isDeltaPos ? '#10b981' : '#ef4444';
+      ctx.fillStyle = isDeltaPos ? '#16a34a' : '#dc2626';
       const deltaText = `Δ ${deltaVal > 0 ? `+${deltaVal}` : deltaVal}`;
       ctx.fillText(deltaText, barCenterX, plotHeight - 20);
 
       // Total Volume
-      ctx.fillStyle = isDark ? '#94a3b8' : '#64748b';
+      ctx.fillStyle = '#64748b';
       ctx.font = `${Math.min(11, Math.max(8, Math.round(9.5 * zoom)))}px monospace`;
       const volK = bar.volume ? (bar.volume >= 1000 ? `${(bar.volume / 1000).toFixed(1)}K` : Math.round(bar.volume)) : '---';
       ctx.fillText(`V: ${volK}`, barCenterX, plotHeight - 6);
 
-      // IST Time Mark on Bottom Axis
+      // IST Time Mark
       const timeStr = bar.datetime ? bar.datetime.split(' ')[1] || bar.datetime : '';
-      ctx.fillStyle = isDark ? '#cbd5e1' : '#475569';
-      ctx.font = 'bold 9.5px monospace';
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 10px monospace';
       ctx.fillText(timeStr, barCenterX, chartHeight - 12);
     });
 
     ctx.restore(); // Restore clipping
 
-    // 4. Horizontal Current Live Price Line (Pulsing Line & Right Badge)
+    // 4. Live Gold Price Horizontal Line (Green Dashed + Right Price Pill)
     if (currentPrice != null) {
       const curY = priceToY(currentPrice);
       if (curY >= 0 && curY <= plotHeight) {
-        // Dotted line
-        ctx.strokeStyle = '#10b981';
-        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = '#16a34a';
+        ctx.lineWidth = 1.5;
         ctx.setLineDash([4, 4]);
         ctx.beginPath();
         ctx.moveTo(0, curY);
@@ -395,29 +412,28 @@ export default function AtasFootprintChart({
         ctx.setLineDash([]);
 
         // Pulsing Live Price Pill on Right Axis
-        ctx.fillStyle = '#10b981';
-        ctx.fillRect(plotWidth + 2, curY - 10, rightMargin - 4, 20);
+        ctx.fillStyle = '#16a34a';
+        ctx.fillRect(plotWidth + 2, curY - 11, rightMargin - 4, 22);
         ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 10.5px monospace';
+        ctx.font = 'bold 11px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText(currentPrice.toFixed(decimals), plotWidth + (rightMargin / 2), curY + 4);
+        ctx.fillText(currentPrice.toFixed(decimals), plotWidth + rightMargin / 2, curY + 4);
       }
     }
 
-    // 5. Right Price Scale Ruler
-    ctx.fillStyle = isDark ? '#0f172a' : '#f8fafc';
+    // 5. Right Price Scale Ruler (Clean White / Soft Slate)
+    ctx.fillStyle = '#f8fafc';
     ctx.fillRect(plotWidth, 0, rightMargin, plotHeight);
 
-    ctx.strokeStyle = isDark ? '#1e293b' : '#e2e8f0';
+    ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(plotWidth, 0);
     ctx.lineTo(plotWidth, plotHeight);
     ctx.stroke();
 
-    // Price Tick Labels on Right Scale
-    ctx.fillStyle = isDark ? '#94a3b8' : '#475569';
-    ctx.font = 'bold 10px monospace';
+    ctx.fillStyle = '#475569';
+    ctx.font = 'bold 10.5px monospace';
     ctx.textAlign = 'left';
 
     for (let i = 0; i <= nPriceLines; i++) {
@@ -433,10 +449,10 @@ export default function AtasFootprintChart({
     }
 
     // 6. Bottom Time Scale Bar
-    ctx.fillStyle = isDark ? '#0b1120' : '#ffffff';
+    ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, plotHeight, width, bottomMargin);
 
-    ctx.strokeStyle = isDark ? '#1e293b' : '#e2e8f0';
+    ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(0, plotHeight);
@@ -444,11 +460,11 @@ export default function AtasFootprintChart({
     ctx.stroke();
 
     ctx.restore();
-  }, [footprintData, symbol, timeframe, currentPrice, decimals, height, zoom, panX, panY, displayMode, colorTheme]);
+  }, [footprintData, symbol, timeframe, currentPrice, decimals, height, zoom, panX, panY, displayMode, mousePos]);
 
-  // Request Animation Frame on state changes
+  // Request Animation Frame on state changes for 60 FPS fluid rendering
   useEffect(() => {
-    let animId = requestAnimationFrame(drawChart);
+    const animId = requestAnimationFrame(drawChart);
     return () => cancelAnimationFrame(animId);
   }, [drawChart]);
 
@@ -462,11 +478,17 @@ export default function AtasFootprintChart({
   // Mouse Drag Panning Handlers
   const handleMouseDown = (e) => {
     isDraggingRef.current = true;
+    setIsCursorGrabbing(true);
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     panStartRef.current = { x: panX, y: panY };
   };
 
   const handleMouseMove = (e) => {
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (rect) {
+      setMousePos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+    }
+
     if (!isDraggingRef.current) return;
     const dx = e.clientX - dragStartRef.current.x;
     const dy = e.clientY - dragStartRef.current.y;
@@ -476,22 +498,36 @@ export default function AtasFootprintChart({
 
   const handleMouseUp = () => {
     isDraggingRef.current = false;
+    setIsCursorGrabbing(false);
   };
 
-  // Mouse Wheel Zooming (Wheel UP = Zoom In, Wheel DOWN = Zoom Out)
+  // Smooth Mouse Wheel Zoom (Anchored to Mouse Cursor Coordinates)
   const handleWheel = (e) => {
     e.preventDefault();
+    const rect = canvasRef.current?.getBoundingClientRect();
+    if (!rect) return;
+
+    const mouseX = e.clientX - rect.left;
+    const mouseY = e.clientY - rect.top;
     const zoomFactor = e.deltaY < 0 ? 1.15 : 0.87;
+
     setZoom((prevZoom) => {
-      const nextZoom = Math.max(0.45, Math.min(3.5, prevZoom * zoomFactor));
-      return Number(nextZoom.toFixed(2));
+      const nextZoom = Math.max(0.50, Math.min(3.5, Number((prevZoom * zoomFactor).toFixed(2))));
+      const scaleChange = nextZoom / prevZoom;
+
+      // Pan adjustment so the point under cursor remains stationary
+      setPanX((prevX) => mouseX - (mouseX - prevX) * scaleChange);
+      setPanY((prevY) => mouseY - (mouseY - prevY) * scaleChange);
+
+      return nextZoom;
     });
   };
 
-  // Touch handlers for mobile & tablet pinch to zoom and pan
+  // Touch Handlers for Mobile & Tablet (Pinch to Zoom & Drag to Pan)
   const handleTouchStart = (e) => {
     if (e.touches.length === 1) {
       isDraggingRef.current = true;
+      setIsCursorGrabbing(true);
       dragStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
       panStartRef.current = { x: panX, y: panY };
     } else if (e.touches.length === 2) {
@@ -514,61 +550,59 @@ export default function AtasFootprintChart({
       const dy = e.touches[0].clientY - e.touches[1].clientY;
       const dist = Math.hypot(dx, dy);
       const scale = dist / touchStartDistRef.current;
-      const nextZoom = Math.max(0.45, Math.min(3.5, touchStartZoomRef.current * scale));
-      setZoom(Number(nextZoom.toFixed(2)));
+      const nextZoom = Math.max(0.50, Math.min(3.5, Number((touchStartZoomRef.current * scale).toFixed(2))));
+      setZoom(nextZoom);
     }
   };
 
   const handleTouchEnd = () => {
     isDraggingRef.current = false;
+    setIsCursorGrabbing(false);
     touchStartDistRef.current = 0;
   };
 
-  const isDark = colorTheme === 'dark';
+  // Summary Metrics of the Latest Active Candle
+  const latestBar = footprintData && footprintData.length > 0 ? footprintData[footprintData.length - 1] : null;
+  const latestDelta = latestBar?.delta ?? 0;
+  const latestVol = latestBar?.volume ? Math.round(latestBar.volume).toLocaleString() : '---';
 
   return (
     <div
       ref={containerRef}
-      className={`rounded-2xl border overflow-hidden flex flex-col transition-all shadow-sm ${
-        isDark ? 'bg-slate-950 border-slate-800 text-slate-100' : 'bg-white border-slate-200 text-slate-900'
-      } ${isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : 'relative'}`}
+      className={`bg-white text-slate-900 border border-slate-200 rounded-2xl overflow-hidden flex flex-col transition-all shadow-sm ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : 'relative'
+      }`}
     >
-      {/* 1. Footprint Header & Control Toolbar */}
-      <div
-        className={`px-3 sm:px-5 py-2.5 border-b flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0 ${
-          isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-slate-100'
-        }`}
-      >
+      {/* 1. Footprint Header & Control Toolbar (Pure White Theme) */}
+      <div className="bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
         {/* Left: Title & Live Pill */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm tracking-tight text-emerald-500">
-            <Flame className="w-4 h-4 fill-emerald-500 animate-pulse" />
-            <span className={isDark ? 'text-white' : 'text-slate-900'}>
-              {symbol === 'XAUUSD' ? 'XAUUSD (Gold)' : symbol}
-            </span>
+          <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm tracking-tight text-slate-900">
+            <Flame className="w-4 h-4 text-emerald-600 fill-emerald-600 animate-pulse" />
+            <span>XAUUSD (Gold Spot)</span>
           </div>
 
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-500/10 text-blue-400 border border-blue-500/20 uppercase font-mono">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase font-mono">
             {timeframe} Footprint
           </span>
 
-          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded border border-emerald-500/20">
+          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            ATAS ORDER FLOW
+            ATAS ORDER FLOW (<span className="text-emerald-800">50ms Live</span>)
           </span>
         </div>
 
-        {/* Center: Timeframe Switcher (if onSelectTimeframe provided) */}
+        {/* Center: Timeframe Switcher (White Theme) */}
         {onSelectTimeframe && (
-          <div className={`flex items-center p-0.5 rounded-lg border text-xs font-semibold ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+          <div className="flex items-center p-0.5 rounded-lg border border-slate-200 bg-slate-100 text-xs font-semibold">
             {['5m', '15m', '1h', '4h'].map((tf) => (
               <button
                 key={tf}
                 onClick={() => onSelectTimeframe(tf)}
                 className={`px-2 py-0.5 rounded-md transition ${
                   timeframe.toLowerCase() === tf
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-blue-600 text-white font-bold shadow-xs'
+                    : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 {tf.toUpperCase()}
@@ -577,18 +611,18 @@ export default function AtasFootprintChart({
           </div>
         )}
 
-        {/* Right: Zoom In/Out, Mode Switcher, Fullscreen */}
+        {/* Right: Display Mode, Zoom Controls, Reset */}
         <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Display Mode: Bid x Ask vs Delta */}
-          <div className={`flex items-center p-0.5 rounded-lg border text-[11px] font-semibold ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+          {/* Display Mode: Bid x Ask vs Delta vs Volume */}
+          <div className="flex items-center p-0.5 rounded-lg border border-slate-200 bg-slate-100 text-[11px] font-semibold">
             <button
               onClick={() => setDisplayMode('bid_ask')}
               className={`px-2 py-0.5 rounded transition ${
                 displayMode === 'bid_ask'
-                  ? 'bg-blue-600 text-white font-bold'
-                  : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600'
+                  ? 'bg-blue-600 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
-              title="Show Bid × Ask Volume"
+              title="Show Bid x Ask Volume"
             >
               Bid × Ask
             </button>
@@ -596,103 +630,120 @@ export default function AtasFootprintChart({
               onClick={() => setDisplayMode('delta')}
               className={`px-2 py-0.5 rounded transition ${
                 displayMode === 'delta'
-                  ? 'bg-blue-600 text-white font-bold'
-                  : isDark ? 'text-slate-400 hover:text-white' : 'text-slate-600'
+                  ? 'bg-blue-600 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
               }`}
               title="Show Cluster Net Delta"
             >
               Delta
             </button>
+            <button
+              onClick={() => setDisplayMode('volume')}
+              className={`px-2 py-0.5 rounded transition ${
+                displayMode === 'volume'
+                  ? 'bg-blue-600 text-white font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+              title="Show Total Volume"
+            >
+              Volume
+            </button>
           </div>
 
-          {/* Color Theme Switch: Dark (ATAS) vs Light */}
-          <button
-            onClick={() => setColorTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-            className={`px-2 py-1 rounded-lg text-[10px] font-bold border transition ${
-              isDark
-                ? 'bg-slate-800 border-slate-700 text-slate-300 hover:bg-slate-700'
-                : 'bg-slate-100 border-slate-200 text-slate-700 hover:bg-slate-200'
-            }`}
-            title="Toggle Dark / Light Theme"
-          >
-            {isDark ? '🌙 Dark' : '☀️ Light'}
-          </button>
-
-          {/* Zoom Controls */}
-          <div className={`flex items-center rounded-lg border p-0.5 ${isDark ? 'bg-slate-800/80 border-slate-700' : 'bg-slate-100 border-slate-200'}`}>
+          {/* Zoom Buttons with Dynamic Text Scaling */}
+          <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
             <button
               onClick={handleZoomIn}
-              className={`w-7 h-7 flex items-center justify-center rounded transition ${isDark ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-200 text-slate-700'}`}
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-700 hover:bg-white hover:shadow-xs transition"
               title="Zoom In (Enlarge Numbers & Details)"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
-            <span className={`text-[10px] font-mono font-bold px-1.5 ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>
-              {Math.round(zoom * 100)}%
-            </span>
             <button
               onClick={handleZoomOut}
-              className={`w-7 h-7 flex items-center justify-center rounded transition ${isDark ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-200 text-slate-700'}`}
-              title="Zoom Out (Show More Bars)"
+              className="w-7 h-7 flex items-center justify-center rounded text-slate-700 hover:bg-white hover:shadow-xs transition"
+              title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleResetView}
-              className={`w-7 h-7 flex items-center justify-center rounded transition ${isDark ? 'hover:bg-slate-700 text-slate-200' : 'hover:bg-slate-200 text-slate-700'}`}
-              title="Reset View"
+              className="px-1.5 h-7 flex items-center gap-1 rounded text-[10px] font-bold text-slate-700 hover:bg-white hover:shadow-xs transition"
+              title="Reset View & Snap to Live Candle"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
+              <RotateCcw className="w-3 h-3" />
+              <span className="hidden sm:inline">Reset</span>
             </button>
           </div>
 
-          {/* Fullscreen Button */}
+          {/* Fullscreen Toggle */}
           {onToggleFullscreen && (
             <button
               onClick={onToggleFullscreen}
-              className={`w-8 h-8 flex items-center justify-center rounded-xl border transition ${
-                isDark ? 'border-slate-800 hover:bg-slate-800 text-slate-300' : 'border-slate-200 hover:bg-slate-100 text-slate-600'
-              }`}
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}
+              className="p-1.5 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Footprint'}
             >
-              {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
             </button>
           )}
         </div>
       </div>
 
-      {/* 2. Interactive ATAS Canvas Area */}
+      {/* 2. Top Metric Ribbon: Quick Institutional Read (White Theme) */}
+      <div className="bg-slate-50 border-b border-slate-200 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
+        <div className="flex items-center gap-3">
+          <span className="text-[11px] text-slate-500 font-sans">Active Candle:</span>
+          <span className={`font-bold ${latestDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+            Δ {latestDelta >= 0 ? `+${latestDelta}` : latestDelta}
+          </span>
+          <span className="text-slate-300">|</span>
+          <span className="text-slate-600">Vol: <b>{latestVol} lots</b></span>
+          <span className="text-slate-300">|</span>
+          <span className="text-amber-700 font-bold">⭐ POC Active</span>
+        </div>
+
+        <div className="flex items-center gap-2 text-[10px] font-sans text-slate-500">
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded bg-rose-500"></span> Bid (Sellers)
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded bg-emerald-500"></span> Ask (Buyers)
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="w-2 h-2 rounded bg-amber-500"></span> POC Magnet
+          </span>
+        </div>
+      </div>
+
+      {/* 3. Interactive HTML5 Canvas (Touch action none for smooth pinch & drag) */}
       <div
-        className="relative flex-1 select-none cursor-grab active:cursor-grabbing overflow-hidden"
-        style={{ height: isFullscreen ? 'calc(100vh - 100px)' : `${height}px` }}
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseUp}
-        onWheel={handleWheel}
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
+        className="relative flex-1 bg-white overflow-hidden select-none"
+        style={{
+          height: isFullscreen ? 'calc(100vh - 100px)' : `${height}px`,
+          cursor: isCursorGrabbing ? 'grabbing' : 'grab',
+          touchAction: 'none',
+        }}
       >
-        <canvas ref={canvasRef} className="block w-full h-full" />
+        <canvas
+          ref={canvasRef}
+          onMouseDown={handleMouseDown}
+          onMouseMove={handleMouseMove}
+          onMouseUp={handleMouseUp}
+          onMouseLeave={handleMouseUp}
+          onWheel={handleWheel}
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          className="absolute inset-0 block w-full h-full"
+        />
 
-        {/* Floating Quick Legend & Instructions */}
-        <div className="absolute top-2 left-2 z-10 pointer-events-none flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1.5 bg-slate-900/80 backdrop-blur-md text-white px-2.5 py-1 rounded-lg border border-slate-700 text-[10px] font-mono shadow-md">
-            <span className="w-2.5 h-2.5 rounded bg-emerald-500"></span>
-            <span>Buy Imbalance (&ge;300%)</span>
-            <span className="text-slate-500">|</span>
-            <span className="w-2.5 h-2.5 rounded bg-rose-500"></span>
-            <span>Sell Imbalance (&ge;300%)</span>
-            <span className="text-slate-500">|</span>
-            <span className="w-2.5 h-2.5 rounded border border-amber-400 bg-amber-400/20"></span>
-            <span>Candle POC</span>
-          </div>
-
-          <div className="hidden lg:flex items-center gap-1 bg-slate-900/70 text-slate-300 px-2 py-1 rounded-lg border border-slate-800 text-[10px] font-mono">
-            <Info className="w-3 h-3 text-blue-400" />
-            <span>Scroll Wheel to Zoom In & Out • Drag to Pan</span>
-          </div>
+        {/* Live Interaction Helper Overlay Badge */}
+        <div className="absolute top-2 left-3 pointer-events-none z-10 flex items-center gap-2 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md border border-slate-200 shadow-xs text-[10px] text-slate-500 font-mono">
+          <span>Zoom: {Math.round(zoom * 100)}%</span>
+          <span>•</span>
+          <span>Scroll to Zoom</span>
+          <span>•</span>
+          <span>Drag to Pan</span>
         </div>
       </div>
     </div>
