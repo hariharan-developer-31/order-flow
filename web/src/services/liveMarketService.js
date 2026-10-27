@@ -487,11 +487,13 @@ export function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.5
   const s3_tp2 = Number((s3_entry + 9.50).toFixed(dec));
 
   return {
-    trades_count: 1,
+    trades_count: 0,
     max_trades: 3,
-    today_pnl: '+1.15%',
+    today_pnl: '+0.00%',
     daily_target: '+2.0% - 3.0%',
     capital_guard: '-2.5%',
+    is_flat: true,
+    market_state: '100% FLAT (Scanning for Institutional Setups)',
     signals_stream: [
       {
         id: 'amt_80',
@@ -505,8 +507,9 @@ export function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.5
         sl: s1_sl,
         tp1: s1_tp1,
         tp2: s1_tp2,
-        status: 'ACTIVE',
-        target_risk: '0.5% ($25.00) | $6.00 Stop',
+        status: 'WATCHLIST_LEVELS',
+        is_triggered: false,
+        target_risk: '0.5% risk | $6.00 Stop',
         time: istTimeStr,
       },
       {
@@ -521,8 +524,9 @@ export function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.5
         sl: s2_sl,
         tp1: s2_tp1,
         tp2: s2_tp2,
-        status: 'ACTIVE',
-        target_risk: '0.5% ($25.00) | $3.00 Stop',
+        status: 'WATCHLIST_LEVELS',
+        is_triggered: false,
+        target_risk: '0.5% risk | $3.00 Stop',
         time: istTimeStr,
       },
       {
@@ -537,8 +541,9 @@ export function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.5
         sl: s3_sl,
         tp1: s3_tp1,
         tp2: s3_tp2,
-        status: 'ACTIVE',
-        target_risk: '0.5% ($25.00) | $2.50 Stop',
+        status: 'WATCHLIST_LEVELS',
+        is_triggered: false,
+        target_risk: '0.5% risk | $2.50 Stop',
         time: istTimeStr,
       },
     ],

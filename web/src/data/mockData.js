@@ -230,12 +230,13 @@ export function getFallbackSignals() {
   return {
     timestamp: Math.floor(Date.now() / 1000),
     date: dateStr,
-    trades_count: 1,
+    trades_count: 0,
     max_trades: 3,
-    today_pnl: '+1.15%',
+    today_pnl: '+0.00%',
     daily_target: '+2.0% - 3.0%',
     capital_guard: '-2.5%',
-    latest_summary: 'AMT 80% Value Area Rule Active: Order A reached POC (+1:1 RR banker). Order B stop loss safely moved to Breakeven.',
+    is_flat: true,
+    latest_summary: 'Market 100% Flat: Scanning Gold XAUUSD for London and NY order flow confluences.',
     signals_stream: [
       {
         id: 'amt_80',
@@ -249,8 +250,9 @@ export function getFallbackSignals() {
         sl: 2760.0,
         tp1: 2748.0,
         tp2: 2741.0,
-        status: 'ACTIVE',
-        target_risk: '0.5% ($25.00) | $6.00 Stop',
+        status: 'WATCHLIST_LEVELS',
+        is_triggered: false,
+        target_risk: '0.5% risk | $6.00 Stop',
         time: `${dateStr} 14:15:00 IST`,
       },
       {

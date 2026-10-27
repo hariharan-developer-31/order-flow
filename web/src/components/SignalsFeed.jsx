@@ -259,24 +259,43 @@ MANDATORY RISK RULES:
       <div className="p-4 overflow-y-auto space-y-3 flex-1 max-h-[460px]">
         {activeTrades.map((t, idx) => {
           const isBuy = t.side === 'BUY';
-          const isSelectedStrat = t.id?.includes(activeStrategyId) || true;
+          const isTriggered = t.is_triggered === true;
 
           return (
             <div
               key={t.id || idx}
-              className="bg-white border-2 border-slate-200 rounded-xl p-4 shadow-sm hover:border-blue-500 transition relative"
+              className={`bg-white border-2 rounded-xl p-4 shadow-sm transition relative ${
+                isTriggered ? 'border-emerald-500 ring-2 ring-emerald-500/20' : 'border-slate-200 hover:border-blue-400'
+              }`}
             >
-              {/* Card Top: Asset Badge & Time */}
-              <div className="flex items-center justify-between mb-3">
+              {/* Card Top: Asset Badge, Blueprint Flag & Time */}
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                 <div className="flex items-center gap-2">
-                  <span
-                    className={`text-xs font-black px-2.5 py-1 rounded-lg shadow-xs ${
-                      isBuy ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
-                    }`}
-                  >
-                    {t.side} XAUUSD (Gold)
-                  </span>
-                  <span className="text-[11px] font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
+                  {isTriggered ? (
+                    <span
+                      className={`text-xs font-black px-2.5 py-1 rounded-lg shadow-xs flex items-center gap-1.5 ${
+                        isBuy ? 'bg-emerald-600 text-white' : 'bg-rose-600 text-white'
+                      }`}
+                    >
+                      <span className="w-2 h-2 rounded-full bg-white animate-ping"></span>
+                      ACTIVE SIGNAL: {t.side} XAUUSD
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
+                        STRATEGY BLUEPRINT
+                      </span>
+                      <span
+                        className={`text-xs font-black px-2 py-0.5 rounded-md font-mono ${
+                          isBuy ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
+                        }`}
+                      >
+                        Planned {t.side}
+                      </span>
+                    </>
+                  )}
+                  <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 hidden sm:inline">
                     {activeStrat.name}
                   </span>
                 </div>
@@ -286,6 +305,19 @@ MANDATORY RISK RULES:
                   <span className="font-bold text-slate-700">{t.time || getISTTimeStr() + ' IST'}</span>
                 </div>
               </div>
+
+              {/* Status Notice: Explains whether it's an active trade or scanning blueprint */}
+              {!isTriggered && (
+                <div className="mb-3 px-3 py-1.5 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-medium flex items-center justify-between gap-2 font-mono">
+                  <span className="flex items-center gap-1.5">
+                    <Shield className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                    <span><b>Status: Scanning & Armed</b> — Level blueprint calculated. Awaiting trigger.</span>
+                  </span>
+                  <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded shrink-0">
+                    FLAT (0/3 TODAY)
+                  </span>
+                </div>
+              )}
 
               {/* Execution Levels Grid */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
@@ -326,23 +358,37 @@ MANDATORY RISK RULES:
                 </div>
               </div>
 
-              {/* Copy Exact MT5 Ticket Button */}
+              {/* Copy Ticket Button with State Awareness */}
               <button
                 onClick={() => handleCopyTicket(t, idx)}
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold bg-slate-900 hover:bg-blue-600 text-white shadow-sm transition active:scale-[0.99]"
+                className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition active:scale-[0.99] ${
+                  isTriggered
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
+                    : 'bg-slate-900 hover:bg-blue-600 text-white shadow-sm'
+                }`}
               >
                 {copiedId === idx ? (
                   <>
                     <Check className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>Copied MT5 Order Ticket to Clipboard!</span>
+                    <span>Copied Strategy Levels to Clipboard!</span>
                   </>
                 ) : (
                   <>
                     <Copy className="w-3.5 h-3.5" />
-                    <span>Copy Exact MT5 Order Ticket</span>
+                    <span>
+                      {isTriggered
+                        ? 'Copy Live MT5 Order Ticket'
+                        : 'Copy Strategy Blueprint (For Setting Alerts / Limits)'}
+                    </span>
                   </>
                 )}
               </button>
+
+              {!isTriggered && (
+                <p className="text-[10px] text-center text-slate-400 mt-1.5 font-mono">
+                  ⚠️ Market is 100% FLAT. Do not trade yet. Wait for automated push confirmation on Telegram.
+                </p>
+              )}
             </div>
           );
         })}
