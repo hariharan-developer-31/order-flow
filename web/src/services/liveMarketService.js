@@ -462,7 +462,17 @@ let localTradeState = {
 try {
   const savedState = localStorage.getItem('tb_trade_lifecycle_state');
   if (savedState) {
-    localTradeState = JSON.parse(savedState);
+    const parsed = JSON.parse(savedState);
+    if (parsed) {
+      localTradeState = {
+        activeTrades: parsed.activeTrades || [],
+        recentTrades: parsed.recentTrades || [],
+        pnlPct: parsed.pnlPct || 0.0,
+        tradesCount: parsed.tradesCount || 0,
+        latestEvent: parsed.latestEvent || null,
+        isManuallyReset: parsed.isManuallyReset || false,
+      };
+    }
   }
 } catch (e) {}
 
@@ -472,13 +482,45 @@ function saveLocalTradeState() {
   } catch (e) {}
 }
 
+export function mergeRecentTrades(primaryList = [], secondaryList = []) {
+  const combined = [...(primaryList || []), ...(secondaryList || [])];
+  const seen = new Set();
+  const unique = [];
+
+  for (const t of combined) {
+    if (!t) continue;
+    const key = t.id || `${t.sym}_${t.side}_${t.entry}_${t.open_time || t.open_time_ist || ''}`;
+    if (!seen.has(key)) {
+      seen.add(key);
+      unique.push(t);
+    }
+  }
+  return unique;
+}
+
+export function clearTradeHistory() {
+  localTradeState.recentTrades = [];
+  saveLocalTradeState();
+  return [];
+}
+
+function syncLifecycleToBackend(action, price) {
+  try {
+    fetch('/api/signals', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action, price: Number(price) }),
+    }).catch(() => {});
+  } catch (e) {}
+}
+
 /**
  * Evaluates live tick price against open active trades.
  * Automatically transitions trade states (TP1 Hit, TP2 Hit, Breakeven, Stop Loss)
  * with instant client-side latency (<10ms).
  */
 export function evaluateTradeLifecycle(currentPrice) {
-  if (!currentPrice || localTradeState.activeTrades.length === 0) return null;
+  if (!currentPrice || !localTradeState.activeTrades || localTradeState.activeTrades.length === 0) return null;
 
   const now = new Date();
   const timeStr = now.toLocaleTimeString('en-IN', {
@@ -495,10 +537,10 @@ export function evaluateTradeLifecycle(currentPrice) {
     if (trade.closed) return false;
 
     const side = trade.side;
-    const entry = trade.entry;
-    const sl = trade.sl;
-    const tp1 = trade.tp1;
-    const tp2 = trade.tp2;
+    const entry = Number(trade.entry);
+    const sl = Number(trade.sl);
+    const tp1 = Number(trade.tp1);
+    const tp2 = Number(trade.tp2);
     const isBuy = side === 'BUY';
 
     // 1. FRESH TRADE: Monitor for TP1 or Initial Hard SL
@@ -516,7 +558,7 @@ export function evaluateTradeLifecycle(currentPrice) {
         trade.total_gain_pct = -0.50;
 
         localTradeState.pnlPct = Number((localTradeState.pnlPct - 0.50).toFixed(2));
-        localTradeState.recentTrades.unshift({ ...trade });
+        localTradeState.recentTrades = mergeRecentTrades([trade], localTradeState.recentTrades);
 
         eventTriggered = {
           type: 'SL_HIT',
@@ -532,6 +574,7 @@ export function evaluateTradeLifecycle(currentPrice) {
         };
         localTradeState.latestEvent = eventTriggered;
         saveLocalTradeState();
+        syncLifecycleToBackend('SL', currentPrice);
         return false;
       }
 
@@ -562,6 +605,7 @@ export function evaluateTradeLifecycle(currentPrice) {
         };
         localTradeState.latestEvent = eventTriggered;
         saveLocalTradeState();
+        syncLifecycleToBackend('TP1', currentPrice);
         return true; // Keep Order B running
       }
     } else {
@@ -578,7 +622,7 @@ export function evaluateTradeLifecycle(currentPrice) {
         trade.total_gain_pct = 1.15; // 0.70 + 0.45
 
         localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.45).toFixed(2));
-        localTradeState.recentTrades.unshift({ ...trade });
+        localTradeState.recentTrades = mergeRecentTrades([trade], localTradeState.recentTrades);
 
         eventTriggered = {
           type: 'TP2_HIT',
@@ -595,6 +639,7 @@ export function evaluateTradeLifecycle(currentPrice) {
         };
         localTradeState.latestEvent = eventTriggered;
         saveLocalTradeState();
+        syncLifecycleToBackend('TP2', currentPrice);
         return false;
       }
 
@@ -609,7 +654,7 @@ export function evaluateTradeLifecycle(currentPrice) {
         trade.exit_time = timeStr;
         trade.total_gain_pct = 0.70; // Order A profit safely preserved
 
-        localTradeState.recentTrades.unshift({ ...trade });
+        localTradeState.recentTrades = mergeRecentTrades([trade], localTradeState.recentTrades);
 
         eventTriggered = {
           type: 'BE_EXIT',
@@ -625,6 +670,7 @@ export function evaluateTradeLifecycle(currentPrice) {
         };
         localTradeState.latestEvent = eventTriggered;
         saveLocalTradeState();
+        syncLifecycleToBackend('BE', currentPrice);
         return false;
       }
     }
@@ -672,16 +718,18 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
       be_alerted: false,
       closed: false,
       time: timeStr,
+      open_time_ist: timeStr,
     };
     localTradeState.activeTrades = [newTrade];
-    localTradeState.tradesCount += 1;
+    localTradeState.tradesCount = Math.max(1, localTradeState.tradesCount + 1);
     localTradeState.latestEvent = {
       type: 'NEW_TRADE',
-      headline: `🚨 ACTIVE SIGNAL: SELL XAUUSD at ${p.toFixed(2)}`,
+      headline: `🚀 ACTIVE SIGNAL: SELL XAUUSD at ${p.toFixed(2)}`,
       subtext: `Target 1: ${(p - 6.0).toFixed(2)} | Target 2: ${(p - 13.8).toFixed(2)} | Hard SL: ${(p + 6.0).toFixed(2)}`,
       time: timeStr,
     };
     saveLocalTradeState();
+    syncLifecycleToBackend('ARM_TRADE', p);
     return localTradeState.latestEvent;
   }
 
@@ -696,6 +744,7 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
     t.order_a_status = 'BANKED (+0.70%)';
     t.order_b_status = 'RUNNING (SL @ BREAKEVEN)';
     t.order_b_sl = t.entry;
+    t.tp1_hit_time = timeStr;
     localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.70).toFixed(2));
     localTradeState.latestEvent = {
       type: 'TP1_HIT',
@@ -704,6 +753,7 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
       time: timeStr,
     };
     saveLocalTradeState();
+    syncLifecycleToBackend('TP1', currentPrice);
     return localTradeState.latestEvent;
   }
 
@@ -715,12 +765,13 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
     }
     t.closed = true;
     t.stage = 'TP2_HIT';
+    t.close_reason = 'TP2_HIT';
     t.order_b_status = 'BANKED (+0.45%)';
     t.exit_price = t.tp2;
     t.exit_time = timeStr;
     t.total_gain_pct = 1.15;
     localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.45).toFixed(2));
-    localTradeState.recentTrades.unshift({ ...t });
+    localTradeState.recentTrades = mergeRecentTrades([t], localTradeState.recentTrades);
     localTradeState.activeTrades = [];
     localTradeState.latestEvent = {
       type: 'TP2_HIT',
@@ -729,6 +780,7 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
       time: timeStr,
     };
     saveLocalTradeState();
+    syncLifecycleToBackend('TP2', currentPrice);
     return localTradeState.latestEvent;
   }
 
@@ -740,11 +792,12 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
     }
     t.closed = true;
     t.stage = 'BE_EXIT';
+    t.close_reason = 'BE_EXIT';
     t.order_b_status = 'CLOSED AT BREAKEVEN (0.00%)';
     t.exit_price = t.entry;
     t.exit_time = timeStr;
     t.total_gain_pct = 0.70;
-    localTradeState.recentTrades.unshift({ ...t });
+    localTradeState.recentTrades = mergeRecentTrades([t], localTradeState.recentTrades);
     localTradeState.activeTrades = [];
     localTradeState.latestEvent = {
       type: 'BE_EXIT',
@@ -753,6 +806,7 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
       time: timeStr,
     };
     saveLocalTradeState();
+    syncLifecycleToBackend('BE', currentPrice);
     return localTradeState.latestEvent;
   }
 
@@ -764,13 +818,14 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
     }
     t.closed = true;
     t.stage = 'SL_HIT';
+    t.close_reason = 'SL_HIT';
     t.order_a_status = 'STOPPED OUT (-0.25%)';
     t.order_b_status = 'STOPPED OUT (-0.25%)';
     t.exit_price = t.sl;
     t.exit_time = timeStr;
     t.total_gain_pct = -0.50;
     localTradeState.pnlPct = Number((localTradeState.pnlPct - 0.50).toFixed(2));
-    localTradeState.recentTrades.unshift({ ...t });
+    localTradeState.recentTrades = mergeRecentTrades([t], localTradeState.recentTrades);
     localTradeState.activeTrades = [];
     localTradeState.latestEvent = {
       type: 'SL_HIT',
@@ -779,19 +834,21 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
       time: timeStr,
     };
     saveLocalTradeState();
+    syncLifecycleToBackend('SL', currentPrice);
     return localTradeState.latestEvent;
   }
 
   if (actionType === 'RESET') {
     localTradeState = {
       activeTrades: [],
-      recentTrades: [],
+      recentTrades: localTradeState.recentTrades || [],
       pnlPct: 0.0,
       tradesCount: 0,
       latestEvent: null,
       isManuallyReset: true,
     };
     saveLocalTradeState();
+    syncLifecycleToBackend('RESET', currentPrice);
     return null;
   }
 
@@ -893,44 +950,64 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
   for (const targetUrl of candidateUrls) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
       const res = await fetch(targetUrl, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
       });
       clearTimeout(timeoutId);
 
-      if (res.ok) {
+      const contentType = res.headers.get('content-type') || '';
+      if (res.ok && contentType.includes('application/json')) {
         const data = await res.json();
-        const activeList = data.active_trades || [];
 
-        // If backend has active trades, sync into local store
-        if (activeList.length > 0) {
+        // Sync backend state into local browser store
+        if (data.active_trades && data.active_trades.length > 0) {
           delete localTradeState.isManuallyReset;
-          localTradeState.activeTrades = activeList;
-          localTradeState.tradesCount = data.trades_count || Math.max(1, localTradeState.tradesCount);
-          localTradeState.pnlPct = data.pnl_pct != null ? data.pnl_pct : localTradeState.pnlPct;
-          if (data.latest_lifecycle_event) localTradeState.latestEvent = data.latest_lifecycle_event;
-          saveLocalTradeState();
-
-          return {
-            trades_count: localTradeState.tradesCount,
-            max_trades: 3,
-            today_pnl: data.today_pnl || (localTradeState.pnlPct >= 0 ? `+${localTradeState.pnlPct.toFixed(2)}%` : `${localTradeState.pnlPct.toFixed(2)}%`),
-            pnl_pct: localTradeState.pnlPct,
-            daily_target: '+2.0% - 3.0%',
-            capital_guard: '-2.5%',
-            is_flat: false,
-            market_state: '🟢 ACTIVE TRADE RUNNING',
-            latest_lifecycle_event: data.latest_lifecycle_event || localTradeState.latestEvent,
-            active_trades: activeList,
-            recent_trades: data.recent_trades?.length ? data.recent_trades : localTradeState.recentTrades,
-            signals_stream: baseStrategies,
-          };
+          localTradeState.activeTrades = data.active_trades;
+        } else if (data.is_flat) {
+          localTradeState.activeTrades = [];
         }
+
+        if (data.recent_trades && data.recent_trades.length > 0) {
+          localTradeState.recentTrades = mergeRecentTrades(data.recent_trades, localTradeState.recentTrades);
+        }
+
+        if (data.trades_count != null) {
+          localTradeState.tradesCount = Math.max(localTradeState.tradesCount, data.trades_count);
+        }
+
+        if (data.pnl_pct != null) {
+          localTradeState.pnlPct = data.pnl_pct;
+        }
+
+        if (data.latest_lifecycle_event) {
+          localTradeState.latestEvent = data.latest_lifecycle_event;
+        }
+
+        saveLocalTradeState();
+
+        const isCurrentlyFlat = !localTradeState.activeTrades || localTradeState.activeTrades.length === 0;
+
+        return {
+          trades_count: localTradeState.tradesCount,
+          max_trades: 3,
+          today_pnl: localTradeState.pnlPct >= 0 ? `+${localTradeState.pnlPct.toFixed(2)}%` : `${localTradeState.pnlPct.toFixed(2)}%`,
+          pnl_pct: localTradeState.pnlPct,
+          daily_target: '+2.0% - 3.0%',
+          capital_guard: '-2.5%',
+          is_flat: isCurrentlyFlat,
+          market_state: isCurrentlyFlat
+            ? '100% FLAT (Scanning for Institutional Setups)'
+            : '⚡ ACTIVE TRADE RUNNING',
+          latest_lifecycle_event: localTradeState.latestEvent,
+          active_trades: localTradeState.activeTrades,
+          recent_trades: localTradeState.recentTrades,
+          signals_stream: baseStrategies,
+        };
       }
     } catch (e) {
-      // Continue to next endpoint
+      // Continue to next endpoint or fallback
     }
   }
 
@@ -953,7 +1030,7 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
   }
 
   // 3. Fallback to existing open trade if already stored in browser
-  if (localTradeState.activeTrades.length > 0) {
+  if (localTradeState.activeTrades && localTradeState.activeTrades.length > 0) {
     return {
       trades_count: Math.max(1, localTradeState.tradesCount),
       max_trades: 3,
@@ -962,7 +1039,7 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
       daily_target: '+2.0% - 3.0%',
       capital_guard: '-2.5%',
       is_flat: false,
-      market_state: '🟢 ACTIVE TRADE RUNNING',
+      market_state: '⚡ ACTIVE TRADE RUNNING',
       latest_lifecycle_event: localTradeState.latestEvent,
       active_trades: localTradeState.activeTrades,
       recent_trades: localTradeState.recentTrades,
@@ -1003,7 +1080,7 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
   localTradeState.tradesCount = Math.max(1, localTradeState.tradesCount);
   localTradeState.latestEvent = {
     type: 'NEW_TRADE',
-    headline: `🚨 ACTIVE TRADE: ${autoTrade.side} XAUUSD at ${entry.toFixed(2)}`,
+    headline: `🚀 ACTIVE TRADE: ${autoTrade.side} XAUUSD at ${autoTrade.entry.toFixed(2)}`,
     subtext: `Target 1: ${autoTrade.tp1.toFixed(2)} (70% Scale-Out & BE) | Target 2: ${autoTrade.tp2.toFixed(2)} (Runner) | SL: ${autoTrade.sl.toFixed(2)}`,
     time: istTimeStr,
   };
@@ -1017,7 +1094,7 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
     daily_target: '+2.0% - 3.0%',
     capital_guard: '-2.5%',
     is_flat: false,
-    market_state: '🟢 ACTIVE TRADE RUNNING',
+    market_state: '⚡ ACTIVE TRADE RUNNING',
     latest_lifecycle_event: localTradeState.latestEvent,
     active_trades: localTradeState.activeTrades,
     recent_trades: localTradeState.recentTrades,

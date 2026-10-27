@@ -21,8 +21,9 @@ import {
   Sparkles,
   BarChart3,
   SlidersHorizontal,
+  Trash2,
 } from 'lucide-react';
-import { simulateLifecycleAction } from '../services/liveMarketService';
+import { simulateLifecycleAction, clearTradeHistory } from '../services/liveMarketService';
 
 const STRATEGIES = [
   {
@@ -646,52 +647,103 @@ MANDATORY RISK RULES:
 
       {/* TAB 3: HISTORY (Shows today's completed trades log) */}
       {activeTab === 'history' && (
-        <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2.5">
+        <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-3 font-sans">
+          {/* History Header Toolbar */}
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-black text-slate-800 font-mono">
+                COMPLETED TRADES LOG ({recentTrades.length})
+              </span>
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-mono font-bold border border-emerald-200">
+                P&L: {todayPnl}
+              </span>
+            </div>
+
+            {recentTrades.length > 0 && (
+              <button
+                onClick={() => {
+                  clearTradeHistory();
+                  if (onLifecycleChange) onLifecycleChange({ type: 'CLEAR_HISTORY' });
+                }}
+                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 transition flex items-center gap-1 font-mono"
+                title="Clear completed trade logs"
+              >
+                <Trash2 className="w-3 h-3" />
+                <span>Clear History</span>
+              </button>
+            )}
+          </div>
+
           {recentTrades.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 font-mono text-xs">
+            <div className="text-center py-12 text-slate-400 font-mono text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
               <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="font-bold text-slate-600">No completed trades yet today.</p>
-              <p className="text-[11px] mt-1">Trades will appear here when they hit SL, TP1, TP2, or Breakeven.</p>
+              <p className="font-bold text-slate-700 text-sm">No completed trades yet today.</p>
+              <p className="text-[11px] text-slate-500 mt-1">Trades will automatically record here when they hit Target 1, Target 2, Breakeven, or Stop Loss.</p>
             </div>
           ) : (
             recentTrades.map((rt, idx) => {
-              const isWin = rt.close_reason === 'TP2_HIT' || rt.close_reason === 'MANUAL_WIN';
-              const isBE = rt.close_reason === 'BE_EXIT' || rt.close_reason === 'MANUAL_BE';
-              const isLoss = rt.close_reason === 'SL_HIT' || rt.close_reason === 'MANUAL_LOSS';
+              const isTP2 = rt.close_reason === 'TP2_HIT' || rt.close_reason === 'MANUAL_WIN' || rt.stage === 'TP2_HIT';
+              const isTP1 = rt.close_reason === 'TP1_SINGLE_HIT' || rt.close_reason === 'TP1_HIT' || rt.stage === 'TP1_HIT';
+              const isBE = rt.close_reason === 'BE_EXIT' || rt.close_reason === 'MANUAL_BE' || rt.stage === 'BE_EXIT';
+              const isLoss = rt.close_reason === 'SL_HIT' || rt.close_reason === 'MANUAL_LOSS' || rt.stage === 'SL_HIT';
+              const isBuy = rt.side === 'BUY';
+
+              const entryVal = Number(rt.entry || 0).toFixed(2);
+              const exitVal = rt.exit_price != null ? Number(rt.exit_price).toFixed(2) : entryVal;
+              const timeVal = rt.exit_time || rt.exit_time_ist || rt.time || getISTTimeStr();
 
               return (
                 <div
                   key={idx}
-                  className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs font-mono text-xs flex flex-wrap items-center justify-between gap-2"
+                  className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-3 sm:p-3.5 shadow-xs font-mono text-xs flex flex-wrap items-center justify-between gap-3 transition"
                 >
-                  <div className="space-y-0.5">
+                  <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-extrabold text-slate-900">
+                      <span
+                        className={`text-[10px] font-black px-2 py-0.5 rounded text-white ${
+                          isBuy ? 'bg-emerald-600' : 'bg-rose-600'
+                        }`}
+                      >
                         {rt.side} {rt.sym || 'XAUUSD'}
                       </span>
-                      <span className="text-[10px] text-slate-500 font-sans">
-                        {rt.strategy || 'AMT 80% Rule'}
+                      <span className="text-xs font-bold text-slate-800 font-sans">
+                        {rt.strategy || 'AMT 80% Value Area Rule'}
                       </span>
                     </div>
-                    <div className="text-[10px] text-slate-400">
-                      Entry: <b>{rt.entry}</b> | Exit: <b>{rt.exit_price || '---'}</b> | {rt.exit_time || getISTTimeStr()}
+
+                    <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-2">
+                      <span>Entry: <b className="text-slate-900">${entryVal}</b></span>
+                      <span>•</span>
+                      <span>Exit: <b className="text-slate-900">${exitVal}</b></span>
+                      <span>•</span>
+                      <span className="text-slate-400 text-[10px]">{timeVal}</span>
                     </div>
                   </div>
 
-                  <div className="text-right">
-                    {isWin && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold border border-emerald-200">
+                  <div className="text-right shrink-0">
+                    {isTP2 && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold border border-emerald-300">
                         🏆 Full Target Hit (+1.15%)
                       </span>
                     )}
+                    {isTP1 && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold border border-emerald-300">
+                        🎯 Target 1 Banked (+0.70%)
+                      </span>
+                    )}
                     {isBE && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 font-bold border border-amber-200">
-                        ⚖️ Order B at BE (+0.70% Kept)
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-bold border border-amber-300">
+                        ⚖️ Runner @ Breakeven (+0.70% Kept)
                       </span>
                     )}
                     {isLoss && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 font-bold border border-rose-200">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 font-bold border border-rose-300">
                         🛑 Hard SL Hit (-0.50%)
+                      </span>
+                    )}
+                    {!isTP2 && !isTP1 && !isBE && !isLoss && (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-300">
+                        Closed ({rt.total_gain_pct >= 0 ? '+' : ''}{rt.total_gain_pct || 0}%)
                       </span>
                     )}
                   </div>

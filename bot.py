@@ -23,23 +23,37 @@ import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
 
+# Auto-load .env file if present
+_env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+if os.path.exists(_env_file):
+    try:
+        with open(_env_file, "r", encoding="utf-8") as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith("#") and "=" in _line:
+                    _k, _v = _line.split("=", 1)
+                    _k = _k.strip()
+                    _v = _v.strip().strip("'").strip('"')
+                    if _k not in os.environ:
+                        os.environ[_k] = _v
+    except Exception:
+        pass
+
 # Configuration (Supplied via Environment Variables)
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "8937175323:AAFwkqXGpR9O-uZDZsSLVMbPSyq-q0JMlWA"
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or "1049609307"
 LEARNING_CHANNEL_ID = os.getenv("LEARNING_CHANNEL_ID", "")
-# Percentage-based Risk Management (Target: 2-3%/day, Capital Guard: 2.5%, Max 3 trades/day)
 TARGET_RISK_PER_TRADE_PCT = float(os.getenv("TARGET_RISK_PER_TRADE_PCT", "0.5"))   # 0.5% risk per trade
 MAX_DAILY_TRADES = int(os.getenv("MAX_DAILY_TRADES", "3"))                       # Hard cap: 3 trades/day
 DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "-2.5"))           # Capital Guard Safe Limit: -2.5%
 DAILY_PROFIT_TARGET_MIN_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MIN_PCT", "2.0")) # Daily Target: +2.0% - 3.0%
 DAILY_PROFIT_TARGET_MAX_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MAX_PCT", "3.0"))
-# Backwards compatibility aliases
 TARGET_RISK_PER_TRADE = TARGET_RISK_PER_TRADE_PCT
 DAILY_LOSS_LIMIT = DAILY_LOSS_LIMIT_PCT
 DAILY_PROFIT_TARGET = DAILY_PROFIT_TARGET_MAX_PCT
 PORT = int(os.getenv("PORT", "8080"))
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "")
-WEBAPP_URL = os.getenv("WEBAPP_URL", "")
+WEBAPP_URL = os.getenv("WEBAPP_URL") or "https://order-flow-ashen.vercel.app"
 
 INSTRUMENTS = [
     ("XAUUSD", 2, "GC=F", 100.0, True),       # Gold (1 lot = 100 oz) - Exclusively Traded Asset
@@ -2209,11 +2223,39 @@ def breakeven_monitor() -> None:
     """
     print("[BE MONITOR] 24/7 Breakeven & Trade Lifecycle Watcher started (10s live spot loop).")
     y_map = {x[0]: (x[2], x[1]) for x in INSTRUMENTS}
+    last_recover_ts = 0.0
 
     while True:
         try:
             with state_lock:
                 active = list(daily_state.get("active_trades", []))
+
+            # If container restarted on Render and active trades was lost, attempt recovery from Vercel /api/signals
+            if not active and WEBAPP_URL and (time.time() - last_recover_ts > 60.0):
+                last_recover_ts = time.time()
+                try:
+                    sync_req = urllib.request.Request(
+                        f"{WEBAPP_URL.rstrip('/')}/api/signals",
+                        headers={"User-Agent": "TradingBoyBot/1.0", "Accept": "application/json"}
+                    )
+                    with urllib.request.urlopen(sync_req, timeout=4) as r:
+                        if r.status == 200:
+                            s_data = json.loads(r.read().decode("utf-8"))
+                            if s_data.get("active_trades") and len(s_data["active_trades"]) > 0:
+                                with state_lock:
+                                    daily_state["active_trades"] = s_data["active_trades"]
+                                    if s_data.get("trades_count"):
+                                        daily_state["trades_count"] = s_data["trades_count"]
+                                    if s_data.get("pnl_pct") is not None:
+                                        daily_state["pnl_pct"] = s_data["pnl_pct"]
+                                        daily_state["pnl"] = s_data["pnl_pct"]
+                                    if s_data.get("recent_trades"):
+                                        daily_state["recent_trades"] = s_data["recent_trades"]
+                                    save_daily_state()
+                                print(f"[BE MONITOR RECOVERY] Successfully recovered {len(s_data['active_trades'])} active trade(s) from WebApp API.")
+                                active = list(daily_state.get("active_trades", []))
+                except Exception:
+                    pass
 
             for trade in active:
                 if trade.get("closed", False):
@@ -2235,13 +2277,16 @@ def breakeven_monitor() -> None:
                 y_sym, _ = y_info
                 # High-speed live spot Gold price check
                 live_spot = fetch_spot_gold_price() if sym == "XAUUSD" else None
-                if live_spot and live_spot > 1000.0:
-                    live_p = live_spot
-                else:
-                    _, live_p = fetch_1h_bars(y_sym, dec)
+                bars_1h, bar_p = fetch_1h_bars(y_sym, dec)
+                live_p = live_spot if (live_spot and live_spot > 1000.0) else bar_p
 
                 if live_p <= 0:
                     continue
+
+                # Candle wick extreme detection to guarantee touches are NEVER missed
+                last_bar = bars_1h[-1] if (bars_1h and len(bars_1h) > 0) else {}
+                bar_high = float(last_bar.get("high", live_p))
+                bar_low = float(last_bar.get("low", live_p))
 
                 unit = "$" if sym == "XAUUSD" else "pips"
                 p_factor = 1.0 if sym == "XAUUSD" else 0.0001
@@ -2249,8 +2294,8 @@ def breakeven_monitor() -> None:
 
                 # STAGE 1: Fresh trade, monitoring for TP1 or initial SL
                 if not be_alerted:
-                    # Check initial Stop Loss hit
-                    hit_sl = (side == "BUY" and live_p <= sl) or (side == "SELL" and live_p >= sl)
+                    # Check initial Stop Loss hit (live price or candle wick)
+                    hit_sl = (side == "BUY" and (live_p <= sl or bar_low <= sl)) or (side == "SELL" and (live_p >= sl or bar_high >= sl))
                     if hit_sl:
                         loss_pct = 0.50
                         with state_lock:
@@ -2291,7 +2336,7 @@ def breakeven_monitor() -> None:
                             f"• <b>Loss:</b> -{loss_pct:.2f}% (-1.0R)\n"
                             f"• <b>Time:</b> <code>{now_ist_str}</code>\n"
                             f"• <b>Today's Net P&L:</b> <code>{sl_pnl:+.2f}%</code>\n"
-                            f"• <b>Capital Guard Buffer:</b> <code>{buffer_pct:.2f}%</code> to Limit ({DAILY_LOSS_LIMIT_PCT:.1f}%)\n"
+                            f"• <b>Capital Guard Safe:</b> -2.5% Safe Limit\n"
                             f"🛡️ <i>Symbol {sym} placed in 60-min cooldown. Active Position Guard cleared.</i>"
                         )
                         if daily_state["consecutive_losses"] >= 2:
@@ -2300,8 +2345,8 @@ def breakeven_monitor() -> None:
                         print(f"[SL HIT] {side} {sym} stopped out at {live_p}. Position closed.")
                         continue
 
-                    # Check TP1 hit
-                    hit_tp1 = (side == "BUY" and live_p >= tp1) or (side == "SELL" and live_p <= tp1)
+                    # Check TP1 hit (live price or candle wick)
+                    hit_tp1 = (side == "BUY" and (live_p >= tp1 or bar_high >= tp1)) or (side == "SELL" and (live_p <= tp1 or bar_low <= tp1))
                     if hit_tp1:
                         diff_pips = abs(live_p - entry) / p_factor
                         gain_order_a = 0.70  # 70% scale out partial gain
@@ -2339,11 +2384,11 @@ def breakeven_monitor() -> None:
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
                         if half2 > 0.0:
                             be_msg = (
-                                f"🔔 <b>BREAKEVEN ALERT: {side} {sym} REACHED TARGET 1 (POC)!</b>\n\n"
-                                f"🎯 <b>Price Hit POC:</b> <code>{live_p:.{dec}f}</code> (TP1: <code>{tp1:.{dec}f}</code>)\n"
-                                f"📈 <b>Order A Banked (70% Scale-Out):</b> +{diff_pips:.1f} {unit} (+{gain_order_a:.2f}%)!\n"
-                                f"⏰ <b>Execution Time:</b> <code>{now_ist_str}</code>\n"
-                                f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n\n"
+                                f"🎯 <b>BREAKEVEN ALERT: {side} {sym} REACHED TARGET 1 (POC)!</b>\n\n"
+                                f"✅ <b>Price Hit POC:</b> <code>{live_p:.{dec}f}</code> (TP1: <code>{tp1:.{dec}f}</code>)\n"
+                                f"💰 <b>Order A Banked (70% Scale-Out):</b> +{diff_pips:.1f} {unit} (+{gain_order_a:.2f}%)!\n"
+                                f"🕒 <b>Execution Time:</b> <code>{now_ist_str}</code>\n"
+                                f"📈 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n\n"
                                 f"👉 <b>MANDATORY ACTION REQUIRED IN MT5:</b>\n"
                                 f"Modify <b>Order B</b> and change its Stop Loss to <b>Breakeven (<code>{entry:.{dec}f}</code>)</b>.\n\n"
                                 f"🛡️ <i>Your trade is now 100% RISK-FREE. Order B runner is targeting TP2 (<code>{tp2:.{dec}f}</code>)!</i>"
@@ -2364,7 +2409,7 @@ def breakeven_monitor() -> None:
                 # STAGE 2: Order A was banked; Order B is running with SL at Breakeven
                 else:
                     # Check TP2 hit (Opposite Value Area Full Rotation)
-                    hit_tp2 = (side == "BUY" and live_p >= tp2) or (side == "SELL" and live_p <= tp2)
+                    hit_tp2 = (side == "BUY" and (live_p >= tp2 or bar_high >= tp2)) or (side == "SELL" and (live_p <= tp2 or bar_low <= tp2))
                     if hit_tp2:
                         gain_order_b = 0.45  # 30% runner to opposite VA
                         tot_gain = round(gain_order_b + 0.70, 2)
@@ -2402,9 +2447,9 @@ def breakeven_monitor() -> None:
                             f"🏆 <b>FULL VALUE AREA ROTATION TARGET HIT!</b>\n"
                             f"<b>Asset:</b> {side} <b>{sym}</b>\n\n"
                             f"🎯 <b>Price Reached TP2:</b> <code>{live_p:.{dec}f}</code> (+{diff_pips:.1f} {unit})\n"
-                            f"💰 <b>Order B Banked:</b> <b>+{gain_order_b:.2f}%</b>\n"
-                            f"🎉 <b>Total Trade Profit:</b> <b>+{tot_gain:.2f}% Net Gain</b>\n"
-                            f"⏰ <b>Completion Time:</b> <code>{now_ist_str}</code>\n\n"
+                            f"💵 <b>Order B Banked:</b> <b>+{gain_order_b:.2f}%</b>\n"
+                            f"📈 <b>Total Trade Profit:</b> <b>+{tot_gain:.2f}% Net Gain</b>\n"
+                            f"🕒 <b>Completion Time:</b> <code>{now_ist_str}</code>\n\n"
                             f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Daily Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n"
                             f"🛡️ <i>Symbol {sym} position closed. Active Position Guard cleared for next session!</i>"
                         )
@@ -2413,7 +2458,7 @@ def breakeven_monitor() -> None:
                         continue
 
                     # Check Breakeven exit on Order B
-                    hit_be_exit = (side == "BUY" and live_p <= entry) or (side == "SELL" and live_p >= entry)
+                    hit_be_exit = (side == "BUY" and (live_p <= entry or bar_low <= entry)) or (side == "SELL" and (live_p >= entry or bar_high >= entry))
                     if hit_be_exit:
                         with state_lock:
                             trade["closed"] = True
