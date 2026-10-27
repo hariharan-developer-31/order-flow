@@ -238,7 +238,7 @@ export default function App() {
   }, [barsData]);
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
       {/* 1. Top Navigation & Ticker Header */}
       <Header
         activeSymbol={activeSymbol}

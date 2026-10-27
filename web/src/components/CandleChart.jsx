@@ -664,12 +664,12 @@ export default function CandleChart({
   return (
     <div
       ref={chartWrapperRef}
-      className={`bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col transition-all ${
+      className={`bg-white border border-slate-200/90 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col transition-all ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none p-4' : 'relative'
       }`}
     >
       {/* 1. Chart Toolbar & Timeframe Controls */}
-      <div className="px-4 py-2.5 border-b border-slate-100 flex flex-wrap items-center justify-between gap-3 bg-white">
+      <div className="px-4 py-2.5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 bg-white">
         {/* Left: Symbol & Timeframe Selectors */}
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-1.5">
@@ -799,7 +799,7 @@ export default function CandleChart({
       <div className="flex-1 flex items-stretch relative min-h-[500px]">
         {/* TradingView Left Drawing Toolbar */}
         {chartView === 'candles' && (
-          <div className="w-11 border-r border-slate-100 bg-slate-50/70 p-1 flex flex-col items-center gap-1 z-20">
+          <div className="w-11 border-r border-slate-200/80 bg-white p-1 flex flex-col items-center gap-1 z-20">
             <button
               onClick={() => setActiveTool('cursor')}
               title="Cursor / Crosshair"

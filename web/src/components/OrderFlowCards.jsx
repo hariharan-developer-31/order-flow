@@ -1,11 +1,11 @@
 import React from 'react';
-import { Target, Layers, ArrowUpRight, ArrowDownRight, ShieldCheck, Flame } from 'lucide-react';
+import { Target, Layers, ArrowUpRight, ArrowDownRight, ShieldCheck, Flame, Shield } from 'lucide-react';
 
 export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const dec = symbol === 'XAUUSD' ? 2 : 5;
 
-  // Synchronized directly with the chart auction so the above data box and chart match 100% perfectly!
+  // Synchronized directly with the chart auction so the above data box and chart match 100% perfectly
   const poc = activeVP?.pocPrice ?? of?.pPOC ?? 0;
   const vah = activeVP?.vahPrice ?? of?.pVAH ?? 0;
   const val = activeVP?.valPrice ?? of?.pVAL ?? 0;
@@ -24,123 +24,123 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {/* 1. Point of Control Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-amber-300 transition group">
+      {/* 1. Point of Control Card (White Theme) */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-amber-300 transition-all group">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 font-sans">
             <Target className="w-4 h-4 text-amber-500" />
             Point of Control (POC)
           </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-50 text-amber-800 border border-amber-200 font-mono">
             Institutional Magnet
           </span>
         </div>
-        <div className="flex items-baseline justify-between">
-          <span className="text-2xl font-black font-mono text-slate-900">
+        <div className="flex items-baseline justify-between mt-1">
+          <span className="text-2xl font-black font-mono text-slate-900 tracking-tight">
             {poc ? poc.toFixed(dec) : '---'}
           </span>
           <span
-            className={`text-xs font-mono font-bold ${
-              distPOC >= 0 ? 'text-emerald-600' : 'text-rose-600'
+            className={`text-xs font-mono font-bold px-2 py-0.5 rounded-md ${
+              distPOC >= 0 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
             }`}
           >
             {poc ? `${distPOCFormatted}` : ''}
           </span>
         </div>
-        <p className="text-[11px] text-slate-500 mt-2">
-          Highest transacted volume level of active auction.
+        <p className="text-[11px] text-slate-500 mt-2 font-medium">
+          Highest transacted volume node of active auction.
         </p>
       </div>
 
       {/* 2. Value Area Range (70% Volume) */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-blue-300 transition">
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-blue-300 transition-all">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 font-sans">
             <Layers className="w-4 h-4 text-blue-600" />
             70% Value Area (VA)
           </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-mono">
             Balance Zone
           </span>
         </div>
-        <div className="flex items-baseline justify-between font-mono">
+        <div className="flex items-baseline justify-between font-mono mt-1">
           <div>
-            <span className="text-[10px] text-slate-400 block font-sans">VAL</span>
-            <span className="text-sm font-bold text-slate-800">
+            <span className="text-[10px] text-slate-400 block font-sans">VAL (Support)</span>
+            <span className="text-sm font-extrabold text-slate-800">
               {val ? val.toFixed(dec) : '---'}
             </span>
           </div>
-          <span className="text-slate-300 font-light">—</span>
+          <span className="text-slate-300 font-bold px-1">→</span>
           <div className="text-right">
-            <span className="text-[10px] text-slate-400 block font-sans">VAH</span>
-            <span className="text-sm font-bold text-slate-800">
+            <span className="text-[10px] text-slate-400 block font-sans">VAH (Resistance)</span>
+            <span className="text-sm font-extrabold text-slate-800">
               {vah ? vah.toFixed(dec) : '---'}
             </span>
           </div>
         </div>
-        {/* Progress Bar */}
+        {/* Modern VA Gradient Progress Bar */}
         <div className="w-full bg-slate-100 h-2 rounded-full mt-3 overflow-hidden border border-slate-200">
           <div
-            className="bg-blue-500 h-full rounded-full transition-all duration-500"
+            className="bg-gradient-to-r from-blue-400 to-blue-600 h-full rounded-full transition-all duration-500"
             style={{ width: `${vaProgress}%` }}
           ></div>
         </div>
       </div>
 
-      {/* 3. Prior Day Liquidity Range */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-purple-300 transition">
+      {/* 3. Prior Day Liquidity Range (PDH / PDL) */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-purple-300 transition-all">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 font-sans">
             <Flame className="w-4 h-4 text-purple-600" />
             Liquidity Extremes (PDH/PDL)
           </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200">
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-50 text-purple-700 border border-purple-200 font-mono">
             Stop Hunt Pools
           </span>
         </div>
-        <div className="flex items-baseline justify-between font-mono">
+        <div className="flex items-baseline justify-between font-mono mt-1">
           <div>
             <span className="text-[10px] text-slate-400 block font-sans">Prior Low (PDL)</span>
-            <span className="text-sm font-bold text-rose-600">
+            <span className="text-sm font-extrabold text-rose-600">
               {pLow ? pLow.toFixed(dec) : '---'}
             </span>
           </div>
-          <span className="text-slate-300 font-light">—</span>
+          <span className="text-slate-300 font-bold px-1">→</span>
           <div className="text-right">
             <span className="text-[10px] text-slate-400 block font-sans">Prior High (PDH)</span>
-            <span className="text-sm font-bold text-emerald-600">
+            <span className="text-sm font-extrabold text-emerald-600">
               {pHigh ? pHigh.toFixed(dec) : '---'}
             </span>
           </div>
         </div>
-        <p className="text-[11px] text-slate-500 mt-2">
-          Rejection wicks beyond these levels trigger A+ Liquidity Sweeps.
+        <p className="text-[11px] text-slate-500 mt-2 font-medium">
+          Rejection wicks beyond PDH/PDL trigger A+ Liquidity Sweeps.
         </p>
       </div>
 
-      {/* 4. Twin-Order Risk Model Card */}
-      <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm hover:border-emerald-300 transition">
+      {/* 4. Capital Guard & Daily Pacing Card (Percentage Mode, White Theme) */}
+      <div className="bg-white border border-slate-200/80 rounded-2xl p-4 shadow-[0_2px_10px_rgba(0,0,0,0.03)] hover:shadow-md hover:border-emerald-300 transition-all">
         <div className="flex items-center justify-between mb-2">
-          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            Twin-Order Model
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5 font-sans">
+            <Shield className="w-4 h-4 text-emerald-600" />
+            Capital Guard & Risk
           </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
-            Risk: 1.0%
+          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+            Safe: -2.5% Limit
           </span>
         </div>
-        <div className="flex items-center justify-between text-xs font-mono font-bold mt-1">
-          <div className="bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-            <span className="text-slate-500 text-[10px] block">Order A (Banker)</span>
-            <span className="text-emerald-700 text-sm">TP1: 1:1 RR</span>
+        <div className="flex items-center justify-between text-xs font-mono font-bold mt-1 gap-2">
+          <div className="bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 flex-1">
+            <span className="text-slate-400 text-[10px] block font-sans">Daily Target</span>
+            <span className="text-emerald-700 text-sm font-black">+2.0% - 3.0%</span>
           </div>
-          <div className="bg-slate-50 px-2 py-1 rounded-lg border border-slate-200">
-            <span className="text-slate-500 text-[10px] block">Order B (Target)</span>
-            <span className="text-emerald-700 text-sm">TP2: 1:2 RR</span>
+          <div className="bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 flex-1 text-right">
+            <span className="text-slate-400 text-[10px] block font-sans">Max Trades</span>
+            <span className="text-slate-800 text-sm font-black">3 / Day</span>
           </div>
         </div>
         <p className="text-[11px] text-slate-500 mt-2 font-medium">
-          Once TP1 hits &rarr; Stop Loss moves to Breakeven (100% Risk-Free)!
+          70% Scale-Out at Target 1 (POC) pulls Stop Loss to Breakeven.
         </p>
       </div>
     </div>

@@ -126,9 +126,9 @@ MANDATORY RISK RULES:
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden flex flex-col h-full font-sans">
+    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col h-full font-sans">
       {/* 1. Top Header */}
-      <div className="px-4 sm:px-5 py-3 border-b border-slate-100 flex flex-wrap items-center justify-between gap-2 bg-white">
+      <div className="px-4 sm:px-5 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 bg-white">
         <div className="flex items-center gap-2">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
           <h3 className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
@@ -363,8 +363,8 @@ MANDATORY RISK RULES:
                 onClick={() => handleCopyTicket(t, idx)}
                 className={`w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition active:scale-[0.99] ${
                   isTriggered
-                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md'
-                    : 'bg-slate-900 hover:bg-blue-600 text-white shadow-sm'
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-500/20'
+                    : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20'
                 }`}
               >
                 {copiedId === idx ? (

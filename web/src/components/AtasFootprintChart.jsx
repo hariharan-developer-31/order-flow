@@ -569,12 +569,12 @@ export default function AtasFootprintChart({
   return (
     <div
       ref={containerRef}
-      className={`bg-white text-slate-900 border border-slate-200 rounded-2xl overflow-hidden flex flex-col transition-all shadow-sm ${
+      className={`bg-white text-slate-900 border border-slate-200/90 rounded-2xl overflow-hidden flex flex-col transition-all shadow-[0_2px_12px_rgba(0,0,0,0.03)] ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : 'relative'
       }`}
     >
       {/* 1. Footprint Header & Control Toolbar (Pure White Theme) */}
-      <div className="bg-white border-b border-slate-200 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
+      <div className="bg-white border-b border-slate-200/80 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
         {/* Left: Title & Live Pill */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm tracking-tight text-slate-900">
