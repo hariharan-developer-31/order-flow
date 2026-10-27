@@ -74,20 +74,20 @@ export default function Header({
   };
 
   return (
-    <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-[0_1px_8px_rgba(0,0,0,0.03)]">
-      <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto px-3 sm:px-6 3xl:px-10 py-2 sm:py-2.5">
-        <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
+    <header className="bg-white/95 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-[0_1px_8px_rgba(0,0,0,0.03)] w-full max-w-full overflow-x-hidden">
+      <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto px-2.5 sm:px-6 3xl:px-10 py-2 sm:py-2.5">
+        <div className="flex flex-wrap items-center justify-between gap-2 sm:gap-3">
           {/* Logo & Brand (Clean Modern White Theme) */}
-          <div className="flex items-center gap-2.5 sm:gap-3">
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white flex items-center justify-center font-extrabold text-base sm:text-lg shadow-sm shadow-blue-500/20 shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 text-white flex items-center justify-center font-extrabold text-sm sm:text-lg shadow-sm shadow-blue-500/20 shrink-0">
               TB
             </div>
             <div>
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <h1 className="text-sm sm:text-base font-black tracking-tight text-slate-900">
+                <h1 className="text-xs sm:text-base font-black tracking-tight text-slate-900">
                   TRADING BOY
                 </h1>
-                <span className="text-[9px] sm:text-[10px] font-bold tracking-wider uppercase px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="text-[9px] sm:text-[10px] font-bold tracking-wider uppercase px-1.5 sm:px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
                   Order Flow Pro
                 </span>
               </div>
@@ -98,12 +98,12 @@ export default function Header({
           </div>
 
           {/* Dedicated Institutional Gold (XAUUSD) Asset Badge */}
-          <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 px-3 py-1.5 rounded-xl shrink-0 shadow-2xs">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
-            <span className="text-xs font-black text-amber-900 tracking-tight">
+          <div className="flex items-center gap-1.5 sm:gap-2 bg-amber-50 border border-amber-200 px-2 sm:px-3 py-1 sm:py-1.5 rounded-xl shrink-0 shadow-2xs">
+            <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span className="text-[11px] sm:text-xs font-black text-amber-900 tracking-tight">
               XAUUSD • Gold Spot
             </span>
-            <span className="text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded font-mono border border-amber-200/60">
+            <span className="text-[9px] sm:text-[10px] font-bold text-amber-800 bg-amber-100/80 px-1.5 py-0.5 rounded font-mono border border-amber-200/60 hidden xs:inline">
               COMEX GC
             </span>
           </div>
@@ -121,13 +121,13 @@ export default function Header({
           </div>
 
           {/* Current Asset Live Stats & Controls */}
-          <div className="flex items-center gap-3">
-            <div className="flex items-center gap-3 bg-slate-50 border border-slate-200 px-3.5 py-1.5 rounded-xl shadow-2xs">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+            <div className="flex items-center gap-2 sm:gap-3 bg-slate-50 border border-slate-200 px-2.5 sm:px-3.5 py-1 sm:py-1.5 rounded-xl shadow-2xs">
               <div>
-                <span className="text-[10px] uppercase font-bold text-slate-500 block">
+                <span className="text-[9px] sm:text-[10px] uppercase font-bold text-slate-500 block">
                   {activeSymbol} Spot
                 </span>
-                <span className="text-base font-black text-slate-900 font-mono tracking-tight">
+                <span className="text-sm sm:text-base font-black text-slate-900 font-mono tracking-tight">
                   {currentPrice
                     ? currentPrice.toFixed(activeSymbol === 'XAUUSD' ? 2 : 5)
                     : '---'}
@@ -136,12 +136,13 @@ export default function Header({
 
               {currentOF?.state && (
                 <div
-                  className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border ${getBadgeClass(
+                  className={`text-[10px] sm:text-[11px] font-bold px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-lg border ${getBadgeClass(
                     currentOF.state
-                  )} flex items-center gap-1.5`}
+                  )} flex items-center gap-1 sm:gap-1.5`}
                 >
-                  <span className="w-2 h-2 rounded-full animate-pulse bg-current"></span>
-                  {currentOF.state.split('(')[0].trim()}
+                  <span className="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full animate-pulse bg-current"></span>
+                  <span className="hidden xs:inline">{currentOF.state.split('(')[0].trim()}</span>
+                  <span className="xs:hidden">{currentOF.state.includes('ABOVE') ? 'Bullish' : currentOF.state.includes('BELOW') ? 'Bearish' : 'Balance'}</span>
                 </div>
               )}
             </div>
@@ -212,16 +213,16 @@ export default function Header({
             </div>
 
             {/* Action Buttons (White Theme) */}
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1 sm:gap-1.5 shrink-0">
               <button
                 onClick={onToggleSound}
                 title={soundEnabled ? 'Mute Alert Sound' : 'Enable Alert Sound'}
-                className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition shadow-2xs"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition shadow-2xs"
               >
                 {soundEnabled ? (
-                  <Volume2 className="w-4 h-4 text-blue-600" />
+                  <Volume2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-blue-600" />
                 ) : (
-                  <VolumeX className="w-4 h-4 text-slate-400" />
+                  <VolumeX className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-400" />
                 )}
               </button>
 
@@ -229,28 +230,28 @@ export default function Header({
                 onClick={onRefresh}
                 disabled={isLoading}
                 title="Refresh Live Data"
-                className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition shadow-2xs disabled:opacity-50"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition shadow-2xs disabled:opacity-50"
               >
                 <RefreshCw
-                  className={`w-4 h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`}
+                  className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isLoading ? 'animate-spin text-blue-600' : ''}`}
                 />
               </button>
 
               <button
                 onClick={onOpenSettings}
                 title="Configure Backend API URL"
-                className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition shadow-2xs"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border border-slate-200 bg-white hover:bg-slate-100 text-slate-600 transition shadow-2xs"
               >
-                <Settings className="w-4 h-4" />
+                <Settings className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               </button>
             </div>
 
             {/* Connection Indicator - Permanently 24/7 API Live */}
             <div
-              className="flex items-center gap-1.5 pl-2.5 py-1 pr-1.5 border-l border-slate-200"
+              className="flex items-center gap-1.5 pl-1.5 sm:pl-2.5 py-1 pr-1 border-l border-slate-200 shrink-0"
               title="24/7 Global Live Financial Market Feed Active"
             >
-              <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse"></span>
+              <span className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-emerald-500 ring-2 ring-emerald-200 animate-pulse"></span>
               <span className="text-[11px] font-bold text-emerald-700 hidden xl:inline">
                 API Live
               </span>

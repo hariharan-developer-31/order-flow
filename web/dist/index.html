@@ -57,10 +57,24 @@
       };
     </script>
     <style>
-      body {
+      *, *::before, *::after {
+        box-sizing: border-box;
+      }
+      html, body {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        width: 100% !important;
+        position: relative;
+        margin: 0;
+        padding: 0;
         background-color: #f8fafc;
         color: #0f172a;
         font-family: 'Inter', sans-serif;
+      }
+      #root {
+        overflow-x: hidden !important;
+        max-width: 100vw !important;
+        width: 100% !important;
       }
       /* Custom Scrollbar for white theme */
       ::-webkit-scrollbar {
@@ -78,9 +92,9 @@
         background: #94a3b8;
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-D3RKJLq1.js"></script>
+    <script type="module" crossorigin src="/assets/index-J6Q-nYUx.js"></script>
   </head>
-  <body class="bg-slate-50 text-slate-900 antialiased min-h-screen">
-    <div id="root"></div>
+  <body class="bg-slate-50 text-slate-900 antialiased min-h-screen overflow-x-hidden w-full max-w-full">
+    <div id="root" class="w-full max-w-full overflow-x-hidden"></div>
   </body>
 </html>

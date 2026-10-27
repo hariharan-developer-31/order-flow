@@ -254,7 +254,7 @@ export default function App() {
   }, [barsData]);
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900">
+    <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-blue-100 selection:text-blue-900 w-full max-w-full overflow-x-hidden">
       {/* 1. Top Navigation & Ticker Header */}
       <Header
         activeSymbol={activeSymbol}
@@ -274,7 +274,7 @@ export default function App() {
       />
 
       {/* 2. Main Terminal Content (Mobile to 4K Responsive Grid) */}
-      <main className="flex-1 max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] w-full mx-auto px-2 sm:px-4 md:px-6 3xl:px-10 py-3 sm:py-6 space-y-4 sm:space-y-6 pb-24 lg:pb-8">
+      <main className="flex-1 max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] w-full mx-auto px-2 sm:px-4 md:px-6 3xl:px-10 py-3 sm:py-6 space-y-4 sm:space-y-6 pb-24 lg:pb-8 overflow-x-hidden">
         {/* VIEW 1: Dedicated MT5 Signals & Strategies View */}
         {activeView === 'signals' && (
           <div className="w-full max-w-5xl mx-auto">
@@ -387,27 +387,27 @@ export default function App() {
       </main>
 
       {/* 3. Footer Bar */}
-      <footer className="bg-white border-t border-slate-200 mt-auto py-3 px-4 sm:px-6 text-xs text-slate-500 mb-16 lg:mb-0">
-        <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto flex flex-wrap items-center justify-between gap-3 font-mono">
-          <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>TRADING BOY AI TRADING ENGINE</span>
-            <span className="text-slate-300">|</span>
-            <span>Twin Orders: 1:1 + 1:2 RR</span>
-            <span className="text-slate-300">|</span>
-            <span>Target: +2.0% - 3.0% / Day</span>
-            <span className="text-slate-300">|</span>
-            <span>Capital Guard: -2.5%</span>
-            <span className="text-slate-300">|</span>
-            <span>Max 3 Trades/Day</span>
-            <span className="text-slate-300">|</span>
+      <footer className="bg-white border-t border-slate-200 mt-auto py-3 px-3 sm:px-6 text-xs text-slate-500 mb-16 lg:mb-0 w-full overflow-x-hidden">
+        <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 font-mono">
+          <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
+            <span className="flex items-center gap-1.5 font-bold text-slate-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+              TRADING BOY AI ENGINE
+            </span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Target: +2.0% - 3.0%</span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Capital Guard: -2.5%</span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
+            <span className="hidden sm:inline">Max 3 Trades/Day</span>
+            <span className="text-slate-300 hidden sm:inline">|</span>
             <span className="text-emerald-600 font-bold">
               LIVE ENGINE SYNCED
             </span>
           </div>
 
-          <div className="flex items-center gap-4 text-slate-400">
-            <span>Scan Schedule: :31 Past Every Hour</span>
+          <div className="flex flex-wrap items-center gap-2 text-slate-400 text-[10px] sm:text-xs">
+            <span>Hourly :31 Scans</span>
             <span>•</span>
             <span>Synced with @tradingboyorderbot</span>
           </div>

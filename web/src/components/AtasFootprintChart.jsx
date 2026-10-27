@@ -718,8 +718,8 @@ export default function AtasFootprintChart({
       </div>
 
       {/* 2. Top Metric Ribbon: Quick Institutional Read (White Theme) */}
-      <div className="bg-slate-50 border-b border-slate-200 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono">
-        <div className="flex items-center gap-3">
+      <div className="bg-slate-50 border-b border-slate-200 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono w-full">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="text-[11px] text-slate-500 font-sans">Active Candle:</span>
           <span className={`font-bold ${latestDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
             Δ {latestDelta >= 0 ? `+${latestDelta}` : latestDelta}
@@ -730,7 +730,7 @@ export default function AtasFootprintChart({
           <span className="text-amber-700 font-bold">⭐ POC Active</span>
         </div>
 
-        <div className="flex items-center gap-2 text-[10px] font-sans text-slate-500">
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-sans text-slate-500">
           <span className="flex items-center gap-1">
             <span className="w-2 h-2 rounded bg-rose-500"></span> Bid (Sellers)
           </span>
@@ -745,7 +745,7 @@ export default function AtasFootprintChart({
 
       {/* 3. Interactive HTML5 Canvas (Touch action none for smooth pinch & drag) */}
       <div
-        className="relative flex-1 bg-white overflow-hidden select-none"
+        className="relative flex-1 bg-white overflow-hidden select-none w-full max-w-full"
         style={{
           height: isFullscreen ? 'calc(100vh - 100px)' : `${height}px`,
           cursor: isCursorGrabbing ? 'grabbing' : 'grab',

@@ -97,7 +97,7 @@ export default function BottomNav({
   return (
     <nav
       aria-label="Mobile Bottom Navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))]"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] w-full max-w-full overflow-hidden"
     >
       {/* Optional PWA One-Tap Install Pill for Mobile & Tablet */}
       {deferredPrompt && !isInstalled && (
@@ -118,7 +118,7 @@ export default function BottomNav({
       )}
 
       {/* Main Tabs */}
-      <div className="max-w-md mx-auto grid grid-cols-5 gap-1">
+      <div className="max-w-md mx-auto grid grid-cols-5 gap-0.5 sm:gap-1 w-full">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = item.isActive;

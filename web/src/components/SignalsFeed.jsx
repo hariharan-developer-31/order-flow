@@ -257,11 +257,11 @@ MANDATORY RISK RULES:
       )}
 
       {/* 2. Top Navigation Tabs: Live Signal | Strategy | History */}
-      <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-slate-50 border-b border-slate-200">
-        <div className="flex items-center gap-1 sm:gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 px-2.5 sm:px-4 py-2 bg-slate-50 border-b border-slate-200 w-full">
+        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
           <button
             onClick={() => setActiveTab('live')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 ${
               activeTab === 'live'
                 ? 'bg-blue-600 text-white shadow-sm font-extrabold'
                 : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
@@ -276,7 +276,7 @@ MANDATORY RISK RULES:
 
           <button
             onClick={() => setActiveTab('strategy')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 ${
               activeTab === 'strategy'
                 ? 'bg-blue-600 text-white shadow-sm font-extrabold'
                 : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
@@ -288,7 +288,7 @@ MANDATORY RISK RULES:
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 ${
               activeTab === 'history'
                 ? 'bg-blue-600 text-white shadow-sm font-extrabold'
                 : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'

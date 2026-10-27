@@ -669,9 +669,9 @@ export default function CandleChart({
       }`}
     >
       {/* 1. Chart Toolbar & Timeframe Controls */}
-      <div className="px-4 py-2.5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-3 bg-white">
+      <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 sm:gap-3 bg-white w-full">
         {/* Left: Symbol & Timeframe Selectors */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5">
             <span className="font-extrabold text-slate-900 text-sm tracking-tight">
               {symbolDisplay}
