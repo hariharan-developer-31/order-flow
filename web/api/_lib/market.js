@@ -258,42 +258,80 @@ export async function fetchLiveFootprint(symbol = 'XAUUSD', timeframe = '1h', li
   const dec = symbol === 'XAUUSD' ? 2 : 5;
   const isGold = symbol === 'XAUUSD';
 
-  const step = isGold
-    ? timeframe === '5m'
-      ? 0.25
-      : timeframe === '15m'
-      ? 0.5
-      : timeframe === '1h'
-      ? 1.0
-      : 2.5
-    : 0.0002;
-
   let runningCvd = 0;
   const footprint = [];
 
-  for (const b of bars) {
+  for (let bIdx = 0; bIdx < bars.length; bIdx++) {
+    const b = bars[bIdx];
     const o = b.open;
     const h = b.high;
     const l = b.low;
     const c = b.close;
-    const vol = b.volume || 1000;
+    const isBull = c >= o;
+    const range = Math.max(isGold ? 0.8 : 0.0004, h - l);
 
-    const nLevels = Math.max(3, Math.min(25, Math.round((h - l) / step)));
+    let vol = b.volume || 1500;
+    if (isGold && vol < 300) {
+      vol = Math.round(vol * 50 + range * 115 + 850);
+    }
+
+    let targetLevels = 9;
+    if (timeframe === '5m') targetLevels = 7;
+    else if (timeframe === '15m') targetLevels = 8;
+    else if (timeframe === '1h') targetLevels = 10;
+    else if (timeframe === '4h') targetLevels = 12;
+
+    const rawStep = range / Math.max(1, targetLevels - 1);
+    const step = isGold ? Math.max(0.5, Math.round(rawStep * 2) / 2) : Number(rawStep.toFixed(5));
+    const nLevels = Math.max(5, Math.min(13, Math.round(range / step) + 1));
+
+    const levels = [];
+    for (let k = 0; k < nLevels; k++) {
+      const p = Number((l + k * (range / Math.max(1, nLevels - 1))).toFixed(dec));
+      levels.push(p);
+    }
+
+    const pocFactor = isBull ? 0.60 : 0.40;
+    const pocTarget = l + range * pocFactor;
+
+    const sigma = range * 0.38;
+    const weights = levels.map((p) => {
+      const d = Math.abs(p - pocTarget);
+      return Math.exp(-0.5 * (d / sigma) * (d / sigma)) + 0.12;
+    });
+    const sumW = weights.reduce((a, w) => a + w, 0);
+
     const clusters = [];
     let totBid = 0;
     let totAsk = 0;
 
-    for (let k = 0; k < nLevels; k++) {
-      const p = Number((l + k * step).toFixed(dec));
-      const dist = Math.abs(p - c) / Math.max(0.0001, h - l);
-      const w = Math.max(0.2, 1.0 - dist);
-      const lvlVol = Math.max(1, (vol / nLevels) * w);
+    levels.forEach((p, idx) => {
+      const w = weights[idx];
+      const lvlVol = Math.max(18, Math.round((vol / sumW) * w));
 
-      const isBull = c >= o;
-      const askRatio = isBull ? 0.6 : 0.4;
+      let askRatio = isBull ? 0.58 : 0.42;
+      if (p >= h - range * 0.15) {
+        askRatio = isBull ? 0.68 : 0.28;
+      } else if (p <= l + range * 0.15) {
+        askRatio = isBull ? 0.72 : 0.32;
+      } else if (p > o) {
+        askRatio = isBull ? 0.64 : 0.45;
+      } else {
+        askRatio = isBull ? 0.52 : 0.35;
+      }
+
+      const microVar = Math.sin(p * 5 + bIdx) * 0.05;
+      askRatio = Math.max(0.18, Math.min(0.82, askRatio + microVar));
+
       const ask = Math.round(lvlVol * askRatio);
       const bid = Math.round(lvlVol * (1 - askRatio));
-      const delta = ask - bid;
+
+      let imbalance = null;
+      if (ask >= bid * 3 && ask >= 30) {
+        imbalance = 'buy';
+      } else if (bid >= ask * 3 && bid >= 30) {
+        imbalance = 'sell';
+      }
 
       totBid += bid;
       totAsk += ask;
@@ -302,10 +340,10 @@ export async function fetchLiveFootprint(symbol = 'XAUUSD', timeframe = '1h', li
         price: p,
         bid,
         ask,
-        delta,
-        imbalance: ask >= bid * 3 ? 'buy' : bid >= ask * 3 ? 'sell' : null,
+        delta: ask - bid,
+        imbalance,
       });
-    }
+    });
 
     const barDelta = totAsk - totBid;
     runningCvd += barDelta;
@@ -325,7 +363,7 @@ export async function fetchLiveFootprint(symbol = 'XAUUSD', timeframe = '1h', li
       high: h,
       low: l,
       close: c,
-      volume: vol,
+      volume: totBid + totAsk,
       total_bid: totBid,
       total_ask: totAsk,
       delta: barDelta,

@@ -127,7 +127,7 @@ export default function AtasFootprintChart({
 
     // Layout Dimensions
     const rightMargin = 85; // Space for Price Scale Ruler
-    const bottomMargin = 50; // Space for Time & Delta Scale
+    const bottomMargin = 56; // Space for Time & Delta Scale
     const plotWidth = width - rightMargin;
     const plotHeight = chartHeight - bottomMargin;
 
@@ -210,31 +210,12 @@ export default function AtasFootprintChart({
       const hY = priceToY(bar.high);
       const lY = priceToY(bar.low);
 
-      // A. Center Vertical Wick (Clean Slate)
-      ctx.strokeStyle = '#64748b';
-      ctx.lineWidth = Math.max(1.5, Math.round(2 * zoom));
-      ctx.beginPath();
-      ctx.moveTo(barCenterX, hY);
-      ctx.lineTo(barCenterX, lY);
-      ctx.stroke();
-
-      // B. Left-Side Open-Close Body Bar (ATAS Edge Marker)
-      const wickLeftX = barLeftX - Math.max(5, Math.round(7 * zoom));
-      ctx.strokeStyle = isBull ? '#16a34a' : '#dc2626';
-      ctx.lineWidth = Math.max(3.5, Math.round(5 * zoom));
-      ctx.beginPath();
-      ctx.moveTo(wickLeftX, oY);
-      ctx.lineTo(wickLeftX, cY);
-      ctx.stroke();
-
-      // Small Open & Close ticks
-      ctx.lineWidth = 1.8;
-      ctx.beginPath();
-      ctx.moveTo(wickLeftX - 3, oY);
-      ctx.lineTo(wickLeftX, oY);
-      ctx.moveTo(wickLeftX, cY);
-      ctx.lineTo(wickLeftX + 3, cY);
-      ctx.stroke();
+      // A. Attached Candle Body Indicator (Integrated on Left Edge of Box)
+      const bodyTopY = Math.min(oY, cY);
+      const bodyBottomY = Math.max(oY, cY);
+      const bodyHeight = Math.max(4, bodyBottomY - bodyTopY);
+      ctx.fillStyle = isBull ? '#16a34a' : '#dc2626';
+      ctx.fillRect(barLeftX - 3.5, bodyTopY, 3.5, bodyHeight);
 
       // Find Candle POC (Highest Traded Volume Level)
       let maxVol = -1;
@@ -252,13 +233,42 @@ export default function AtasFootprintChart({
       if (clusters.length > 0) {
         const sorted = [...clusters].sort((a, b) => a.price - b.price);
         const step = sorted.length > 1 ? Math.abs(sorted[1].price - sorted[0].price) : 0.5;
-        const rowHeight = Math.max(12, Math.abs(priceToY(sorted[0].price) - priceToY(sorted[0].price + step)));
+        const rowHeight = Math.max(15, Math.abs(priceToY(sorted[0].price) - priceToY(sorted[0].price + step)));
+
+        // Calculate top and bottom of the cluster block to draw wicks cleanly outside the text
+        const topClusterY = priceToY(sorted[sorted.length - 1].price) - rowHeight / 2;
+        const bottomClusterY = priceToY(sorted[0].price) + rowHeight / 2;
+
+        // Top Wick (Extending from top of highest cell to High)
+        if (hY < topClusterY) {
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = Math.max(1.5, Math.round(2 * zoom));
+          ctx.beginPath();
+          ctx.moveTo(barCenterX, hY);
+          ctx.lineTo(barCenterX, topClusterY);
+          ctx.stroke();
+        }
+
+        // Bottom Wick (Extending from bottom of lowest cell to Low)
+        if (lY > bottomClusterY) {
+          ctx.strokeStyle = '#64748b';
+          ctx.lineWidth = Math.max(1.5, Math.round(2 * zoom));
+          ctx.beginPath();
+          ctx.moveTo(barCenterX, bottomClusterY);
+          ctx.lineTo(barCenterX, lY);
+          ctx.stroke();
+        }
 
         // Dynamic font size: expands smoothly when zoomed in!
-        const fontSize = Math.min(18, Math.max(9, Math.round(rowHeight * 0.62 * Math.min(1.4, zoom))));
+        const fontSize = Math.min(16, Math.max(9, Math.round(rowHeight * 0.58 * Math.min(1.35, zoom))));
         ctx.font = `bold ${fontSize}px "JetBrains Mono", Consolas, monospace`;
         ctx.textBaseline = 'middle';
         ctx.textAlign = 'center';
+
+        const formatVal = (v, maxW) => {
+          if (v >= 1000 && maxW < 40) return `${(v / 1000).toFixed(1)}k`;
+          return String(v);
+        };
 
         clusters.forEach((c) => {
           const cy = priceToY(c.price);
@@ -274,8 +284,8 @@ export default function AtasFootprintChart({
           const delta = ask - bid;
 
           // Institutional Imbalance Rule (300%+ with minimum 30 contracts threshold)
-          const isBuyImbalance = ask >= bid * 3 && ask >= 30;
-          const isSellImbalance = bid >= ask * 3 && bid >= 30;
+          const isBuyImbalance = (ask >= bid * 3 && ask >= 30) || String(c.imbalance).toLowerCase() === 'buy';
+          const isSellImbalance = (bid >= ask * 3 && bid >= 30) || String(c.imbalance).toLowerCase() === 'sell';
           const halfW = barWidth / 2;
           const bidX = barLeftX + halfW * 0.5;
           const askX = barLeftX + halfW * 1.5;
@@ -284,10 +294,10 @@ export default function AtasFootprintChart({
             // Delta Heatmap View
             let cellFill;
             if (delta > 0) {
-              const alpha = Math.min(0.85, 0.20 + (delta / 1200) * 0.65);
+              const alpha = Math.min(0.85, 0.18 + (delta / 800) * 0.65);
               cellFill = `rgba(22, 163, 74, ${alpha})`;
             } else if (delta < 0) {
-              const alpha = Math.min(0.85, 0.20 + (Math.abs(delta) / 1200) * 0.65);
+              const alpha = Math.min(0.85, 0.18 + (Math.abs(delta) / 800) * 0.65);
               cellFill = `rgba(220, 38, 38, ${alpha})`;
             } else {
               cellFill = 'rgba(241, 245, 249, 0.8)';
@@ -295,20 +305,20 @@ export default function AtasFootprintChart({
             ctx.fillStyle = cellFill;
             ctx.fillRect(barLeftX, cellTop, barWidth, rowHeight - 1);
 
-            if (rowHeight >= 11 && barWidth >= 40) {
-              ctx.fillStyle = Math.abs(delta) > 300 ? '#ffffff' : (delta > 0 ? '#166534' : '#991b1b');
-              const deltaStr = delta > 0 ? `+${delta}` : `${delta}`;
+            if (rowHeight >= 11 && barWidth >= 36) {
+              ctx.fillStyle = Math.abs(delta) > 200 ? '#ffffff' : (delta > 0 ? '#166534' : '#991b1b');
+              const deltaStr = delta > 0 ? `+${formatVal(delta, barWidth)}` : formatVal(delta, barWidth);
               ctx.fillText(deltaStr, barCenterX, centerY);
             }
           } else if (displayMode === 'volume') {
             // Total Volume View
-            const vAlpha = Math.min(0.75, 0.15 + (tot / 2500) * 0.6);
+            const vAlpha = Math.min(0.75, 0.15 + (tot / 1500) * 0.6);
             ctx.fillStyle = isPOC ? 'rgba(245, 158, 11, 0.35)' : `rgba(59, 130, 246, ${vAlpha})`;
             ctx.fillRect(barLeftX, cellTop, barWidth, rowHeight - 1);
 
-            if (rowHeight >= 11 && barWidth >= 40) {
+            if (rowHeight >= 11 && barWidth >= 36) {
               ctx.fillStyle = '#0f172a';
-              ctx.fillText(String(tot), barCenterX, centerY);
+              ctx.fillText(formatVal(tot, barWidth), barCenterX, centerY);
             }
           } else {
             // ATAS Dual Bid x Ask Half-Cell Rendering (White Theme)
@@ -317,7 +327,7 @@ export default function AtasFootprintChart({
             if (isSellImbalance) {
               bidFill = '#ef4444'; // Solid Vivid Red on Sell Imbalance
             } else {
-              const bAlpha = Math.min(0.35, 0.08 + (bid / 1500) * 0.27);
+              const bAlpha = Math.min(0.38, 0.08 + (bid / 600) * 0.28);
               bidFill = `rgba(239, 68, 68, ${bAlpha})`;
             }
             ctx.fillStyle = bidFill;
@@ -328,14 +338,14 @@ export default function AtasFootprintChart({
             if (isBuyImbalance) {
               askFill = '#10b981'; // Solid Vivid Emerald on Buy Imbalance
             } else {
-              const aAlpha = Math.min(0.35, 0.08 + (ask / 1500) * 0.27);
+              const aAlpha = Math.min(0.38, 0.08 + (ask / 600) * 0.28);
               askFill = `rgba(16, 185, 129, ${aAlpha})`;
             }
             ctx.fillStyle = askFill;
             ctx.fillRect(barLeftX + halfW, cellTop, halfW, rowHeight - 1);
 
             // Center vertical divider between Bid and Ask
-            ctx.strokeStyle = 'rgba(203, 213, 225, 0.7)';
+            ctx.strokeStyle = 'rgba(203, 213, 225, 0.8)';
             ctx.lineWidth = 0.8;
             ctx.beginPath();
             ctx.moveTo(barLeftX + halfW, cellTop);
@@ -343,14 +353,14 @@ export default function AtasFootprintChart({
             ctx.stroke();
 
             // Bid & Ask Numbers (White Theme, High Contrast)
-            if (rowHeight >= 10 && barWidth >= 38) {
+            if (rowHeight >= 10 && barWidth >= 36) {
               // Bid text
               ctx.fillStyle = isSellImbalance ? '#ffffff' : '#991b1b';
-              ctx.fillText(String(bid), bidX, centerY);
+              ctx.fillText(formatVal(bid, halfW), bidX, centerY);
 
               // Ask text
               ctx.fillStyle = isBuyImbalance ? '#ffffff' : '#14532d';
-              ctx.fillText(String(ask), askX, centerY);
+              ctx.fillText(formatVal(ask, halfW), askX, centerY);
             }
           }
 
@@ -362,11 +372,11 @@ export default function AtasFootprintChart({
           // Candle POC Outline (Glowing Amber Box)
           if (isPOC) {
             ctx.strokeStyle = '#d97706'; // Rich Amber / Gold
-            ctx.lineWidth = Math.max(1.8, Math.round(2.2 * zoom));
+            ctx.lineWidth = Math.max(2.0, Math.round(2.5 * zoom));
             ctx.strokeRect(barLeftX - 0.5, cellTop - 0.5, barWidth + 1, rowHeight);
 
             // POC badge tag on right side when zoomed in
-            if (zoom >= 0.95) {
+            if (zoom >= 0.90) {
               ctx.fillStyle = '#d97706';
               ctx.fillRect(barRightX + barWidth + 1, cellTop, 24, rowHeight - 1);
               ctx.fillStyle = '#ffffff';
@@ -390,22 +400,7 @@ export default function AtasFootprintChart({
         });
       }
 
-      // E. Bottom Candle Metrics (Delta & Volume & IST Time)
-      const deltaVal = bar.delta || 0;
-      const isDeltaPos = deltaVal >= 0;
 
-      // Delta Badge
-      ctx.textAlign = 'center';
-      ctx.font = `bold ${Math.min(13, Math.max(9, Math.round(11 * zoom)))}px monospace`;
-      ctx.fillStyle = isDeltaPos ? '#16a34a' : '#dc2626';
-      const deltaText = `Δ ${deltaVal > 0 ? `+${deltaVal}` : deltaVal}`;
-      ctx.fillText(deltaText, barCenterX, plotHeight - 20);
-
-      // Total Volume
-      ctx.fillStyle = '#64748b';
-      ctx.font = `${Math.min(11, Math.max(8, Math.round(9.5 * zoom)))}px monospace`;
-      const volK = bar.volume ? (bar.volume >= 1000 ? `${(bar.volume / 1000).toFixed(1)}K` : Math.round(bar.volume)) : '---';
-      ctx.fillText(`V: ${volK}`, barCenterX, plotHeight - 6);
     });
   } finally {
     ctx.restore(); // Restore clipping
@@ -461,7 +456,7 @@ export default function AtasFootprintChart({
     }
   }
 
-  // 6. Bottom Time Scale Bar (White Background + Border + IST Time Marks)
+  // 6. Dedicated Bottom Metric Scale Bar (Delta, Volume, IST Time)
   ctx.fillStyle = '#ffffff';
   ctx.fillRect(0, plotHeight, width, bottomMargin);
 
@@ -472,15 +467,31 @@ export default function AtasFootprintChart({
   ctx.lineTo(width, plotHeight);
   ctx.stroke();
 
-  ctx.fillStyle = '#475569';
-  ctx.font = 'bold 10px monospace';
   ctx.textAlign = 'center';
   footprintList.forEach((bar, idx) => {
     const barRightX = startX - (nBars - 1 - idx) * (barWidth + barSpacing);
     const barCenterX = barRightX + barWidth / 2;
     if (barCenterX >= 0 && barCenterX <= plotWidth) {
+      const deltaVal = bar.delta || 0;
+      const isDeltaPos = deltaVal >= 0;
       const timeStr = bar.datetime ? bar.datetime.split(' ')[1] || bar.datetime : '';
-      ctx.fillText(timeStr, barCenterX, plotHeight + 22);
+
+      // Line 1: Delta
+      ctx.font = `bold ${Math.min(12, Math.max(9, Math.round(10.5 * zoom)))}px monospace`;
+      ctx.fillStyle = isDeltaPos ? '#16a34a' : '#dc2626';
+      const deltaText = `Δ ${deltaVal > 0 ? `+${deltaVal}` : deltaVal}`;
+      ctx.fillText(deltaText, barCenterX, plotHeight + 16);
+
+      // Line 2: Volume
+      ctx.fillStyle = '#64748b';
+      ctx.font = `${Math.min(10.5, Math.max(8, Math.round(9 * zoom)))}px monospace`;
+      const volK = bar.volume ? (bar.volume >= 1000 ? `${(bar.volume / 1000).toFixed(1)}K` : Math.round(bar.volume)) : '---';
+      ctx.fillText(`V: ${volK}`, barCenterX, plotHeight + 30);
+
+      // Line 3: IST Time
+      ctx.fillStyle = '#334155';
+      ctx.font = 'bold 9.5px monospace';
+      ctx.fillText(timeStr, barCenterX, plotHeight + 46);
     }
   });
   }, [effectiveFootprint, symbol, timeframe, currentPrice, decimals, height, zoom, panX, panY, displayMode, mousePos]);

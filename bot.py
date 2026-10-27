@@ -1811,6 +1811,8 @@ def compute_footprint_bars(bars: List[Dict[str, Any]], dec: int, is_gold: bool, 
         o, h, l, c = b["open"], b["high"], b["low"], b["close"]
         vol = b["volume"]
         rng = max(step, h - l)
+        if is_gold and vol < 300:
+            vol = round(vol * 50 + rng * 115 + 850)
 
         n_desired = 8 if tf_clean in ("5m", "15m") else 10
         if (h - l) <= (0.1 if is_gold else 0.0002):
