@@ -17,6 +17,7 @@ import http.server
 import json
 import math
 import os
+import re
 import threading
 import time
 import urllib.parse
@@ -199,7 +200,7 @@ def check_daily_reset() -> None:
 
 
 def send_telegram(text: str, target_chat: Optional[str] = None) -> bool:
-    """Sends HTML formatted message to Telegram."""
+    """Sends HTML formatted message to Telegram with automatic plain-text fallback on entity error."""
     if not TELEGRAM_BOT_TOKEN:
         print("[TELEGRAM] Missing bot token.")
         return False
@@ -207,8 +208,8 @@ def send_telegram(text: str, target_chat: Optional[str] = None) -> bool:
     if not dest:
         print("[TELEGRAM] Missing chat ID.")
         return False
+    url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
     try:
-        url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
         payload = {"chat_id": dest, "text": text, "parse_mode": "HTML"}
         data = json.dumps(payload).encode("utf-8")
         req = urllib.request.Request(
@@ -218,10 +219,26 @@ def send_telegram(text: str, target_chat: Optional[str] = None) -> bool:
         )
         with urllib.request.urlopen(req, timeout=10) as r:
             res = json.loads(r.read().decode("utf-8"))
-            return bool(res.get("ok"))
+            if res.get("ok"):
+                return True
     except Exception as e:
-        print(f"[TELEGRAM ERROR] {e}")
-        return False
+        print(f"[TELEGRAM HTML ERROR] {e} -> Retrying with plain-text fallback")
+        try:
+            clean_text = re.sub(r"<[^>]+>", "", text)
+            payload = {"chat_id": dest, "text": clean_text}
+            data = json.dumps(payload).encode("utf-8")
+            req = urllib.request.Request(
+                url,
+                data=data,
+                headers={"Content-Type": "application/json", "User-Agent": "Mozilla/5.0"},
+            )
+            with urllib.request.urlopen(req, timeout=10) as r:
+                res = json.loads(r.read().decode("utf-8"))
+                return bool(res.get("ok"))
+        except Exception as e2:
+            print(f"[TELEGRAM FALLBACK ERROR] {e2}")
+            return False
+    return False
 
 
 def send_telegram_photo(photo_url: str, caption: str, target_chat: Optional[str] = None) -> bool:
@@ -806,7 +823,7 @@ def evaluate_confluence(bars: List[Dict[str, Any]], idx: int, dec: int, sym: str
 
 
 def generate_order_flow_map() -> str:
-    """Generates complete Institutional Order Flow Level Map across Elite 5 assets."""
+    """Generates complete Institutional Order Flow Level Map for Gold XAUUSD."""
     lines = [
         "🏛️ <b>INSTITUTIONAL ORDER FLOW LEVEL MAP</b>",
         "<i>Based on Yesterday's Finished Auction (AK Order Flow Ch 5–7)</i>\n"
@@ -1247,10 +1264,11 @@ def telegram_listener() -> None:
                             "🏛️ <b>Account:</b> TRADING BOY ACCOUNT\n"
                             "📊 <b>Watchlist:</b> XAUUSD (Gold Spot Exclusively)\n"
                             "⚡ <b>Strategies:</b> 1. AMT 80% Rule | 2. VWAP 2-SD Fade | 3. LVN Pullback\n"
-                            "🛡️ <b>Risk per Trade:</b> 1.0%\n"
-                            "🎯 <b>Daily Target:</b> Unlimited\n"
+                            "🛡️ <b>Risk per Trade:</b> 0.5% - 1.0%\n"
+                            "🎯 <b>Daily Target:</b> +2.0% - 3.0% / Day\n"
+                            "🛡️ <b>Capital Guard:</b> Safe Limit (-2.5% Daily Drawdown Limit)\n"
                             "🔒 <b>Max Trades/Day:</b> 3 (Hard Cap)\n"
-                            "⚖️ <b>Twin-Order Model:</b> 1:1 RR (Banker) + 1:2 RR (High-Win Target)\n\n"
+                            "⚖️ <b>Twin-Order Model:</b> Order A (70% @ POC 1:1R) + Order B (30% @ Opposite VA 1:2R)\n\n"
                             "━━━━━━━━━━━━━━━━━━━━━\n"
                             "🤖 <b>Available Interactive Commands:</b>\n"
                             "• <b>/status</b> or <b>/scan</b>: Check live market scan & active trades\n"
@@ -1736,8 +1754,10 @@ def background_scheduler() -> None:
         "🚀 <b>24/7 CLOUD TRADING BOT IS ONLINE</b>\n\n"
         "Your automated trading engine is now running 24/7 on the cloud!\n\n"
         "• <b>Account:</b> TRADING BOY ACCOUNT\n"
-        "• <b>Risk Per Trade:</b> 1.0%\n"
-        "• <b>Daily Target:</b> Unlimited\n"
+        "• <b>Watchlist:</b> XAUUSD (Gold Spot Exclusively)\n"
+        "• <b>Risk Per Trade:</b> 0.5% - 1.0%\n"
+        "• <b>Daily Target:</b> +2.0% - 3.0% / Day\n"
+        "• <b>Capital Guard:</b> Safe Limit (-2.5% Daily Drawdown Limit)\n"
         "• <b>Max Trades/Day:</b> 3 (Hard Cap)\n"
         "• <b>Order Flow Engine:</b> Active (Volume Profile, POC & 70% Value Area)\n"
         "• <b>Interactive Control:</b> Send <b>status</b> or <b>levels</b> anytime!\n"

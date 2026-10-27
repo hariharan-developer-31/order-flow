@@ -56,8 +56,8 @@ function saveState(state) {
 
 async function sendTelegramAlert(text) {
   if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return false;
+  const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
   try {
-    const url = `https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/sendMessage`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -67,7 +67,18 @@ async function sendTelegramAlert(text) {
         parse_mode: 'HTML',
       }),
     });
-    return res.ok;
+    if (res.ok) return true;
+    // Fallback: strip HTML tags and retry as plain text
+    const cleanText = text.replace(/<[^>]+>/g, '');
+    const fallbackRes = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        chat_id: TELEGRAM_CHAT_ID,
+        text: cleanText,
+      }),
+    });
+    return fallbackRes.ok;
   } catch (e) {
     return false;
   }
