@@ -23,7 +23,7 @@ import {
   getFallbackSignals,
 } from './data/mockData';
 
-const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'AUDUSD', 'USDCAD'];
+const SYMBOLS = ['XAUUSD'];
 
 export default function App() {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');

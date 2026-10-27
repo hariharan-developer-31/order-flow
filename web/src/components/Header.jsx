@@ -94,24 +94,15 @@ export default function Header({
             </div>
           </div>
 
-          {/* Asset Switcher Tabs (Horizontally scrollable on mobile) */}
-          <div className="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 overflow-x-auto max-w-full no-scrollbar shrink-0">
-            {symbols.map((sym) => {
-              const active = sym === activeSymbol;
-              return (
-                <button
-                  key={sym}
-                  onClick={() => onSelectSymbol(sym)}
-                  className={`px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-xs font-bold transition-all shrink-0 ${
-                    active
-                      ? 'bg-white text-blue-700 shadow-sm border border-slate-200'
-                      : 'text-slate-600 hover:text-slate-900'
-                  }`}
-                >
-                  {sym === 'XAUUSD' ? 'XAUUSD (Gold)' : sym}
-                </button>
-              );
-            })}
+          {/* Dedicated Institutional Gold (XAUUSD) Asset Badge */}
+          <div className="flex items-center gap-2 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-xl shrink-0">
+            <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+            <span className="text-xs font-black text-amber-900 tracking-tight">
+              XAUUSD • Gold Spot
+            </span>
+            <span className="text-[10px] font-bold text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded font-mono">
+              COMEX GC
+            </span>
           </div>
 
           {/* Live Indian Standard Time & Active Institutional Session */}
