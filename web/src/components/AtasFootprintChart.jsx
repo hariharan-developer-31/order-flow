@@ -94,16 +94,17 @@ export default function AtasFootprintChart({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const dpr = window.devicePixelRatio || 1;
+    const dpr = Math.min(window.devicePixelRatio || 1, 3);
     const rect = container.getBoundingClientRect();
     const width = Math.max(280, Math.floor(container.clientWidth || rect.width || (typeof window !== 'undefined' ? window.innerWidth - 32 : 800)));
     const chartHeight = height;
 
-    if (canvas.width !== width * dpr || canvas.height !== chartHeight * dpr) {
-      canvas.width = width * dpr;
-      canvas.height = chartHeight * dpr;
-      canvas.style.width = `${width}px`;
-      canvas.style.height = `${chartHeight}px`;
+    const targetWidth = Math.round(width * dpr);
+    const targetHeight = Math.round(chartHeight * dpr);
+
+    if (canvas.width !== targetWidth || canvas.height !== targetHeight) {
+      canvas.width = targetWidth;
+      canvas.height = targetHeight;
     }
 
     // CRITICAL: Reset transformation matrix on every frame to prevent cumulative scaling explosion
@@ -405,77 +406,83 @@ export default function AtasFootprintChart({
       ctx.font = `${Math.min(11, Math.max(8, Math.round(9.5 * zoom)))}px monospace`;
       const volK = bar.volume ? (bar.volume >= 1000 ? `${(bar.volume / 1000).toFixed(1)}K` : Math.round(bar.volume)) : '---';
       ctx.fillText(`V: ${volK}`, barCenterX, plotHeight - 6);
+    });
+  } finally {
+    ctx.restore(); // Restore clipping
+  }
 
-        // IST Time Mark
-        const timeStr = bar.datetime ? bar.datetime.split(' ')[1] || bar.datetime : '';
-        ctx.fillStyle = '#334155';
-        ctx.font = 'bold 10px monospace';
-        ctx.fillText(timeStr, barCenterX, chartHeight - 12);
-      });
-    } finally {
-      ctx.restore(); // Restore clipping
+  // 4. Live Gold Price Horizontal Line (Green Dashed + Right Price Pill)
+  if (currentPrice != null) {
+    const curY = priceToY(currentPrice);
+    if (curY >= 0 && curY <= plotHeight) {
+      ctx.strokeStyle = '#16a34a';
+      ctx.lineWidth = 1.5;
+      ctx.setLineDash([4, 4]);
+      ctx.beginPath();
+      ctx.moveTo(0, curY);
+      ctx.lineTo(plotWidth, curY);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Pulsing Live Price Pill on Right Axis
+      ctx.fillStyle = '#16a34a';
+      ctx.fillRect(plotWidth + 2, curY - 11, rightMargin - 4, 22);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 11px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(currentPrice.toFixed(decimals), plotWidth + rightMargin / 2, curY + 4);
     }
+  }
 
-    // 4. Live Gold Price Horizontal Line (Green Dashed + Right Price Pill)
-    if (currentPrice != null) {
-      const curY = priceToY(currentPrice);
-      if (curY >= 0 && curY <= plotHeight) {
-        ctx.strokeStyle = '#16a34a';
-        ctx.lineWidth = 1.5;
-        ctx.setLineDash([4, 4]);
-        ctx.beginPath();
-        ctx.moveTo(0, curY);
-        ctx.lineTo(plotWidth, curY);
-        ctx.stroke();
-        ctx.setLineDash([]);
+  // 5. Right Price Scale Ruler (Clean White / Soft Slate)
+  ctx.fillStyle = '#f8fafc';
+  ctx.fillRect(plotWidth, 0, rightMargin, plotHeight);
 
-        // Pulsing Live Price Pill on Right Axis
-        ctx.fillStyle = '#16a34a';
-        ctx.fillRect(plotWidth + 2, curY - 11, rightMargin - 4, 22);
-        ctx.fillStyle = '#ffffff';
-        ctx.font = 'bold 11px monospace';
-        ctx.textAlign = 'center';
-        ctx.fillText(currentPrice.toFixed(decimals), plotWidth + rightMargin / 2, curY + 4);
-      }
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(plotWidth, 0);
+  ctx.lineTo(plotWidth, plotHeight);
+  ctx.stroke();
+
+  ctx.fillStyle = '#475569';
+  ctx.font = 'bold 10.5px monospace';
+  ctx.textAlign = 'left';
+
+  for (let i = 0; i <= nPriceLines; i++) {
+    const p = paddedMin + (priceSpan / nPriceLines) * i;
+    const y = priceToY(p);
+    if (y >= 8 && y <= plotHeight - 8) {
+      ctx.beginPath();
+      ctx.moveTo(plotWidth, y);
+      ctx.lineTo(plotWidth + 4, y);
+      ctx.stroke();
+      ctx.fillText(p.toFixed(decimals), plotWidth + 7, y + 3.5);
     }
+  }
 
-    // 5. Right Price Scale Ruler (Clean White / Soft Slate)
-    ctx.fillStyle = '#f8fafc';
-    ctx.fillRect(plotWidth, 0, rightMargin, plotHeight);
+  // 6. Bottom Time Scale Bar (White Background + Border + IST Time Marks)
+  ctx.fillStyle = '#ffffff';
+  ctx.fillRect(0, plotHeight, width, bottomMargin);
 
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(plotWidth, 0);
-    ctx.lineTo(plotWidth, plotHeight);
-    ctx.stroke();
+  ctx.strokeStyle = '#e2e8f0';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, plotHeight);
+  ctx.lineTo(width, plotHeight);
+  ctx.stroke();
 
-    ctx.fillStyle = '#475569';
-    ctx.font = 'bold 10.5px monospace';
-    ctx.textAlign = 'left';
-
-    for (let i = 0; i <= nPriceLines; i++) {
-      const p = paddedMin + (priceSpan / nPriceLines) * i;
-      const y = priceToY(p);
-      if (y >= 8 && y <= plotHeight - 8) {
-        ctx.beginPath();
-        ctx.moveTo(plotWidth, y);
-        ctx.lineTo(plotWidth + 4, y);
-        ctx.stroke();
-        ctx.fillText(p.toFixed(decimals), plotWidth + 7, y + 3.5);
-      }
+  ctx.fillStyle = '#475569';
+  ctx.font = 'bold 10px monospace';
+  ctx.textAlign = 'center';
+  footprintList.forEach((bar, idx) => {
+    const barRightX = startX - (nBars - 1 - idx) * (barWidth + barSpacing);
+    const barCenterX = barRightX + barWidth / 2;
+    if (barCenterX >= 0 && barCenterX <= plotWidth) {
+      const timeStr = bar.datetime ? bar.datetime.split(' ')[1] || bar.datetime : '';
+      ctx.fillText(timeStr, barCenterX, plotHeight + 22);
     }
-
-    // 6. Bottom Time Scale Bar
-    ctx.fillStyle = '#ffffff';
-    ctx.fillRect(0, plotHeight, width, bottomMargin);
-
-    ctx.strokeStyle = '#e2e8f0';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(0, plotHeight);
-    ctx.lineTo(width, plotHeight);
-    ctx.stroke();
+  });
   }, [effectiveFootprint, symbol, timeframe, currentPrice, decimals, height, zoom, panX, panY, displayMode, mousePos]);
 
   // Request Animation Frame on state changes for 60 FPS fluid rendering
@@ -747,9 +754,10 @@ export default function AtasFootprintChart({
 
       {/* 3. Interactive HTML5 Canvas (Touch action none for smooth pinch & drag) */}
       <div
-        className="relative flex-1 bg-white overflow-hidden select-none w-full max-w-full"
+        className="relative bg-white overflow-hidden select-none w-full max-w-full shrink-0"
         style={{
-          height: isFullscreen ? 'calc(100vh - 100px)' : `${height}px`,
+          height: isFullscreen ? 'calc(100vh - 110px)' : `${height}px`,
+          minHeight: isFullscreen ? 'calc(100vh - 110px)' : `${height}px`,
           cursor: isCursorGrabbing ? 'grabbing' : 'grab',
           touchAction: 'none',
         }}
