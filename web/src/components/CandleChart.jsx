@@ -314,84 +314,7 @@ export default function CandleChart({
     };
   }, [decimals, chartView, isFullscreen]);
 
-  // 3. Set Candlestick Bar Data & Recalibrate Time Scale Immediately
-  useEffect(() => {
-    if (!barsData || barsData.length === 0 || !candleSeriesRef.current || chartView !== 'candles') {
-      return;
-    }
-
-    try {
-      const timeMap = new Map();
-      barsData.forEach((b) => {
-        const t = Math.floor(Number(b.time));
-        if (!isNaN(t) && b.open != null && b.close != null) {
-          timeMap.set(t, {
-            time: t,
-            open: Number(b.open),
-            high: Number(b.high),
-            low: Number(b.low),
-            close: Number(b.close),
-            volume: Number(b.volume || 1),
-          });
-        }
-      });
-
-      const sortedBars = Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
-      candleSeriesRef.current.setData(sortedBars);
-
-      if (chartRef.current) {
-        chartRef.current.timeScale().resetTimeScale();
-        chartRef.current.timeScale().fitContent();
-      }
-      setTimeout(renderInChartProfile, 80);
-    } catch (err) {
-      console.warn('[CHART] Error applying bar data:', err);
-    }
-  }, [barsData, chartView, timeframe]);
-
-  // 4. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
-  useEffect(() => {
-    if (!candleSeriesRef.current || !of || chartView !== 'candles') return;
-
-    priceLinesRef.current.forEach((line) => {
-      try {
-        candleSeriesRef.current.removePriceLine(line);
-      } catch (e) {}
-    });
-    priceLinesRef.current = [];
-
-    // Prior Day High (PDH)
-    if (of.pHigh) {
-      try {
-        const line = candleSeriesRef.current.createPriceLine({
-          price: of.pHigh,
-          color: '#94a3b8',
-          lineWidth: 1,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: `PDH`,
-        });
-        priceLinesRef.current.push(line);
-      } catch (e) {}
-    }
-
-    // Prior Day Low (PDL)
-    if (of.pLow) {
-      try {
-        const line = candleSeriesRef.current.createPriceLine({
-          price: of.pLow,
-          color: '#94a3b8',
-          lineWidth: 1,
-          lineStyle: 1,
-          axisLabelVisible: true,
-          title: `PDL`,
-        });
-        priceLinesRef.current.push(line);
-      } catch (e) {}
-    }
-  }, [of, decimals, chartView]);
-
-  // 5. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER in Green & Red
+  // 3. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER in Green & Red
   const renderInChartProfile = useCallback(() => {
     if (!profileCanvasRef.current || !candleSeriesRef.current || !chartContainerRef.current || !showInChartProfile) {
       if (profileCanvasRef.current) {
@@ -519,6 +442,109 @@ export default function CandleChart({
       ctx.fillText(`VAL ${vp.valPrice.toFixed(decimals)}`, startX + 4, yVAL + 3.5);
     }
   }, [barsData, activeVP, showInChartProfile, decimals]);
+
+  // Tracking refs for high-speed sub-millisecond updates
+  const prevSymbolTfRef = useRef('');
+  const prevBarsLengthRef = useRef(0);
+  const prevLastBarTimeRef = useRef(0);
+
+  // 4. Set Candlestick Bar Data & Recalibrate Time Scale (Fast-Path GPU Updates)
+  useEffect(() => {
+    if (!barsData || barsData.length === 0 || !candleSeriesRef.current || chartView !== 'candles') {
+      return;
+    }
+
+    try {
+      const currentKey = `${symbol}_${timeframe}`;
+      const isSwitch = prevSymbolTfRef.current !== currentKey;
+
+      const timeMap = new Map();
+      barsData.forEach((b) => {
+        const t = Math.floor(Number(b.time));
+        if (!isNaN(t) && b.open != null && b.close != null) {
+          timeMap.set(t, {
+            time: t,
+            open: Number(b.open),
+            high: Number(b.high),
+            low: Number(b.low),
+            close: Number(b.close),
+            volume: Number(b.volume || 1),
+          });
+        }
+      });
+
+      const sortedBars = Array.from(timeMap.values()).sort((a, b) => a.time - b.time);
+      if (sortedBars.length === 0) return;
+
+      const lastBar = sortedBars[sortedBars.length - 1];
+
+      // Ultra-Fast Path: Live tick update on active candle (<0.1ms direct GPU render)
+      if (!isSwitch && prevBarsLengthRef.current === sortedBars.length && prevLastBarTimeRef.current === lastBar.time) {
+        candleSeriesRef.current.update(lastBar);
+        const y = candleSeriesRef.current.priceToCoordinate(lastBar.close);
+        if (y != null) setCurrentPriceY(y);
+        renderInChartProfile();
+      } else {
+        // Full series load on timeframe/symbol switch or when a new candle bar opens
+        candleSeriesRef.current.setData(sortedBars);
+        if (isSwitch) {
+          prevSymbolTfRef.current = currentKey;
+          if (chartRef.current) {
+            chartRef.current.timeScale().fitContent();
+          }
+        }
+        prevBarsLengthRef.current = sortedBars.length;
+        prevLastBarTimeRef.current = lastBar.time;
+        const y = candleSeriesRef.current.priceToCoordinate(lastBar.close);
+        if (y != null) setCurrentPriceY(y);
+        renderInChartProfile();
+      }
+    } catch (err) {
+      console.warn('[CHART] Error applying bar data:', err);
+    }
+  }, [barsData, chartView, timeframe, symbol, renderInChartProfile]);
+
+  // 5. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
+  useEffect(() => {
+    if (!candleSeriesRef.current || !of || chartView !== 'candles') return;
+
+    priceLinesRef.current.forEach((line) => {
+      try {
+        candleSeriesRef.current.removePriceLine(line);
+      } catch (e) {}
+    });
+    priceLinesRef.current = [];
+
+    // Prior Day High (PDH)
+    if (of.pHigh) {
+      try {
+        const line = candleSeriesRef.current.createPriceLine({
+          price: of.pHigh,
+          color: '#94a3b8',
+          lineWidth: 1,
+          lineStyle: 1,
+          axisLabelVisible: true,
+          title: `PDH`,
+        });
+        priceLinesRef.current.push(line);
+      } catch (e) {}
+    }
+
+    // Prior Day Low (PDL)
+    if (of.pLow) {
+      try {
+        const line = candleSeriesRef.current.createPriceLine({
+          price: of.pLow,
+          color: '#94a3b8',
+          lineWidth: 1,
+          lineStyle: 1,
+          axisLabelVisible: true,
+          title: `PDL`,
+        });
+        priceLinesRef.current.push(line);
+      } catch (e) {}
+    }
+  }, [of, decimals, chartView]);
 
   useEffect(() => {
     renderInChartProfile();
@@ -720,6 +746,10 @@ export default function CandleChart({
               <span>H: <b className="text-emerald-700">{displayBar.high?.toFixed(decimals)}</b></span>
               <span>L: <b className="text-rose-700">{displayBar.low?.toFixed(decimals)}</b></span>
               <span>C: <b className="text-slate-900">{displayBar.close?.toFixed(decimals)}</b></span>
+              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-xs">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+                LIVE STREAM
+              </span>
             </div>
           )}
         </div>

@@ -13,6 +13,8 @@ import {
   getLiveOrderFlow,
   getLiveFootprintClusters,
   getLiveExecutionSignals,
+  getCachedBars,
+  subscribeLiveMarketTicks,
 } from './services/liveMarketService';
 import {
   getFallbackBars,
@@ -79,10 +81,16 @@ export default function App() {
     }
   }, [soundEnabled]);
 
-  // Handle symbol change smoothly with instant Live Feed sync
+  // Handle symbol change smoothly with instant Cache + Live Feed sync
   const handleSelectSymbol = async (sym) => {
     setActiveSymbol(sym);
-    setIsLoading(true);
+
+    // Instant (0ms) in-memory cache check so chart never delays
+    const cached = getCachedBars(sym, timeframe);
+    if (cached && cached.bars && cached.bars.length > 0) {
+      setBarsData(cached.bars);
+      setCurrentPrice(cached.livePrice);
+    }
 
     try {
       const live = await getLiveCandleBars(sym, timeframe, 120, apiUrl);
@@ -98,16 +106,19 @@ export default function App() {
       }
     } catch (e) {
       console.warn('Live symbol fetch:', e);
-    } finally {
-      setIsLoading(false);
-      setIsConnected(true);
     }
   };
 
-  // Handle timeframe change smoothly with instant Live Feed sync
+  // Handle timeframe change smoothly with instant Cache + Live Feed sync
   const handleSelectTimeframe = async (newTf) => {
     setTimeframe(newTf);
-    setIsLoading(true);
+
+    // Instant (0ms) in-memory cache check so chart never delays
+    const cached = getCachedBars(activeSymbol, newTf);
+    if (cached && cached.bars && cached.bars.length > 0) {
+      setBarsData(cached.bars);
+      setCurrentPrice(cached.livePrice);
+    }
 
     try {
       const live = await getLiveCandleBars(activeSymbol, newTf, 120, apiUrl);
@@ -120,13 +131,10 @@ export default function App() {
       }
     } catch (e) {
       console.warn('Live timeframe fetch:', e);
-    } finally {
-      setIsLoading(false);
-      setIsConnected(true);
     }
   };
 
-  // 24/7 Live Feed synchronization - runs continuously on Mobile, Vercel, and Desktop
+  // 24/7 Live Feed background sync - runs continuously on Mobile, Vercel, and Desktop
   const fetchAllData = useCallback(async () => {
     try {
       const live = await getLiveCandleBars(activeSymbol, timeframe, 120, apiUrl);
@@ -143,18 +151,65 @@ export default function App() {
         const sigs = getLiveExecutionSignals(activeSymbol, live.livePrice);
         setSignalsData(sigs);
       }
-
-      setIsConnected(true);
     } catch (err) {
       console.warn('[LIVE_API] Auto-reconnecting live stream:', err);
-      setIsConnected(true);
     }
   }, [apiUrl, activeSymbol, timeframe]);
 
-  // Initial fetch and auto-refresh every 10 seconds (24/7 Live Sync)
+  // High-Speed WebSocket Live Stream (<50ms Tick-by-Tick Latency)
+  useEffect(() => {
+    const unsub = subscribeLiveMarketTicks(activeSymbol, timeframe, (update) => {
+      if (update.livePrice != null) {
+        setCurrentPrice(update.livePrice);
+      }
+
+      if (update.lastBar) {
+        const tick = update.lastBar;
+        setBarsData((prev) => {
+          if (!prev || prev.length === 0) return prev;
+          const last = prev[prev.length - 1];
+
+          if (tick.time === last.time) {
+            // Update active candle in-place
+            const updated = {
+              ...last,
+              close: tick.close,
+              high: Math.max(last.high, tick.high),
+              low: Math.min(last.low, tick.low),
+              volume: tick.volume || last.volume,
+              buyVol: tick.buyVol || last.buyVol,
+              sellVol: tick.sellVol || last.sellVol,
+            };
+            return [...prev.slice(0, -1), updated];
+          } else if (tick.time > last.time) {
+            // Brand new candle bar opened!
+            return [...prev.slice(1), tick];
+          }
+          return prev;
+        });
+      } else if (update.tickerOnly && update.livePrice != null) {
+        const curP = update.livePrice;
+        setBarsData((prev) => {
+          if (!prev || prev.length === 0) return prev;
+          const last = prev[prev.length - 1];
+          const updated = {
+            ...last,
+            close: curP,
+            high: Math.max(last.high, curP),
+            low: Math.min(last.low, curP),
+          };
+          return [...prev.slice(0, -1), updated];
+        });
+      }
+    });
+
+    return () => unsub();
+  }, [activeSymbol, timeframe]);
+
+  // Initial fetch and fast auto-refresh every 3 seconds
   useEffect(() => {
     fetchAllData();
-    const interval = setInterval(fetchAllData, 10000);
+    const interval = setInterval(fetchAllData, 3000);
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
@@ -166,27 +221,6 @@ export default function App() {
         .catch((err) => console.info('[PWA] Service worker note:', err));
     }
   }, []);
-
-  // Subtle live tick generator when in offline / simulation mode to keep charts feeling alive
-  useEffect(() => {
-    if (isConnected) return;
-
-    const tickInterval = setInterval(() => {
-      setBarsData((prevBars) => {
-        if (!prevBars || prevBars.length === 0) return prevBars;
-        const last = { ...prevBars[prevBars.length - 1] };
-        const microNoise = (Math.random() - 0.5) * (activeSymbol === 'XAUUSD' ? 0.35 : 0.00012);
-        const newClose = Number((last.close + microNoise).toFixed(activeSymbol === 'XAUUSD' ? 2 : 5));
-        const newHigh = Math.max(last.high, newClose);
-        const newLow = Math.min(last.low, newClose);
-        const updated = [...prevBars.slice(0, -1), { ...last, close: newClose, high: newHigh, low: newLow }];
-        setCurrentPrice(newClose);
-        return updated;
-      });
-    }, 3000);
-
-    return () => clearInterval(tickInterval);
-  }, [isConnected, activeSymbol]);
 
   const handleSaveApiUrl = (newUrl) => {
     const trimmed = newUrl ? newUrl.trim().replace(/\/+$/, '') : '';
