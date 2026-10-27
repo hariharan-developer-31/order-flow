@@ -14,6 +14,8 @@ import {
   Crosshair,
   TrendingUp,
 } from 'lucide-react';
+import { getFallbackFootprint } from '../data/mockData';
+import { getLiveFootprintClusters } from '../services/liveMarketService';
 
 export default function AtasFootprintChart({
   symbol = 'XAUUSD',
@@ -25,9 +27,18 @@ export default function AtasFootprintChart({
   isFullscreen = false,
   onToggleFullscreen = null,
   height = 560,
+  barsData = [],
 }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
+
+  // Guarantee that footprint data is NEVER empty by falling back to live bars or high-fidelity fallback clusters
+  const effectiveFootprint =
+    footprintData && footprintData.length > 0
+      ? footprintData
+      : barsData && barsData.length > 0
+      ? getLiveFootprintClusters(barsData, symbol, timeframe)
+      : getFallbackFootprint(symbol, 15, timeframe);
 
   // View modes: 'bid_ask' (ATAS classic side-by-side) | 'delta' (net delta) | 'volume' (total volume)
   const [displayMode, setDisplayMode] = useState('bid_ask');
@@ -83,7 +94,8 @@ export default function AtasFootprintChart({
 
     const ctx = canvas.getContext('2d');
     const dpr = window.devicePixelRatio || 1;
-    const width = container.clientWidth || 800;
+    const rect = container.getBoundingClientRect();
+    const width = Math.max(280, Math.floor(container.clientWidth || rect.width || (typeof window !== 'undefined' ? window.innerWidth - 32 : 800)));
     const chartHeight = height;
 
     if (canvas.width !== width * dpr || canvas.height !== chartHeight * dpr) {
@@ -100,7 +112,8 @@ export default function AtasFootprintChart({
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, width, chartHeight);
 
-    if (!footprintData || footprintData.length === 0) {
+    const footprintList = effectiveFootprint;
+    if (!footprintList || footprintList.length === 0) {
       ctx.fillStyle = '#94a3b8';
       ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
@@ -124,7 +137,7 @@ export default function AtasFootprintChart({
     // Determine global price range across visible bars
     let minPrice = Infinity;
     let maxPrice = -Infinity;
-    footprintData.forEach((b) => {
+    footprintList.forEach((b) => {
       if (b.low < minPrice) minPrice = b.low;
       if (b.high > maxPrice) maxPrice = b.high;
       (b.clusters || []).forEach((c) => {
@@ -134,8 +147,9 @@ export default function AtasFootprintChart({
     });
 
     if (minPrice >= maxPrice || !isFinite(minPrice) || !isFinite(maxPrice)) {
-      minPrice = 2740;
-      maxPrice = 2765;
+      const cur = currentPrice || 4028.5;
+      minPrice = cur - 15;
+      maxPrice = cur + 15;
     }
 
     // Add 8% vertical padding
@@ -169,7 +183,7 @@ export default function AtasFootprintChart({
     }
 
     // 3. Render Footprint Candlestick Bars (Right-Aligned, scrolling left into history)
-    const nBars = footprintData.length;
+    const nBars = footprintList.length;
     const startX = plotWidth - barWidth - 16 + panX;
 
     // Clip to plot area for candlesticks & clusters
@@ -178,7 +192,7 @@ export default function AtasFootprintChart({
     ctx.rect(0, 0, plotWidth, plotHeight);
     ctx.clip();
 
-    footprintData.forEach((bar, idx) => {
+    footprintList.forEach((bar, idx) => {
       const barRightX = startX - (nBars - 1 - idx) * (barWidth + barSpacing);
       const barLeftX = barRightX;
       const barCenterX = barLeftX + barWidth / 2;
@@ -460,7 +474,7 @@ export default function AtasFootprintChart({
     ctx.stroke();
 
     ctx.restore();
-  }, [footprintData, symbol, timeframe, currentPrice, decimals, height, zoom, panX, panY, displayMode, mousePos]);
+  }, [effectiveFootprint, symbol, timeframe, currentPrice, decimals, height, zoom, panX, panY, displayMode, mousePos]);
 
   // Request Animation Frame on state changes for 60 FPS fluid rendering
   useEffect(() => {
@@ -468,11 +482,25 @@ export default function AtasFootprintChart({
     return () => cancelAnimationFrame(animId);
   }, [drawChart]);
 
-  // Window resize observer
+  // Window and container ResizeObserver: instantly measures correct DOM dimensions on tab switch or orientation change
   useEffect(() => {
+    drawChart();
     const handleResize = () => drawChart();
     window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+
+    const container = containerRef.current;
+    let ro = null;
+    if (container && typeof ResizeObserver !== 'undefined') {
+      ro = new ResizeObserver(() => {
+        drawChart();
+      });
+      ro.observe(container);
+    }
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      if (ro) ro.disconnect();
+    };
   }, [drawChart]);
 
   // Mouse Drag Panning Handlers
@@ -562,7 +590,7 @@ export default function AtasFootprintChart({
   };
 
   // Summary Metrics of the Latest Active Candle
-  const latestBar = footprintData && footprintData.length > 0 ? footprintData[footprintData.length - 1] : null;
+  const latestBar = effectiveFootprint && effectiveFootprint.length > 0 ? effectiveFootprint[effectiveFootprint.length - 1] : null;
   const latestDelta = latestBar?.delta ?? 0;
   const latestVol = latestBar?.volume ? Math.round(latestBar.volume).toLocaleString() : '---';
 

@@ -29,7 +29,7 @@ const SYMBOLS = ['XAUUSD'];
 export default function App() {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');
   const [timeframe, setTimeframe] = useState('1h'); // '5m' | '15m' | '1h' | '4h'
-  const [activeView, setActiveView] = useState('all'); // 'all' | 'candles' | 'footprint'
+  const [activeView, setActiveView] = useState('candles'); // 'candles' | 'footprint' | 'volume-profile' | 'signals' | 'all'
 
   // Smart API URL resolution: handles localStorage, Vercel env variable, or localhost
   const [apiUrl, setApiUrl] = useState(() => {
@@ -51,7 +51,7 @@ export default function App() {
   const [signalsData, setSignalsData] = useState(() => getFallbackSignals());
   const [currentPrice, setCurrentPrice] = useState(() => {
     const initBars = getFallbackBars('XAUUSD', 1, '1h');
-    return initBars[0]?.close || 2742.5;
+    return initBars[0]?.close || 4028.5;
   });
 
   const [isConnected, setIsConnected] = useState(true);
@@ -275,22 +275,79 @@ export default function App() {
 
       {/* 2. Main Terminal Content (Mobile to 4K Responsive Grid) */}
       <main className="flex-1 max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] w-full mx-auto px-2 sm:px-4 md:px-6 3xl:px-10 py-3 sm:py-6 space-y-4 sm:space-y-6 pb-24 lg:pb-8">
-        {/* Order Flow Top Cards (100% Synchronized with Chart VP) */}
-        <OrderFlowCards
-          symbol={activeSymbol}
-          orderFlowData={orderFlowData}
-          livePrice={currentPrice}
-          activeVP={activeVP}
-          signalsData={signalsData}
-        />
+        {/* VIEW 1: Dedicated MT5 Signals & Strategies View */}
+        {activeView === 'signals' && (
+          <div className="w-full max-w-5xl mx-auto">
+            <SignalsFeed
+              signalsData={signalsData}
+              onLifecycleChange={handleLifecycleChange}
+              currentPrice={currentPrice}
+            />
+          </div>
+        )}
 
-        {/* Charting & Execution Layout */}
-        <div className="grid grid-cols-1 xl:grid-cols-12 3xl:grid-cols-12 gap-4 sm:gap-6 items-start">
-          {/* Main Visuals Column (8 cols on XL/3XL) */}
-          <div className="xl:col-span-8 3xl:col-span-8 space-y-4 sm:space-y-6">
-            {/* Candlestick & In-Chart Footprint/Volume Profile Terminal */}
-            {(activeView === 'all' || activeView === 'candles') && (
-              <div id="chart-section">
+        {/* VIEW 2: Dedicated Footprint Clusters Chart View */}
+        {activeView === 'footprint' && (
+          <div className="w-full">
+            <FootprintChart
+              symbol={activeSymbol}
+              footprintData={footprintData}
+              currentPrice={currentPrice}
+              timeframe={timeframe}
+              onSelectTimeframe={handleSelectTimeframe}
+              decimals={decimals}
+              barsData={barsData}
+            />
+          </div>
+        )}
+
+        {/* VIEW 3: Dedicated Volume Profile Depth Histogram View */}
+        {activeView === 'volume-profile' && (
+          <div className="w-full max-w-5xl mx-auto">
+            <VolumeProfileHistogram
+              symbol={activeSymbol}
+              orderFlowData={orderFlowData}
+              activeVP={activeVP}
+              decimals={decimals}
+            />
+          </div>
+        )}
+
+        {/* VIEW 4: Chart & Order Flow Overview View */}
+        {activeView === 'candles' && (
+          <div className="space-y-4 sm:space-y-6">
+            <OrderFlowCards
+              symbol={activeSymbol}
+              orderFlowData={orderFlowData}
+              livePrice={currentPrice}
+              activeVP={activeVP}
+              signalsData={signalsData}
+            />
+            <CandleChart
+              symbol={activeSymbol}
+              barsData={barsData}
+              footprintData={footprintData}
+              orderFlowData={orderFlowData}
+              activeVP={activeVP}
+              timeframe={timeframe}
+              onSelectTimeframe={handleSelectTimeframe}
+              decimals={decimals}
+            />
+          </div>
+        )}
+
+        {/* VIEW 5: Combined Multi-Column View (Full Desktop Terminal) */}
+        {activeView === 'all' && (
+          <div className="space-y-4 sm:space-y-6">
+            <OrderFlowCards
+              symbol={activeSymbol}
+              orderFlowData={orderFlowData}
+              livePrice={currentPrice}
+              activeVP={activeVP}
+              signalsData={signalsData}
+            />
+            <div className="grid grid-cols-1 xl:grid-cols-12 3xl:grid-cols-12 gap-4 sm:gap-6 items-start">
+              <div className="xl:col-span-8 3xl:col-span-8 space-y-4 sm:space-y-6">
                 <CandleChart
                   symbol={activeSymbol}
                   barsData={barsData}
@@ -301,12 +358,6 @@ export default function App() {
                   onSelectTimeframe={handleSelectTimeframe}
                   decimals={decimals}
                 />
-              </div>
-            )}
-
-            {/* Standalone Footprint Clusters Matrix View */}
-            {(activeView === 'all' || activeView === 'footprint') && (
-              <div id="footprint-section">
                 <FootprintChart
                   symbol={activeSymbol}
                   footprintData={footprintData}
@@ -314,33 +365,25 @@ export default function App() {
                   timeframe={timeframe}
                   onSelectTimeframe={handleSelectTimeframe}
                   decimals={decimals}
+                  barsData={barsData}
                 />
               </div>
-            )}
-          </div>
-
-          {/* Right Rail: Volume Profile Depth & Telegram Signals (4 cols on XL/3XL) */}
-          <div className="xl:col-span-4 3xl:col-span-4 space-y-4 sm:space-y-6">
-            {/* Live Signals & MT5 Tickets */}
-            <div id="signals-section">
-              <SignalsFeed
-                signalsData={signalsData}
-                onLifecycleChange={handleLifecycleChange}
-                currentPrice={currentPrice}
-              />
-            </div>
-
-            {/* Horizontal Volume Profile Ladder (100% Synchronized with Chart VP) */}
-            <div id="volume-profile-section">
-              <VolumeProfileHistogram
-                symbol={activeSymbol}
-                orderFlowData={orderFlowData}
-                activeVP={activeVP}
-                decimals={decimals}
-              />
+              <div className="xl:col-span-4 3xl:col-span-4 space-y-4 sm:space-y-6">
+                <SignalsFeed
+                  signalsData={signalsData}
+                  onLifecycleChange={handleLifecycleChange}
+                  currentPrice={currentPrice}
+                />
+                <VolumeProfileHistogram
+                  symbol={activeSymbol}
+                  orderFlowData={orderFlowData}
+                  activeVP={activeVP}
+                  decimals={decimals}
+                />
+              </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
 
       {/* 3. Footer Bar */}

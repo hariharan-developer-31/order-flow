@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tradingboy-pwa-v1';
+const CACHE_NAME = 'tradingboy-pwa-v2';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',
@@ -10,13 +10,13 @@ const PRECACHE_ASSETS = [
   '/icons/apple-touch-icon.png',
 ];
 
-// Install event: Pre-cache core shell
+// Install event: Pre-cache core shell safely
 self.addEventListener('install', (event) => {
+  self.skipWaiting();
   event.waitUntil(
     caches
       .open(CACHE_NAME)
-      .then((cache) => cache.addAll(PRECACHE_ASSETS))
-      .then(() => self.skipWaiting())
+      .then((cache) => cache.addAll(PRECACHE_ASSETS).catch((e) => console.warn('[SW] Precache note:', e)))
   );
 });
 
@@ -36,51 +36,45 @@ self.addEventListener('activate', (event) => {
   );
 });
 
-// Fetch event: Network-first for API, Stale-while-revalidate for assets
+// Fetch event: Network-First everywhere so 1st load NEVER shows a blank screen
 self.addEventListener('fetch', (event) => {
   const { request } = event;
-  const url = new URL(request.url);
 
-  // Skip non-GET requests
-  if (request.method !== 'GET') return;
+  // Skip non-GET or chrome-extension requests
+  if (request.method !== 'GET' || !request.url.startsWith('http')) return;
 
-  // 1. API Calls: Network-first, fallback to cache if offline
-  if (url.pathname.startsWith('/api/')) {
+  // Navigation requests: Network first, fallback to cached index.html
+  if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          if (response.status === 200) {
+          if (response && response.status === 200) {
             const copy = response.clone();
             caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
           }
           return response;
         })
-        .catch(() => caches.match(request))
+        .catch(async () => {
+          const cached = await caches.match('/index.html') || await caches.match('/');
+          return cached || new Response('Offline', { status: 503, headers: { 'Content-Type': 'text/plain' } });
+        })
     );
     return;
   }
 
-  // 2. Static Assets & App Shell: Stale-While-Revalidate
+  // All other requests: Network first, cache fallback, NEVER return undefined
   event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const responseToCache = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(request, responseToCache);
-            });
-          }
-          return networkResponse;
-        })
-        .catch(() => {
-          // If offline and requesting navigation, return index.html
-          if (request.mode === 'navigate') {
-            return caches.match('/index.html');
-          }
-        });
-
-      return cachedResponse || fetchPromise;
-    })
+    fetch(request)
+      .then((response) => {
+        if (response && response.status === 200) {
+          const copy = response.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(request);
+        return cached || new Response(null, { status: 404 });
+      })
   );
 });

@@ -19,6 +19,8 @@ import {
   Play,
   RotateCcw,
   Sparkles,
+  BarChart3,
+  SlidersHorizontal,
 } from 'lucide-react';
 import { simulateLifecycleAction } from '../services/liveMarketService';
 
@@ -89,10 +91,11 @@ const STRATEGIES = [
 ];
 
 export default function SignalsFeed({ signalsData, onLifecycleChange, currentPrice = 4028.5 }) {
+  // Top 3 Segmented Tabs: 'live' (Live Signal) | 'strategy' (Strategy Details) | 'history' (Trade History)
+  const [activeTab, setActiveTab] = useState('live');
   const [activeStrategyId, setActiveStrategyId] = useState('amt_80');
   const [copiedId, setCopiedId] = useState(null);
   const [showTester, setShowTester] = useState(false);
-  const [activeTab, setActiveTab] = useState('feed'); // 'feed' | 'history'
 
   const activeStrat = STRATEGIES.find((s) => s.id === activeStrategyId) || STRATEGIES[0];
 
@@ -117,19 +120,20 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
     });
   };
 
-  const handleCopyTicket = (ticket, idx) => {
+  const handleCopyTicket = (ticket, idx, label = 'SIGNAL') => {
     const text = `MT5 ORDER FLOW EXECUTION TICKET (INSTITUTIONAL GOLD XAUUSD):
-Strategy: ${activeStrat.name} (${activeStrat.tag})
+Type: ${label}
+Strategy: ${ticket.strategy || ticket.strategy_name || activeStrat.name}
 Asset: ${ticket.side} XAUUSD (Gold Spot)
 Entry Price: ${ticket.entry}
-Stop Loss: ${ticket.sl} (Risk: ${activeStrat.riskPips})
-Target 1 (70% Scale-Out): ${ticket.tp1} (${activeStrat.target1Name})
-Target 2 (30% Runner): ${ticket.tp2} (${activeStrat.target2Name})
-Execution Time (IST): ${ticket.time || getISTTimeStr() + ' IST'}
+Stop Loss: ${ticket.sl} (Risk: 0.5% - 1.0%)
+Target 1 (70% Scale-Out): ${ticket.tp1}
+Target 2 (30% Runner): ${ticket.tp2}
+Execution Time: ${ticket.time || getISTTimeStr() + ' IST'}
 
 MANDATORY RISK RULES:
-1. Cap Per-Trade Risk at 0.5% - 1.0% of Capital.
-2. When Target 1 (${ticket.tp1}) is hit, close 70% of position and pull Stop Loss to Entry (${ticket.entry})!
+1. Twin Orders: Order A (70% lot size) + Order B (30% lot size).
+2. When Target 1 (${ticket.tp1}) is hit, close Order A and move Order B Stop Loss to Breakeven (${ticket.entry})!
 3. Target 2 (${ticket.tp2}) runs with 100% ZERO RISK.`;
 
     navigator.clipboard.writeText(text);
@@ -142,37 +146,52 @@ MANDATORY RISK RULES:
     if (onLifecycleChange) onLifecycleChange(res);
   };
 
+  // Find matching blueprint for active strategy
+  const activeBlueprint = strategyBlueprints.find((b) => b.strategy_id === activeStrat.id) || strategyBlueprints[0] || {
+    side: activeStrat.direction,
+    entry: currentPrice,
+    sl: activeStrat.direction === 'BUY' ? currentPrice - 3.5 : currentPrice + 3.5,
+    tp1: activeStrat.direction === 'BUY' ? currentPrice + 4.5 : currentPrice - 4.5,
+    tp2: activeStrat.direction === 'BUY' ? currentPrice + 9.0 : currentPrice - 9.0,
+  };
+
   return (
-    <div className="bg-white border border-slate-200/90 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col h-full font-sans">
-      {/* 1. Top Header */}
-      <div className="px-4 sm:px-5 py-3 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 bg-white">
+    <div className="bg-white border border-slate-200 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col h-full font-sans">
+      {/* 1. Header Toolbar */}
+      <div className="px-4 sm:px-5 py-3 border-b border-slate-200/90 flex flex-wrap items-center justify-between gap-2 bg-white">
         <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
-          <h3 className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
-            <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
-            Institutional Telegram Signals (Gold XAUUSD)
-          </h3>
+          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+          <div>
+            <h3 className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
+              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+              MT5 Signals & Strategies
+            </h3>
+            <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+              XAUUSD (Gold Spot) • Institutional Order Flow Engine
+            </span>
+          </div>
         </div>
+
         <div className="flex items-center gap-2">
           <button
             onClick={() => setShowTester((v) => !v)}
             className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-mono transition"
             title="Toggle Lifecycle Testing Bar"
           >
-            {showTester ? 'Hide Test Bar' : '⚡ Test Lifecycle'}
+            {showTester ? 'Hide Test' : '⚡ Test Lifecycle'}
           </button>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-mono">
             @tradingboyorderbot
           </span>
           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
-            🇮🇳 IST (UTC+05:30)
+            🇮🇳 IST
           </span>
         </div>
       </div>
 
       {/* Interactive Lifecycle Simulator Toolbar (Allows 1-Click Verification of SL, TP1, BE, TP2) */}
       {showTester && (
-        <div className="p-2.5 bg-blue-50/80 border-b border-blue-200 flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono">
+        <div className="p-2.5 bg-blue-50/90 border-b border-blue-200 flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono">
           <span className="font-bold text-blue-900 text-[11px] flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-blue-600" />
             <span>Interactive Lifecycle Simulator:</span>
@@ -219,7 +238,7 @@ MANDATORY RISK RULES:
         </div>
       )}
 
-      {/* Latest Lifecycle Event Notification Banner (Instant Real-Time Notice) */}
+      {/* Latest Lifecycle Event Notification Banner */}
       {latestEvent && (
         <div className="px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200/80 flex items-center justify-between gap-2 text-xs font-mono">
           <div className="flex items-center gap-2">
@@ -237,44 +256,397 @@ MANDATORY RISK RULES:
         </div>
       )}
 
-      {/* 2. Top Navigation Tabs: Live Feeds vs Today's Completed History */}
-      <div className="flex items-center justify-between px-4 py-2 bg-slate-50 border-b border-slate-200">
-        <div className="flex items-center gap-1">
+      {/* 2. Top Navigation Tabs: Live Signal | Strategy | History */}
+      <div className="flex items-center justify-between px-3 sm:px-4 py-2 bg-slate-50 border-b border-slate-200">
+        <div className="flex items-center gap-1 sm:gap-1.5">
           <button
-            onClick={() => setActiveTab('feed')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition ${
-              activeTab === 'feed'
-                ? 'bg-white text-blue-900 shadow-sm border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
+            onClick={() => setActiveTab('live')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'live'
+                ? 'bg-blue-600 text-white shadow-sm font-extrabold'
+                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
             }`}
           >
-            Live Trade Feed & Blueprints
+            <Zap className={`w-3.5 h-3.5 ${activeTab === 'live' ? 'text-amber-300' : 'text-amber-500'}`} />
+            <span>Live Signal</span>
+            {activeTrades.length > 0 && (
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+            )}
           </button>
+
+          <button
+            onClick={() => setActiveTab('strategy')}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
+              activeTab === 'strategy'
+                ? 'bg-blue-600 text-white shadow-sm font-extrabold'
+                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+            }`}
+          >
+            <BarChart3 className="w-3.5 h-3.5" />
+            <span>Strategy</span>
+          </button>
+
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-3 py-1 rounded-lg text-xs font-bold transition flex items-center gap-1.5 ${
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
               activeTab === 'history'
-                ? 'bg-white text-blue-900 shadow-sm border border-slate-200'
-                : 'text-slate-600 hover:text-slate-900'
+                ? 'bg-blue-600 text-white shadow-sm font-extrabold'
+                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
             }`}
           >
-            <span>Today's Trade History</span>
-            <span className="px-1.5 py-0.2 rounded-full bg-slate-200 text-slate-800 text-[10px]">
+            <span>History</span>
+            <span
+              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
+                activeTab === 'history' ? 'bg-blue-800 text-white' : 'bg-slate-200 text-slate-700'
+              }`}
+            >
               {recentTrades.length}
             </span>
           </button>
         </div>
-        <div className="text-right text-[11px] font-mono font-bold">
-          <span className="text-slate-400">Net Today: </span>
-          <span className={todayPnl.startsWith('+') ? 'text-emerald-600' : 'text-rose-600'}>
+
+        {/* Live Net Today P&L % Display */}
+        <div className="text-right text-xs font-mono font-bold hidden xs:block">
+          <span className="text-slate-400 text-[10px] font-sans">Today's P&L: </span>
+          <span className={todayPnl.startsWith('+') ? 'text-emerald-600 font-black' : 'text-rose-600 font-black'}>
             {todayPnl}
           </span>
+          <span className="text-slate-400 text-[10px] ml-1">({tradesCount}/{maxTrades})</span>
         </div>
       </div>
 
-      {activeTab === 'history' ? (
-        /* Today's Completed Trades History Log */
-        <div className="p-4 overflow-y-auto space-y-2.5 flex-1 max-h-[500px]">
+      {/* 3. Tab Contents */}
+
+      {/* TAB 1: LIVE SIGNAL (Shows ONLY the active trade or clean flat status — NO blueprints here!) */}
+      {activeTab === 'live' && (
+        <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-3">
+          {activeTrades.length > 0 ? (
+            /* Active Live Position Card */
+            activeTrades.map((at, idx) => {
+              const isAtTP1 = at.stage === 'TP1_BANKED_BE_ACTIVE' || at.be_alerted === true;
+              const isBuy = at.side === 'BUY';
+
+              return (
+                <div
+                  key={idx}
+                  className="p-4 sm:p-5 rounded-2xl border-2 border-emerald-500 bg-white shadow-md ring-2 ring-emerald-500/15"
+                >
+                  {/* Header: Side & Status */}
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 pb-3 border-b border-slate-100">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span
+                        className={`text-xs font-black px-2.5 py-1 rounded-md text-white font-mono tracking-tight ${
+                          isBuy ? 'bg-emerald-600' : 'bg-rose-600'
+                        }`}
+                      >
+                        ACTIVE SIGNAL: {at.side} XAUUSD
+                      </span>
+                      <span className="text-xs font-bold text-slate-800 font-sans">
+                        {at.strategy || 'AMT 80% Value Area Rule'}
+                      </span>
+                    </div>
+
+                    <div className="text-[11px] font-mono font-bold">
+                      {isAtTP1 ? (
+                        <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>TP1 HIT • SL AT BREAKEVEN</span>
+                        </span>
+                      ) : (
+                        <span className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 flex items-center gap-1">
+                          <Activity className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+                          <span>INITIAL POSITION RUNNING</span>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Mandatory MT5 Action Prompt */}
+                  {isAtTP1 ? (
+                    <div className="mb-3.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-mono">
+                      <div className="flex items-center gap-1.5 font-black text-emerald-900 mb-1">
+                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                        <span>BREAKEVEN LOCK ACTIVE (100% RISK-FREE TRADE)</span>
+                      </div>
+                      <p className="text-[11px] text-emerald-800 font-sans">
+                        👉 <b>ACTION IN MT5:</b> Order A banked at Target 1 (+0.70%). Modify <b>Order B</b> and drag its Stop Loss to <b>Breakeven ({at.entry})</b> now!
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="mb-3.5 p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-950 text-xs font-mono">
+                      <div className="flex items-center gap-1.5 font-black text-blue-900 mb-1">
+                        <Activity className="w-4 h-4 text-blue-600 animate-pulse" />
+                        <span>TWIN ORDERS ACTIVE IN MT5</span>
+                      </div>
+                      <p className="text-[11px] text-blue-800 font-sans">
+                        👉 Place Twin Orders: <b>Order A (70% volume)</b> targeting {at.tp1} and <b>Order B (30% runner)</b> targeting {at.tp2}.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* 3-Step Lifecycle Visual Progress Bar */}
+                  <div className="mb-3.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-mono text-[11px]">
+                    <div className="flex items-center justify-between text-slate-500 mb-1.5 text-[10px] font-sans font-bold uppercase">
+                      <span>Trade Progress Stepper</span>
+                      <span>Lifecycle State</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-1.5 text-center">
+                      <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold">
+                        <span className="block text-[9px] text-emerald-600">1. Entry Price</span>
+                        <span className="text-sm">{at.entry}</span>
+                      </div>
+                      <div
+                        className={`p-2 rounded-lg border font-bold ${
+                          isAtTP1
+                            ? 'bg-emerald-100 text-emerald-900 border-emerald-400 ring-1 ring-emerald-400'
+                            : 'bg-white text-slate-700 border-slate-200'
+                        }`}
+                      >
+                        <span className="block text-[9px] text-slate-500">2. Target 1 (POC)</span>
+                        <span className="text-sm">{at.tp1}</span>
+                      </div>
+                      <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold">
+                        <span className="block text-[9px] text-slate-500">3. Target 2 (Opp. VA)</span>
+                        <span className="text-sm">{at.tp2}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Twin Orders Real-Time Breakdown */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono mb-3.5">
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-[10px] text-slate-500 block font-sans">Order A (70% Banker):</span>
+                      <span className="font-extrabold text-slate-900 text-sm">
+                        {isAtTP1 ? '✅ Banked (+0.70%) at POC' : `Target: ${at.tp1}`}
+                      </span>
+                    </div>
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-[10px] text-slate-500 block font-sans">Order B (30% Runner):</span>
+                      <span className="font-extrabold text-blue-700 text-sm">
+                        {isAtTP1 ? `Running to ${at.tp2} (SL @ Breakeven)` : `Target: ${at.tp2} (SL: ${at.sl})`}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Copy Live Ticket Button */}
+                  <button
+                    onClick={() => handleCopyTicket(at, idx, 'LIVE SIGNAL')}
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20 active:scale-[0.99]"
+                  >
+                    {copiedId === idx ? (
+                      <>
+                        <Check className="w-4 h-4 text-emerald-300" />
+                        <span>Copied Live Ticket to Clipboard!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-4 h-4" />
+                        <span>Copy MT5 Execution Ticket</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+              );
+            })
+          ) : (
+            /* Clean Minimalist Flat Status State (Zero clutter, pristine White Theme) */
+            <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-6 sm:p-8 text-center font-mono">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto mb-3.5 shadow-2xs">
+                <Shield className="w-6 h-6" />
+              </div>
+              <h4 className="text-base font-black text-slate-900 mb-1">
+                No Active Signal — Market 100% Flat
+              </h4>
+              <p className="text-xs text-slate-600 font-sans max-w-md mx-auto mb-5 leading-relaxed">
+                The institutional engine is scanning Gold (XAUUSD) order flow clusters. A signal is triggered only when high-probability auction imbalance is verified.
+              </p>
+
+              {/* Status Metric Pills */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs max-w-lg mx-auto mb-4">
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 font-sans block">Daily Target</span>
+                  <span className="font-extrabold text-emerald-700">+2.0% - 3.0%</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 font-sans block">Capital Guard</span>
+                  <span className="font-extrabold text-slate-800">Safe (-2.5%)</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 font-sans block">Daily Pacing</span>
+                  <span className="font-extrabold text-blue-700">{tradesCount} / {maxTrades} Taken</span>
+                </div>
+                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                  <span className="text-[10px] text-slate-400 font-sans block">Scan Schedule</span>
+                  <span className="font-extrabold text-amber-700">:31 Hourly</span>
+                </div>
+              </div>
+
+              <div className="text-[11px] text-slate-500 font-sans">
+                Automatic Telegram alerts active at <span className="font-mono text-blue-600 font-bold">@tradingboyorderbot</span>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* TAB 2: STRATEGY (Shows the 3 strategy details, rules, win rates, and blueprints) */}
+      {activeTab === 'strategy' && (
+        <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-4">
+          {/* Strategy Selector Segmented Buttons */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {STRATEGIES.map((strat) => {
+              const active = strat.id === activeStrategyId;
+              return (
+                <button
+                  key={strat.id}
+                  onClick={() => setActiveStrategyId(strat.id)}
+                  className={`text-left p-3 rounded-xl transition-all border text-xs ${
+                    active
+                      ? 'bg-blue-50/80 text-blue-950 border-blue-500 shadow-sm ring-1 ring-blue-500/20 font-bold'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-black text-xs text-slate-900">
+                      {strat.number}. {strat.name.split(' ')[0]}
+                    </span>
+                    <span
+                      className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
+                        active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                      }`}
+                    >
+                      {strat.winRatePOC} Win
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-500 truncate">{strat.name}</div>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Strategy Details Card */}
+          <div className="bg-slate-50/60 border border-slate-200 rounded-2xl p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-200">
+              <div>
+                <span className="text-[10px] font-mono text-emerald-600 uppercase tracking-wider font-extrabold">
+                  Strategy {activeStrat.number} • {activeStrat.tag}
+                </span>
+                <h4 className="text-base font-black text-slate-900">{activeStrat.name}</h4>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] font-mono text-slate-400 block font-sans">Avg Reward : Risk</span>
+                <span className="text-sm font-black text-amber-600 font-mono">{activeStrat.avgRR}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-slate-600 font-sans mb-4 leading-relaxed">
+              {activeStrat.description}
+            </p>
+
+            {/* Strategy KPIs */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono mb-4">
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[9px] text-slate-400 block font-sans">Target 1 Win Rate</span>
+                <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRatePOC}</span>
+                <span className="text-[9px] text-slate-400 block truncate">Scale 70% Off</span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[9px] text-slate-400 block font-sans">Full Target Win</span>
+                <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRateFull}</span>
+                <span className="text-[9px] text-slate-400 block truncate">30% Runner</span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[9px] text-slate-400 block font-sans">Defined Stop Risk</span>
+                <span className="text-sm font-extrabold text-rose-600">{activeStrat.riskPips}</span>
+                <span className="text-[9px] text-slate-400 block truncate">Max 0.5% - 1.0%</span>
+              </div>
+
+              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
+                <span className="text-[9px] text-slate-400 block font-sans">Footprint Confluence</span>
+                <span className="text-xs font-extrabold text-blue-700 truncate block">
+                  {activeStrat.footprintDelta}
+                </span>
+                <span className="text-[9px] text-slate-400 block truncate">Imbalance Shift</span>
+              </div>
+            </div>
+
+            {/* Theoretical & Execution Specs */}
+            <div className="bg-white p-3 rounded-xl border border-slate-200 text-xs font-mono space-y-1.5 mb-4">
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="text-slate-400 font-sans">Context Timeframe:</span>
+                <span className="font-bold">{activeStrat.contextTf}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="text-slate-400 font-sans">Execution Timeframe:</span>
+                <span className="font-bold">{activeStrat.execTf}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-700">
+                <span className="text-slate-400 font-sans">Daily Frequency:</span>
+                <span className="font-bold">{activeStrat.dailyFreq}</span>
+              </div>
+            </div>
+
+            {/* Calculated Strategy Blueprint & Watchlist Levels */}
+            <div className="bg-white border-2 border-slate-200 rounded-xl p-3.5">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono">
+                  Calculated Strategy Blueprint Levels
+                </span>
+                <span className="text-xs font-black text-slate-800 font-mono">
+                  {activeBlueprint.side} XAUUSD
+                </span>
+              </div>
+
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                <div>
+                  <span className="text-[10px] text-slate-400 font-sans block">Entry Price</span>
+                  <span className="font-extrabold text-slate-900 text-sm">{activeBlueprint.entry}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-sans block">Stop Loss</span>
+                  <span className="font-extrabold text-rose-600 text-sm">{activeBlueprint.sl}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-sans block truncate">
+                    Target 1 ({activeStrat.winRatePOC})
+                  </span>
+                  <span className="font-extrabold text-emerald-600 text-sm">{activeBlueprint.tp1}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] text-slate-400 font-sans block truncate">
+                    Target 2 ({activeStrat.winRateFull})
+                  </span>
+                  <span className="font-extrabold text-emerald-600 text-sm">{activeBlueprint.tp2}</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => handleCopyTicket(activeBlueprint, 'strat-bp', 'STRATEGY BLUEPRINT')}
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 active:scale-[0.99]"
+              >
+                {copiedId === 'strat-bp' ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Copied Blueprint to Clipboard!</span>
+                  </>
+                ) : (
+                  <>
+                    <Copy className="w-3.5 h-3.5" />
+                    <span>Copy Strategy Blueprint (For Limit Orders / Price Alerts)</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 3: HISTORY (Shows today's completed trades log) */}
+      {activeTab === 'history' && (
+        <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-2.5">
           {recentTrades.length === 0 ? (
             <div className="text-center py-12 text-slate-400 font-mono text-xs">
               <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
@@ -290,7 +662,7 @@ MANDATORY RISK RULES:
               return (
                 <div
                   key={idx}
-                  className="bg-white border border-slate-200 rounded-xl p-3 shadow-xs font-mono text-xs flex flex-wrap items-center justify-between gap-2"
+                  className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs font-mono text-xs flex flex-wrap items-center justify-between gap-2"
                 >
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
@@ -328,320 +700,10 @@ MANDATORY RISK RULES:
             })
           )}
         </div>
-      ) : (
-        /* Main Feed: Active Trades + Strategies */
-        <div className="overflow-y-auto flex-1 max-h-[500px]">
-          {/* A. ACTIVE RUNNING TRADE CARD (Shows up when trade is OPEN or at TP1 / Breakeven) */}
-          {activeTrades.length > 0 &&
-            activeTrades.map((at, idx) => {
-              const isAtTP1 = at.stage === 'TP1_BANKED_BE_ACTIVE' || at.be_alerted === true;
-              const isBuy = at.side === 'BUY';
-
-              return (
-                <div
-                  key={idx}
-                  className="m-3 p-4 rounded-xl border-2 border-emerald-500 bg-white shadow-md ring-2 ring-emerald-500/15"
-                >
-                  {/* Active Header & Milestone Pill */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-100">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
-                      <span
-                        className={`text-xs font-black px-2.5 py-1 rounded-md text-white font-mono ${
-                          isBuy ? 'bg-emerald-600' : 'bg-rose-600'
-                        }`}
-                      >
-                        LIVE POSITION: {at.side} XAUUSD
-                      </span>
-                      <span className="text-xs font-bold text-slate-800 font-sans">
-                        {at.strategy || '1. AMT 80% Value Area Rule'}
-                      </span>
-                    </div>
-
-                    <div className="text-[11px] font-mono font-bold">
-                      {isAtTP1 ? (
-                        <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                          <span>TP1 HIT • SL AT BREAKEVEN</span>
-                        </span>
-                      ) : (
-                        <span className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 flex items-center gap-1">
-                          <Activity className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-                          <span>INITIAL POSITION RUNNING</span>
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Mandatory Action Alert Box when TP1 is hit */}
-                  {isAtTP1 && (
-                    <div className="mb-3 p-3 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-mono">
-                      <div className="flex items-center gap-1.5 font-black text-emerald-900 mb-1">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                        <span>BREAKEVEN LOCK ACTIVE: 100% RISK-FREE TRADE</span>
-                      </div>
-                      <p className="text-[11px] text-emerald-800 font-sans">
-                        👉 <b>ACTION IN MT5:</b> Order A has been banked at Target 1 (+0.70%). Modify <b>Order B</b> and change its Stop Loss to <b>Breakeven ({at.entry})</b> now!
-                      </p>
-                    </div>
-                  )}
-
-                  {/* 3-Step Lifecycle Visual Progress Bar */}
-                  <div className="mb-3.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-mono text-[11px]">
-                    <div className="flex items-center justify-between text-slate-500 mb-1.5 text-[10px] font-sans font-bold uppercase">
-                      <span>Trade Progress Stepper</span>
-                      <span>Execution Status</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-1.5 text-center">
-                      <div className="p-1.5 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold">
-                        <span className="block text-[9px] text-emerald-600">1. Entry Price</span>
-                        <span>{at.entry}</span>
-                      </div>
-                      <div
-                        className={`p-1.5 rounded-lg border font-bold ${
-                          isAtTP1
-                            ? 'bg-emerald-100 text-emerald-900 border-emerald-400 ring-1 ring-emerald-400'
-                            : 'bg-white text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        <span className="block text-[9px] text-slate-500">2. Target 1 (POC)</span>
-                        <span>{at.tp1}</span>
-                      </div>
-                      <div className="p-1.5 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold">
-                        <span className="block text-[9px] text-slate-500">3. Target 2 (VAL)</span>
-                        <span>{at.tp2}</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Twin Orders Real-Time Breakdown */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono mb-3">
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-[10px] text-slate-500 block font-sans">Order A (70% Banker):</span>
-                      <span className="font-extrabold text-slate-900 text-sm">
-                        {isAtTP1 ? '✅ Banked (+0.70%) at POC' : `Target: ${at.tp1} (POC)`}
-                      </span>
-                    </div>
-                    <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                      <span className="text-[10px] text-slate-500 block font-sans">Order B (30% Runner):</span>
-                      <span className="font-extrabold text-blue-700 text-sm">
-                        {isAtTP1 ? `Running to ${at.tp2} (SL @ BE)` : `Target: ${at.tp2} (SL: ${at.sl})`}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-
-          {/* B. Strategy Selector Tabs */}
-          <div className="p-2.5 bg-slate-50 border-b border-slate-200">
-            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-1.5 px-1 flex items-center justify-between">
-              <span>Active Institutional Order Flow Strategy</span>
-              <span className="text-blue-600 font-semibold">100% Gold Only</span>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5">
-              {STRATEGIES.map((strat) => {
-                const active = strat.id === activeStrategyId;
-                return (
-                  <button
-                    key={strat.id}
-                    onClick={() => setActiveStrategyId(strat.id)}
-                    className={`text-left p-2 rounded-xl transition-all border text-xs ${
-                      active
-                        ? 'bg-white text-blue-900 border-blue-500 shadow-sm ring-1 ring-blue-500/20 font-bold'
-                        : 'bg-white/60 text-slate-600 border-slate-200 hover:bg-white hover:text-slate-900'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between mb-0.5">
-                      <span className="font-extrabold text-xs">
-                        {strat.number}. {strat.name.split(' ')[0]}
-                      </span>
-                      <span
-                        className={`text-[9px] px-1.5 py-0.2 rounded font-mono font-bold ${
-                          active ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-500'
-                        }`}
-                      >
-                        {strat.winRatePOC} Win
-                      </span>
-                    </div>
-                    <div className="text-[10px] text-slate-500 truncate">{strat.name}</div>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* C. Strategy KPI Metric Dashboard */}
-          <div className="bg-white text-slate-900 p-4 border-b border-slate-200">
-            <div className="flex items-center justify-between mb-2.5 pb-2 border-b border-slate-100">
-              <div>
-                <div className="text-[10px] font-mono text-emerald-600 uppercase tracking-wider font-bold">
-                  Strategy {activeStrat.number} • {activeStrat.tag}
-                </div>
-                <h4 className="text-sm font-black text-slate-900">{activeStrat.name}</h4>
-              </div>
-              <div className="text-right">
-                <span className="text-[10px] font-mono text-slate-500 block">Avg Reward : Risk</span>
-                <span className="text-xs font-black text-amber-600 font-mono">{activeStrat.avgRR}</span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono">
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
-                <span className="text-[9px] text-slate-500 block font-sans">Target 1 Win Rate</span>
-                <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRatePOC}</span>
-                <span className="text-[9px] text-slate-500 block truncate">Scale 70% Off</span>
-              </div>
-
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
-                <span className="text-[9px] text-slate-500 block font-sans">Full Target Win</span>
-                <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRateFull}</span>
-                <span className="text-[9px] text-slate-500 block truncate">30% Runner</span>
-              </div>
-
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
-                <span className="text-[9px] text-slate-500 block font-sans">Defined Stop Risk</span>
-                <span className="text-sm font-extrabold text-rose-600">{activeStrat.riskPips}</span>
-                <span className="text-[9px] text-slate-500 block truncate">Max 0.5% - 1.0%</span>
-              </div>
-
-              <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 shadow-xs">
-                <span className="text-[9px] text-slate-500 block font-sans">Footprint Confluence</span>
-                <span className="text-xs font-extrabold text-blue-700 truncate block">
-                  {activeStrat.footprintDelta}
-                </span>
-                <span className="text-[9px] text-slate-500 block truncate">Imbalance Shift</span>
-              </div>
-            </div>
-          </div>
-
-          {/* D. Daily Execution Pacing & Capital Guard Safe Banner */}
-          <div className="bg-emerald-50/70 border-b border-emerald-200/60 px-4 py-2 flex items-center justify-between text-[11px] text-emerald-950 font-mono">
-            <div className="flex items-center gap-1.5 font-bold">
-              <Shield className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Daily Pacing: {tradesCount} / {maxTrades} Trades (Max 3)</span>
-              <span className="text-emerald-300">|</span>
-              <span className="text-emerald-700">Daily Target: +2.0% - 3.0%</span>
-            </div>
-            <span className="text-[10px] font-bold text-emerald-800 bg-emerald-100/80 px-2 py-0.5 rounded border border-emerald-200 hidden sm:inline">
-              🛡️ Capital Guard: Safe (Limit -2.5%)
-            </span>
-          </div>
-
-          {/* E. Strategy Blueprints Stream */}
-          <div className="p-4 space-y-3">
-            {strategyBlueprints.map((t, idx) => {
-              const isBuy = t.side === 'BUY';
-              const isTriggered = t.is_triggered === true;
-
-              return (
-                <div
-                  key={t.id || idx}
-                  className={`bg-white border-2 rounded-xl p-4 shadow-sm transition relative ${
-                    isTriggered
-                      ? 'border-emerald-500 ring-2 ring-emerald-500/20'
-                      : 'border-slate-200 hover:border-blue-400'
-                  }`}
-                >
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-bold uppercase px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono flex items-center gap-1">
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></span>
-                        STRATEGY BLUEPRINT
-                      </span>
-                      <span
-                        className={`text-xs font-black px-2 py-0.5 rounded-md font-mono ${
-                          isBuy ? 'bg-emerald-50 text-emerald-800 border border-emerald-200' : 'bg-rose-50 text-rose-800 border border-rose-200'
-                        }`}
-                      >
-                        Planned {t.side}
-                      </span>
-                      <span className="text-[11px] font-bold text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 hidden sm:inline">
-                        {t.strategy_name || activeStrat.name}
-                      </span>
-                    </div>
-
-                    <div className="flex items-center gap-1.5 text-[10px] font-mono text-slate-500">
-                      <Clock className="w-3 h-3 text-blue-600" />
-                      <span className="font-bold text-slate-700">{t.time || getISTTimeStr() + ' IST'}</span>
-                    </div>
-                  </div>
-
-                  {/* Status Notice: Explains that market is Flat awaiting candle close */}
-                  {isFlat && (
-                    <div className="mb-3 px-3 py-1.5 rounded-lg bg-amber-50/80 border border-amber-200 text-amber-900 text-[11px] font-medium flex items-center justify-between gap-2 font-mono">
-                      <span className="flex items-center gap-1.5">
-                        <Shield className="w-3.5 h-3.5 text-amber-600 shrink-0" />
-                        <span><b>Status: Scanning & Armed</b> — Level blueprint calculated. Awaiting trigger.</span>
-                      </span>
-                      <span className="text-[10px] font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded shrink-0">
-                        FLAT ({tradesCount}/3 TODAY)
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Levels Grid */}
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-sans block">Entry Price</span>
-                      <span className="font-extrabold text-slate-900 text-sm">{t.entry}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-sans block">Hard Stop Loss</span>
-                      <span className="font-extrabold text-rose-600 text-sm">{t.sl}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-sans block truncate">
-                        Target 1 ({activeStrat.winRatePOC})
-                      </span>
-                      <span className="font-extrabold text-emerald-600 text-sm">{t.tp1}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-slate-400 font-sans block truncate">
-                        Target 2 ({activeStrat.winRateFull})
-                      </span>
-                      <span className="font-extrabold text-emerald-600 text-sm">{t.tp2}</span>
-                    </div>
-                  </div>
-
-                  {/* Order Flow Action Plan */}
-                  <div className="mb-3 space-y-1 text-[11px] text-slate-600 bg-blue-50/60 p-2.5 rounded-lg border border-blue-100 font-mono">
-                    <div className="flex items-center justify-between font-bold text-blue-900">
-                      <span>Order A (70% Scale-Out):</span>
-                      <span>Exit at {t.tp1} • Pull SL to Break-Even ({t.entry})</span>
-                    </div>
-                    <div className="flex items-center justify-between font-bold text-blue-900">
-                      <span>Order B (30% Runner):</span>
-                      <span>Run to {t.tp2} (Zero-Risk {activeStrat.avgRR} R:R)</span>
-                    </div>
-                  </div>
-
-                  {/* Copy Blueprint Button */}
-                  <button
-                    onClick={() => handleCopyTicket(t, idx)}
-                    className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20 active:scale-[0.99]"
-                  >
-                    {copiedId === idx ? (
-                      <>
-                        <Check className="w-3.5 h-3.5 text-emerald-400" />
-                        <span>Copied Strategy Levels to Clipboard!</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3.5 h-3.5" />
-                        <span>Copy Strategy Blueprint (For Setting Alerts / Limits)</span>
-                      </>
-                    )}
-                  </button>
-                </div>
-              );
-            })}
-          </div>
-        </div>
       )}
 
       {/* 4. Footer Policy Note */}
-      <div className="p-3 bg-slate-50 border-t border-slate-100 text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 font-mono">
+      <div className="p-3 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 font-mono">
         <span>Daily Target: +2.0% - 3.0% / Day</span>
         <span>•</span>
         <span>Capital Guard Limit: -2.5%</span>

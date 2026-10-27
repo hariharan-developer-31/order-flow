@@ -52,7 +52,7 @@ export default function BottomNav({
         onChangeView('candles');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       },
-      isActive: activeView === 'candles' || activeView === 'all',
+      isActive: activeView === 'candles',
     },
     {
       id: 'footprint',
@@ -69,27 +69,21 @@ export default function BottomNav({
       label: 'VP Depth',
       icon: BarChart3,
       action: () => {
-        const el = document.getElementById('volume-profile-section');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        } else {
-          onChangeView('all');
-        }
+        onChangeView('volume-profile');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       },
-      isActive: false,
+      isActive: activeView === 'volume-profile',
     },
     {
       id: 'signals',
       label: 'MT5 Signals',
       icon: Zap,
       action: () => {
-        const el = document.getElementById('signals-section');
-        if (el) {
-          el.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
+        onChangeView('signals');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
       },
       badge: signalsCount > 0 ? signalsCount : null,
-      isActive: false,
+      isActive: activeView === 'signals',
     },
     {
       id: 'settings',

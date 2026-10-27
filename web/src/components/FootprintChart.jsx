@@ -8,6 +8,7 @@ export default function FootprintChart({
   timeframe = '1h',
   onSelectTimeframe = null,
   decimals = 2,
+  barsData = [],
 }) {
   return (
     <AtasFootprintChart
@@ -17,6 +18,7 @@ export default function FootprintChart({
       timeframe={timeframe}
       onSelectTimeframe={onSelectTimeframe}
       decimals={decimals}
+      barsData={barsData}
       height={580}
     />
   );

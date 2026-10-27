@@ -157,18 +157,8 @@ export default function Header({
               </div>
             )}
 
-            {/* View Switcher: Combined vs Profile vs Footprint */}
+            {/* View Switcher: Chart & VP vs Footprint vs VP Depth vs Signals vs Combined */}
             <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
-              <button
-                onClick={() => onChangeView('all')}
-                className={`px-3 py-1 rounded-lg transition-all ${
-                  activeView === 'all'
-                    ? 'bg-white text-slate-900 shadow-sm font-bold'
-                    : 'text-slate-600 hover:text-slate-900'
-                }`}
-              >
-                Combined View
-              </button>
               <button
                 onClick={() => onChangeView('candles')}
                 className={`px-3 py-1 rounded-lg transition-all ${
@@ -177,7 +167,7 @@ export default function Header({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Volume Profile
+                Chart & VP
               </button>
               <button
                 onClick={() => onChangeView('footprint')}
@@ -187,7 +177,37 @@ export default function Header({
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
-                Footprint Delta
+                Footprint
+              </button>
+              <button
+                onClick={() => onChangeView('volume-profile')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeView === 'volume-profile'
+                    ? 'bg-white text-slate-900 shadow-sm font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                VP Depth
+              </button>
+              <button
+                onClick={() => onChangeView('signals')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeView === 'signals'
+                    ? 'bg-white text-slate-900 shadow-sm font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                MT5 Signals
+              </button>
+              <button
+                onClick={() => onChangeView('all')}
+                className={`px-3 py-1 rounded-lg transition-all ${
+                  activeView === 'all'
+                    ? 'bg-white text-slate-900 shadow-sm font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                Combined
               </button>
             </div>
 
