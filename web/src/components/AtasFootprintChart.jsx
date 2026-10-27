@@ -1,4 +1,4 @@
-import React, { useRef, useEffect, useState, useCallback } from 'react';
+import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import {
   ZoomIn,
   ZoomOut,
@@ -32,13 +32,12 @@ export default function AtasFootprintChart({
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
 
-  // Guarantee that footprint data is NEVER empty by falling back to live bars or high-fidelity fallback clusters
-  const effectiveFootprint =
-    footprintData && footprintData.length > 0
-      ? footprintData
-      : barsData && barsData.length > 0
-      ? getLiveFootprintClusters(barsData, symbol, timeframe)
-      : getFallbackFootprint(symbol, 15, timeframe);
+  // Guarantee that footprint data is NEVER empty with stable memoized reference
+  const effectiveFootprint = useMemo(() => {
+    if (footprintData && footprintData.length > 0) return footprintData;
+    if (barsData && barsData.length > 0) return getLiveFootprintClusters(barsData, symbol, timeframe);
+    return getFallbackFootprint(symbol, 15, timeframe);
+  }, [footprintData, barsData, symbol, timeframe]);
 
   // View modes: 'bid_ask' (ATAS classic side-by-side) | 'delta' (net delta) | 'volume' (total volume)
   const [displayMode, setDisplayMode] = useState('bid_ask');
@@ -93,6 +92,8 @@ export default function AtasFootprintChart({
     if (!canvas || !container) return;
 
     const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
     const dpr = window.devicePixelRatio || 1;
     const rect = container.getBoundingClientRect();
     const width = Math.max(280, Math.floor(container.clientWidth || rect.width || (typeof window !== 'undefined' ? window.innerWidth - 32 : 800)));
@@ -105,8 +106,10 @@ export default function AtasFootprintChart({
       canvas.style.height = `${chartHeight}px`;
     }
 
-    ctx.save();
-    ctx.scale(dpr, dpr);
+    // CRITICAL: Reset transformation matrix on every frame to prevent cumulative scaling explosion
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     // 1. Pure Crisp White Canvas Background
     ctx.fillStyle = '#ffffff';
@@ -118,7 +121,6 @@ export default function AtasFootprintChart({
       ctx.font = 'bold 14px Inter, sans-serif';
       ctx.textAlign = 'center';
       ctx.fillText(`Loading live ${symbol} footprint clusters...`, width / 2, chartHeight / 2);
-      ctx.restore();
       return;
     }
 
@@ -166,8 +168,8 @@ export default function AtasFootprintChart({
       return centerY + (baseY - centerY) * zoom + panY;
     };
 
-    // 2. Subtle Background Grid (Light Slate #f8fafc / #f1f5f9)
-    ctx.strokeStyle = '#f1f5f9';
+    // 2. Subtle Background Grid (Crisp Slate #e2e8f0)
+    ctx.strokeStyle = '#e2e8f0';
     ctx.lineWidth = 1;
 
     const nPriceLines = 8;
@@ -192,7 +194,8 @@ export default function AtasFootprintChart({
     ctx.rect(0, 0, plotWidth, plotHeight);
     ctx.clip();
 
-    footprintList.forEach((bar, idx) => {
+    try {
+      footprintList.forEach((bar, idx) => {
       const barRightX = startX - (nBars - 1 - idx) * (barWidth + barSpacing);
       const barLeftX = barRightX;
       const barCenterX = barLeftX + barWidth / 2;
@@ -403,14 +406,15 @@ export default function AtasFootprintChart({
       const volK = bar.volume ? (bar.volume >= 1000 ? `${(bar.volume / 1000).toFixed(1)}K` : Math.round(bar.volume)) : '---';
       ctx.fillText(`V: ${volK}`, barCenterX, plotHeight - 6);
 
-      // IST Time Mark
-      const timeStr = bar.datetime ? bar.datetime.split(' ')[1] || bar.datetime : '';
-      ctx.fillStyle = '#334155';
-      ctx.font = 'bold 10px monospace';
-      ctx.fillText(timeStr, barCenterX, chartHeight - 12);
-    });
-
-    ctx.restore(); // Restore clipping
+        // IST Time Mark
+        const timeStr = bar.datetime ? bar.datetime.split(' ')[1] || bar.datetime : '';
+        ctx.fillStyle = '#334155';
+        ctx.font = 'bold 10px monospace';
+        ctx.fillText(timeStr, barCenterX, chartHeight - 12);
+      });
+    } finally {
+      ctx.restore(); // Restore clipping
+    }
 
     // 4. Live Gold Price Horizontal Line (Green Dashed + Right Price Pill)
     if (currentPrice != null) {
@@ -472,8 +476,6 @@ export default function AtasFootprintChart({
     ctx.moveTo(0, plotHeight);
     ctx.lineTo(width, plotHeight);
     ctx.stroke();
-
-    ctx.restore();
   }, [effectiveFootprint, symbol, timeframe, currentPrice, decimals, height, zoom, panX, panY, displayMode, mousePos]);
 
   // Request Animation Frame on state changes for 60 FPS fluid rendering

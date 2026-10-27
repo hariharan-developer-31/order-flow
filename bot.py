@@ -39,6 +39,7 @@ DAILY_LOSS_LIMIT = DAILY_LOSS_LIMIT_PCT
 DAILY_PROFIT_TARGET = DAILY_PROFIT_TARGET_MAX_PCT
 PORT = int(os.getenv("PORT", "8080"))
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "")
+WEBAPP_URL = os.getenv("WEBAPP_URL", "")
 
 INSTRUMENTS = [
     ("XAUUSD", 2, "GC=F", 100.0, True),       # Gold (1 lot = 100 oz) - Exclusively Traded Asset
@@ -101,12 +102,56 @@ def load_daily_state() -> Dict[str, Any]:
     return default_state
 
 
+def sync_trade_to_webapp(state_data: Dict[str, Any]) -> None:
+    """Asynchronously syncs current trade state to the WebApp / Vercel API endpoint."""
+    target_url = WEBAPP_URL.rstrip("/") if WEBAPP_URL else ""
+    if not target_url:
+        return
+
+    def _sync():
+        try:
+            payload = json.dumps({
+                "timestamp": int(time.time()),
+                "date": state_data.get("date", ""),
+                "trades_count": state_data.get("trades_count", 0),
+                "max_trades": MAX_DAILY_TRADES,
+                "pnl": state_data.get("pnl", 0.0),
+                "pnl_pct": state_data.get("pnl_pct", 0.0),
+                "today_pnl": f"{state_data.get('pnl_pct', 0.0):+.2f}%",
+                "daily_target": "+2.0% - 3.0%",
+                "capital_guard": "-2.5%",
+                "is_flat": len([at for at in state_data.get("active_trades", []) if not at.get("closed", False)]) == 0,
+                "active_trades": [at for at in state_data.get("active_trades", []) if not at.get("closed", False)],
+                "latest_lifecycle_event": state_data.get("latest_lifecycle_event"),
+                "recent_trades": state_data.get("recent_trades", []),
+            }).encode("utf-8")
+
+            url = f"{target_url}/api/signals"
+            req = urllib.request.Request(
+                url,
+                data=payload,
+                headers={"Content-Type": "application/json", "User-Agent": "TradingBoyBot/1.0"},
+            )
+            with urllib.request.urlopen(req, timeout=4) as r:
+                pass
+            print(f"[WEBAPP SYNC] Synced trade state to {url}")
+        except Exception as e:
+            # Silent fallback if webapp is not currently listening or network delay
+            pass
+
+    threading.Thread(target=_sync, daemon=True).start()
+
+
 def save_daily_state() -> None:
     try:
         with open(STATE_FILE, "w", encoding="utf-8") as f:
             json.dump(daily_state, f, indent=2)
     except Exception as e:
         print(f"[STATE WARNING] Could not save state: {e}")
+    try:
+        sync_trade_to_webapp(daily_state)
+    except Exception:
+        pass
 
 
 daily_state: Dict[str, Any] = load_daily_state()
@@ -2117,6 +2162,36 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
         # Not found
         self._set_cors_headers(404)
         self.wfile.write(json.dumps({"error": "Endpoint not found", "available": ["/health", "/api/status", "/api/orderflow", "/api/bars", "/api/footprint", "/api/signals"]}).encode("utf-8"))
+
+    def do_POST(self):
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path.rstrip("/")
+        if path in ("/api/signals", "/api/sync", "/api/trigger"):
+            content_len = int(self.headers.get("Content-Length", 0))
+            post_body = self.rfile.read(content_len).decode("utf-8") if content_len > 0 else "{}"
+            try:
+                body_data = json.loads(post_body)
+                with state_lock:
+                    if "active_trades" in body_data:
+                        daily_state["active_trades"] = body_data["active_trades"]
+                    if "trades_count" in body_data:
+                        daily_state["trades_count"] = body_data["trades_count"]
+                    if "latest_lifecycle_event" in body_data:
+                        daily_state["latest_lifecycle_event"] = body_data["latest_lifecycle_event"]
+                    if "pnl_pct" in body_data:
+                        daily_state["pnl_pct"] = body_data["pnl_pct"]
+                    if "recent_trades" in body_data:
+                        daily_state["recent_trades"] = body_data["recent_trades"]
+                    save_daily_state()
+                self._set_cors_headers(200)
+                self.wfile.write(json.dumps({"ok": True, "synced": True, "trades_count": daily_state["trades_count"]}).encode("utf-8"))
+            except Exception as e:
+                self._set_cors_headers(400)
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        self._set_cors_headers(404)
+        self.wfile.write(json.dumps({"error": "Endpoint not found"}).encode("utf-8"))
 
     def log_message(self, format, *args):
         pass
