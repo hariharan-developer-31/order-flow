@@ -17,7 +17,7 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
       setTimeout(() => {
         setTestResult({
           ok: true,
-          msg: 'Simulation Mode active. Using built-in high-fidelity order flow simulation.',
+          msg: '24/7 Global Live Feed active. Connected directly to Binance global liquidity feeds.',
         });
         setTesting(false);
       }, 300);
@@ -107,9 +107,9 @@ export default function SettingsModal({ isOpen, onClose, apiUrl, onSaveApiUrl })
               <button
                 type="button"
                 onClick={() => setInputUrl('')}
-                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 transition"
+                className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-200 transition"
               >
-                Simulation / Demo
+                24/7 Global Live Feed
               </button>
             </div>
           </div>

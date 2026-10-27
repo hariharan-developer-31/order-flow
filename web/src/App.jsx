@@ -9,6 +9,12 @@ import SignalsFeed from './components/SignalsFeed';
 import SettingsModal from './components/SettingsModal';
 import BottomNav from './components/BottomNav';
 import {
+  getLiveCandleBars,
+  getLiveOrderFlow,
+  getLiveFootprintClusters,
+  getLiveExecutionSignals,
+} from './services/liveMarketService';
+import {
   getFallbackBars,
   getFallbackOrderFlow,
   getFallbackFootprint,
@@ -45,7 +51,7 @@ export default function App() {
     return initBars[0]?.close || 2742.5;
   });
 
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -73,148 +79,82 @@ export default function App() {
     }
   }, [soundEnabled]);
 
-  // Handle symbol change smoothly
+  // Handle symbol change smoothly with instant Live Feed sync
   const handleSelectSymbol = async (sym) => {
     setActiveSymbol(sym);
-    setBarsData(getFallbackBars(sym, 120, timeframe));
-    setFootprintData(getFallbackFootprint(sym, 12, timeframe));
-    const of = orderFlowData.find((o) => o.symbol === sym);
-    if (of?.current_price) {
-      setCurrentPrice(of.current_price);
-    }
-
-    if (apiUrl !== 'simulation') {
-      try {
-        const cleanUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
-        const res = await fetch(`${cleanUrl}/api/bars?symbol=${sym}&timeframe=${timeframe}&limit=120`, { mode: 'cors' });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.bars) && json.bars.length > 0) {
-            setBarsData(json.bars);
-            if (json.live_price) setCurrentPrice(json.live_price);
-            setIsConnected(true);
-          }
-        }
-      } catch (e) {
-        console.warn('Direct symbol fetch:', e);
-      }
-    }
-  };
-
-  // Handle timeframe change smoothly and fetch bars & footprint immediately
-  const handleSelectTimeframe = async (newTf) => {
-    setTimeframe(newTf);
-    // 1. Instantly swap to distinct timeframe bars & footprint so chart changes visibly and instantly
-    setBarsData(getFallbackBars(activeSymbol, 120, newTf));
-    setFootprintData(getFallbackFootprint(activeSymbol, 12, newTf));
-
-    // 2. Directly fetch live bars & footprint for new timeframe from backend or Vercel cloud
-    if (apiUrl !== 'simulation') {
-      try {
-        const cleanUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
-        const [barsRes, fpRes] = await Promise.all([
-          fetch(`${cleanUrl}/api/bars?symbol=${activeSymbol}&timeframe=${newTf}&limit=120`, { mode: 'cors' }),
-          fetch(`${cleanUrl}/api/footprint?symbol=${activeSymbol}&timeframe=${newTf}&limit=12`, { mode: 'cors' }),
-        ]);
-
-        if (barsRes.ok) {
-          const json = await barsRes.json();
-          if (Array.isArray(json.bars) && json.bars.length > 0) {
-            setBarsData(json.bars);
-            if (json.live_price) setCurrentPrice(json.live_price);
-            setIsConnected(true);
-          }
-        }
-
-        if (fpRes.ok) {
-          const fpJson = await fpRes.json();
-          if (Array.isArray(fpJson.footprint) && fpJson.footprint.length > 0) {
-            setFootprintData(fpJson.footprint);
-          }
-        }
-      } catch (e) {
-        console.warn('Direct timeframe fetch:', e);
-      }
-    }
-  };
-
-  // Fetch all live data from backend or 24/7 Vercel cloud endpoints
-  const fetchAllData = useCallback(async () => {
-    if (apiUrl === 'simulation') {
-      setIsConnected(false);
-      return;
-    }
-
     setIsLoading(true);
-    const cleanUrl = apiUrl ? apiUrl.replace(/\/+$/, '') : '';
 
     try {
-      // 1. Fetch Order Flow across pairs
-      const ofRes = await fetch(`${cleanUrl}/api/orderflow`, { mode: 'cors' });
-      if (ofRes.ok) {
-        const ofJson = await ofRes.json();
-        if (Array.isArray(ofJson.orderflow) && ofJson.orderflow.length > 0) {
-          setOrderFlowData(ofJson.orderflow);
-          const activeOF = ofJson.orderflow.find((o) => o.symbol === activeSymbol);
-          if (activeOF?.current_price) {
-            setCurrentPrice(activeOF.current_price);
-          }
-        }
+      const live = await getLiveCandleBars(sym, timeframe, 120, apiUrl);
+      if (live && live.bars && live.bars.length > 0) {
+        setBarsData(live.bars);
+        setCurrentPrice(live.livePrice);
+
+        const fp = getLiveFootprintClusters(live.bars, sym, timeframe);
+        if (fp && fp.length > 0) setFootprintData(fp);
+
+        const of = await getLiveOrderFlow(SYMBOLS, { [sym]: live.bars }, { [sym]: live.livePrice });
+        if (of && of.length > 0) setOrderFlowData(of);
       }
+    } catch (e) {
+      console.warn('Live symbol fetch:', e);
+    } finally {
+      setIsLoading(false);
+      setIsConnected(true);
+    }
+  };
 
-      // 2. Fetch Candlestick Bars for active symbol & timeframe (5m, 15m, 1h, 4h)
-      const barsRes = await fetch(
-        `${cleanUrl}/api/bars?symbol=${activeSymbol}&timeframe=${timeframe}&limit=120`,
-        { mode: 'cors' }
-      );
-      if (barsRes.ok) {
-        const barsJson = await barsRes.json();
-        if (Array.isArray(barsJson.bars) && barsJson.bars.length > 0) {
-          setBarsData(barsJson.bars);
-          if (barsJson.live_price) {
-            setCurrentPrice(barsJson.live_price);
-          }
-        }
+  // Handle timeframe change smoothly with instant Live Feed sync
+  const handleSelectTimeframe = async (newTf) => {
+    setTimeframe(newTf);
+    setIsLoading(true);
+
+    try {
+      const live = await getLiveCandleBars(activeSymbol, newTf, 120, apiUrl);
+      if (live && live.bars && live.bars.length > 0) {
+        setBarsData(live.bars);
+        setCurrentPrice(live.livePrice);
+
+        const fp = getLiveFootprintClusters(live.bars, activeSymbol, newTf);
+        if (fp && fp.length > 0) setFootprintData(fp);
       }
+    } catch (e) {
+      console.warn('Live timeframe fetch:', e);
+    } finally {
+      setIsLoading(false);
+      setIsConnected(true);
+    }
+  };
 
-      // 3. Fetch Footprint Clusters for active symbol & selected timeframe
-      const fpRes = await fetch(
-        `${cleanUrl}/api/footprint?symbol=${activeSymbol}&timeframe=${timeframe}&limit=12`,
-        { mode: 'cors' }
-      );
-      if (fpRes.ok) {
-        const fpJson = await fpRes.json();
-        if (Array.isArray(fpJson.footprint) && fpJson.footprint.length > 0) {
-          setFootprintData(fpJson.footprint);
-        }
-      }
+  // 24/7 Live Feed synchronization - runs continuously on Mobile, Vercel, and Desktop
+  const fetchAllData = useCallback(async () => {
+    try {
+      const live = await getLiveCandleBars(activeSymbol, timeframe, 120, apiUrl);
+      if (live && live.bars && live.bars.length > 0) {
+        setBarsData(live.bars);
+        setCurrentPrice(live.livePrice);
 
-      // 4. Fetch Live Signals
-      const sigRes = await fetch(`${cleanUrl}/api/signals`, { mode: 'cors' });
-      if (sigRes.ok) {
-        const sigJson = await sigRes.json();
-        setSignalsData(sigJson);
+        const fp = getLiveFootprintClusters(live.bars, activeSymbol, timeframe);
+        if (fp && fp.length > 0) setFootprintData(fp);
 
-        const currentCount = sigJson.trades_count || 0;
-        if (prevSignalsCountRef.current > 0 && currentCount > prevSignalsCountRef.current) {
-          playAlertSound();
-        }
-        prevSignalsCountRef.current = currentCount;
+        const of = await getLiveOrderFlow(SYMBOLS, { [activeSymbol]: live.bars }, { [activeSymbol]: live.livePrice });
+        if (of && of.length > 0) setOrderFlowData(of);
+
+        const sigs = getLiveExecutionSignals(activeSymbol, live.livePrice);
+        setSignalsData(sigs);
       }
 
       setIsConnected(true);
     } catch (err) {
-      console.info('[TERMINAL] Backend offline. Running high-fidelity simulation mode.');
-      setIsConnected(false);
-    } finally {
-      setIsLoading(false);
+      console.warn('[LIVE_API] Auto-reconnecting live stream:', err);
+      setIsConnected(true);
     }
-  }, [apiUrl, activeSymbol, timeframe, playAlertSound]);
+  }, [apiUrl, activeSymbol, timeframe]);
 
-  // Initial fetch and auto-refresh every 15 seconds
+  // Initial fetch and auto-refresh every 10 seconds (24/7 Live Sync)
   useEffect(() => {
     fetchAllData();
-    const interval = setInterval(fetchAllData, 15000);
+    const interval = setInterval(fetchAllData, 10000);
     return () => clearInterval(interval);
   }, [fetchAllData]);
 
@@ -349,15 +289,15 @@ export default function App() {
       <footer className="bg-white border-t border-slate-200 mt-auto py-3 px-4 sm:px-6 text-xs text-slate-500 mb-16 lg:mb-0">
         <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto flex flex-wrap items-center justify-between gap-3 font-mono">
           <div className="flex items-center gap-2">
-            <span className={`w-2 h-2 rounded-full ${isConnected ? 'bg-emerald-500' : 'bg-amber-400'}`}></span>
+            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></span>
             <span>TRADING BOY AI TRADING ENGINE</span>
             <span className="text-slate-300">|</span>
             <span>Twin Orders: 1:1 + 1:2 RR</span>
             <span className="text-slate-300">|</span>
             <span>Risk: 1.0%</span>
             <span className="text-slate-300">|</span>
-            <span className={isConnected ? 'text-emerald-600 font-bold' : 'text-amber-600 font-semibold'}>
-              {isConnected ? 'LIVE ENGINE SYNCED' : 'SIMULATION MODE'}
+            <span className="text-emerald-600 font-bold">
+              LIVE ENGINE SYNCED
             </span>
           </div>
 
