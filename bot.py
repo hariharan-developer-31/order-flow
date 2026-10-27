@@ -70,10 +70,12 @@ def load_daily_state() -> Dict[str, Any]:
         "pnl_pct": 0.0,
         "pnl": 0.0,
         "trades_list": [],
+        "recent_trades": [],
         "consecutive_losses": 0,
         "last_loss_ts": 0.0,
         "pair_cooldowns": {},
         "active_trades": [],
+        "latest_lifecycle_event": None,
         "learning_channel_id": LEARNING_CHANNEL_ID,
         "triggered_candles": {},
     }
@@ -88,6 +90,10 @@ def load_daily_state() -> Dict[str, Any]:
                         saved["triggered_candles"] = {}
                     if "pnl_pct" not in saved:
                         saved["pnl_pct"] = 0.0
+                    if "recent_trades" not in saved:
+                        saved["recent_trades"] = []
+                    if "latest_lifecycle_event" not in saved:
+                        saved["latest_lifecycle_event"] = None
                     print(f"[STATE] Restored state from disk: {saved.get('trades_count')} trades, PnL: {saved.get('pnl_pct', 0.0):+.2f}%")
                     return saved
         except Exception as e:
@@ -120,10 +126,12 @@ def check_daily_reset() -> None:
                 "pnl_pct": 0.0,
                 "pnl": 0.0,
                 "trades_list": [],
+                "recent_trades": [],
                 "consecutive_losses": 0,
                 "last_loss_ts": 0.0,
                 "pair_cooldowns": {},
                 "active_trades": open_trades,
+                "latest_lifecycle_event": None,
                 "learning_channel_id": l_chan,
                 "triggered_candles": {},
             }
@@ -957,9 +965,12 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                 daily_state["triggered_candles"][t["sym"]] = bar_ts
                 daily_state["trades_count"] += 1
                 daily_state["trades_list"].append(f"{t['side']} {t['sym']}")
-                daily_state.setdefault("active_trades", []).append({
+                trade_id = f"TB-XAUUSD-{int(time.time())}"
+                trade_record = {
+                    "id": trade_id,
                     "sym": t["sym"],
                     "side": t["side"],
+                    "strategy": t.get("title", "1. AMT 80% Value Area Rule"),
                     "entry": t["entry"],
                     "tp1": t["tp1"],
                     "tp2": t["tp2"],
@@ -968,11 +979,31 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                     "lots": t["lots"],
                     "half1": t["half1"],
                     "half2": t["half2"],
+                    "stage": "OPEN",
+                    "order_a_status": "RUNNING (Targeting TP1)",
+                    "order_b_status": "RUNNING (Targeting TP2)",
+                    "order_b_sl": t["sl"],
                     "be_alerted": False,
                     "closed": False,
                     "close_reason": None,
+                    "open_time": dt.datetime.now(dt.timezone.utc).isoformat(),
+                    "open_time_ist": ist_time.strftime("%I:%M %p IST, %d %b %Y"),
                     "bar_ts": bar_ts,
-                })
+                }
+                daily_state.setdefault("active_trades", []).append(trade_record)
+                daily_state["latest_lifecycle_event"] = {
+                    "type": "NEW_TRADE",
+                    "trade_id": trade_id,
+                    "sym": t["sym"],
+                    "side": t["side"],
+                    "entry": t["entry"],
+                    "tp1": t["tp1"],
+                    "tp2": t["tp2"],
+                    "sl": t["sl"],
+                    "stage": "OPEN",
+                    "time_ist": ist_time.strftime("%I:%M %p IST"),
+                    "headline": f"🚨 NEW TRIGGER: {t['side']} {t['sym']} at {t['entry']:.{t['dec']}f}",
+                }
                 save_daily_state()
 
             d = t["dec"]
@@ -1230,74 +1261,318 @@ def telegram_listener() -> None:
                         report = generate_order_flow_map()
                         send_telegram(report)
 
-                    elif cmd in ("/win", "win", "+1", "profit"):
+                    elif cmd in ("/tp1", "tp1"):
+                        now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST")
                         with state_lock:
-                            win_pct = 1.15  # 1:2.3 RR with 70% scale-out = +1.15% account gain
-                            daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) + win_pct, 2)
+                            open_trade = next((at for at in daily_state.get("active_trades", []) if not at.get("closed", False)), None)
+                            if not open_trade:
+                                # Create a simulated active trade to test TP1
+                                spot_p = fetch_spot_gold_price() or 4028.50
+                                open_trade = {
+                                    "id": f"TB-XAUUSD-{int(time.time())}",
+                                    "sym": "XAUUSD",
+                                    "side": "SELL",
+                                    "strategy": "1. AMT 80% Value Area Rule",
+                                    "entry": round(spot_p, 2),
+                                    "sl": round(spot_p + 6.00, 2),
+                                    "tp1": round(spot_p - 6.00, 2),
+                                    "tp2": round(spot_p - 13.80, 2),
+                                    "dec": 2,
+                                    "lots": 0.08,
+                                    "half1": 0.05,
+                                    "half2": 0.03,
+                                    "stage": "OPEN",
+                                    "order_a_status": "RUNNING (Targeting TP1)",
+                                    "order_b_status": "RUNNING (Targeting TP2)",
+                                    "order_b_sl": round(spot_p + 6.00, 2),
+                                    "be_alerted": False,
+                                    "closed": False,
+                                    "close_reason": None,
+                                    "open_time": dt.datetime.now(dt.timezone.utc).isoformat(),
+                                    "open_time_ist": now_ist_str,
+                                    "bar_ts": int(time.time()),
+                                }
+                                daily_state.setdefault("active_trades", []).append(open_trade)
+                                daily_state["trades_count"] += 1
+
+                            gain_order_a = 0.70
+                            open_trade["be_alerted"] = True
+                            open_trade["stage"] = "TP1_BANKED_BE_ACTIVE"
+                            open_trade["order_a_status"] = "BANKED (+0.70%)"
+                            open_trade["order_b_status"] = "RUNNING (SL @ BREAKEVEN)"
+                            open_trade["order_b_sl"] = open_trade["entry"]
+                            open_trade["tp1_time_ist"] = now_ist_str
+                            daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) + gain_order_a, 2)
+                            daily_state["pnl"] = daily_state["pnl_pct"]
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "TP1_HIT",
+                                "trade_id": open_trade.get("id"),
+                                "sym": open_trade["sym"],
+                                "side": open_trade["side"],
+                                "price": open_trade["tp1"],
+                                "tp1_price": open_trade["tp1"],
+                                "be_price": open_trade["entry"],
+                                "stage": "TP1_BANKED_BE_ACTIVE",
+                                "gain_pct": gain_order_a,
+                                "time_ist": now_ist_str,
+                                "headline": f"🎯 TARGET 1 HIT: {open_trade['side']} {open_trade['sym']} at {open_trade['tp1']} (+{gain_order_a:.2f}%)",
+                                "action": f"👉 ACTION IN MT5: Move Order B Stop Loss to Breakeven ({open_trade['entry']})!",
+                            }
+                            save_daily_state()
+
+                        cur_pnl = daily_state.get("pnl_pct", 0.0)
+                        be_msg = (
+                            f"🔔 <b>BREAKEVEN ALERT: {open_trade['side']} {open_trade['sym']} REACHED TARGET 1 (POC)!</b>\n\n"
+                            f"🎯 <b>Price Hit POC:</b> <code>{open_trade['tp1']}</code> (Target 1 Reached)\n"
+                            f"📈 <b>Order A Banked (70% Scale-Out):</b> <b>+{gain_order_a:.2f}% Net Gain</b>!\n"
+                            f"⏰ <b>Execution Time:</b> <code>{now_ist_str}</code>\n"
+                            f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n\n"
+                            f"👉 <b>MANDATORY ACTION REQUIRED IN MT5:</b>\n"
+                            f"Modify <b>Order B</b> and change its Stop Loss to <b>Breakeven (<code>{open_trade['entry']}</code>)</b>.\n\n"
+                            f"🛡️ <i>Your trade is now 100% RISK-FREE. Order B runner is targeting TP2 (<code>{open_trade['tp2']}</code>)!</i>"
+                        )
+                        send_telegram(be_msg)
+
+                    elif cmd in ("/tp2", "tp2", "/win", "win", "+1", "profit"):
+                        now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST")
+                        with state_lock:
+                            open_trade = next((at for at in daily_state.get("active_trades", []) if not at.get("closed", False)), None)
+                            if not open_trade:
+                                # Create a simulated completed trade
+                                spot_p = fetch_spot_gold_price() or 4028.50
+                                open_trade = {
+                                    "id": f"TB-XAUUSD-{int(time.time())}",
+                                    "sym": "XAUUSD",
+                                    "side": "SELL",
+                                    "strategy": "1. AMT 80% Value Area Rule",
+                                    "entry": round(spot_p, 2),
+                                    "sl": round(spot_p + 6.00, 2),
+                                    "tp1": round(spot_p - 6.00, 2),
+                                    "tp2": round(spot_p - 13.80, 2),
+                                    "dec": 2,
+                                    "stage": "TP1_BANKED_BE_ACTIVE",
+                                }
+                                daily_state.setdefault("active_trades", []).append(open_trade)
+                                daily_state["trades_count"] += 1
+
+                            gain_order_b = 0.45
+                            tot_gain = 1.15
+                            open_trade["closed"] = True
+                            open_trade["close_reason"] = "TP2_HIT"
+                            open_trade["stage"] = "TP2_HIT"
+                            open_trade["order_b_status"] = "BANKED (+0.45%)"
+                            open_trade["exit_price"] = open_trade["tp2"]
+                            open_trade["exit_time"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                            open_trade["exit_time_ist"] = now_ist_str
+                            open_trade["total_gain_pct"] = tot_gain
+                            daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) + (gain_order_b if open_trade.get("be_alerted") else tot_gain), 2)
                             daily_state["pnl"] = daily_state["pnl_pct"]
                             daily_state["consecutive_losses"] = 0
-                            for at in daily_state.get("active_trades", []):
-                                if not at.get("closed", False):
-                                    at["closed"] = True
-                                    at["close_reason"] = "MANUAL_WIN"
-                                    break
+                            daily_state.setdefault("recent_trades", []).append(open_trade.copy())
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "TP2_HIT",
+                                "trade_id": open_trade.get("id"),
+                                "sym": open_trade["sym"],
+                                "side": open_trade["side"],
+                                "exit_price": open_trade["tp2"],
+                                "stage": "TP2_HIT",
+                                "gain_pct": gain_order_b,
+                                "total_gain_pct": tot_gain,
+                                "time_ist": now_ist_str,
+                                "headline": f"🏆 FULL ROTATION TARGET 2 HIT: {open_trade['side']} {open_trade['sym']} (+{tot_gain:.2f}% NET PROFIT)",
+                            }
                             save_daily_state()
+
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
                         rem_needed = max(0.0, DAILY_PROFIT_TARGET_MIN_PCT - cur_pnl)
                         status_note = "✅ ACHIEVED! Target locked for today!" if cur_pnl >= DAILY_PROFIT_TARGET_MIN_PCT else f"Need +{rem_needed:.2f}% more"
-                        send_telegram(
-                            f"🎉 <b>TRADE RECORDED AS WIN (+{win_pct:.2f}%)!</b>\n\n"
-                            f"• <b>Today's P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
-                            f"• <b>Daily Target:</b> +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}% ({status_note})\n"
-                            f"🛡️ <b>Capital Guard:</b> Safe (Limit: {DAILY_LOSS_LIMIT_PCT:.1f}%)\n"
-                            f"<i>Active position closed. Active Position Guard cleared.</i>"
+                        tp2_msg = (
+                            f"🏆 <b>FULL VALUE AREA ROTATION TARGET 2 HIT!</b>\n"
+                            f"<b>Asset:</b> {open_trade['side']} <b>{open_trade['sym']}</b>\n\n"
+                            f"🎯 <b>Price Reached TP2:</b> <code>{open_trade['tp2']}</code>\n"
+                            f"💰 <b>Order B Banked:</b> <b>+{gain_order_b:.2f}%</b>\n"
+                            f"🎉 <b>Total Trade Profit:</b> <b>+{tot_gain:.2f}% Net Gain</b>!\n"
+                            f"⏰ <b>Completion Time:</b> <code>{now_ist_str}</code>\n\n"
+                            f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
+                            f"🎯 <b>Daily Target:</b> +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}% ({status_note})\n"
+                            f"🛡️ <i>Symbol position closed. Active Position Guard cleared for next session!</i>"
                         )
+                        send_telegram(tp2_msg)
 
-                    elif cmd in ("/loss", "loss", "-1"):
+                    elif cmd in ("/loss", "loss", "-1", "/sl", "sl"):
+                        loss_pct = 0.50  # 0.5% risk
+                        now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST")
                         with state_lock:
-                            loss_pct = 0.50  # 0.5% risk
+                            open_trade = next((at for at in daily_state.get("active_trades", []) if not at.get("closed", False)), None)
+                            if not open_trade:
+                                spot_p = fetch_spot_gold_price() or 4028.50
+                                open_trade = {
+                                    "id": f"TB-XAUUSD-{int(time.time())}",
+                                    "sym": "XAUUSD",
+                                    "side": "SELL",
+                                    "strategy": "1. AMT 80% Value Area Rule",
+                                    "entry": round(spot_p, 2),
+                                    "sl": round(spot_p + 6.00, 2),
+                                    "tp1": round(spot_p - 6.00, 2),
+                                    "tp2": round(spot_p - 13.80, 2),
+                                    "dec": 2,
+                                }
+                                daily_state.setdefault("active_trades", []).append(open_trade)
+                                daily_state["trades_count"] += 1
+
+                            open_trade["closed"] = True
+                            open_trade["close_reason"] = "SL_HIT"
+                            open_trade["stage"] = "SL_HIT"
+                            open_trade["exit_price"] = open_trade["sl"]
+                            open_trade["exit_time"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                            open_trade["exit_time_ist"] = now_ist_str
+                            open_trade["total_gain_pct"] = -loss_pct
                             daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) - loss_pct, 2)
                             daily_state["pnl"] = daily_state["pnl_pct"]
                             daily_state["consecutive_losses"] = daily_state.get("consecutive_losses", 0) + 1
                             daily_state["last_loss_ts"] = time.time()
-                            for at in daily_state.get("active_trades", []):
-                                if not at.get("closed", False):
-                                    at["closed"] = True
-                                    at["close_reason"] = "MANUAL_LOSS"
-                                    daily_state.setdefault("pair_cooldowns", {})[at.get("sym", "")] = time.time() + 3600
-                                    break
+                            daily_state.setdefault("pair_cooldowns", {})[open_trade.get("sym", "XAUUSD")] = time.time() + 3600
+                            daily_state.setdefault("recent_trades", []).append(open_trade.copy())
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "SL_HIT",
+                                "trade_id": open_trade.get("id"),
+                                "sym": open_trade["sym"],
+                                "side": open_trade["side"],
+                                "exit_price": open_trade["sl"],
+                                "sl_price": open_trade["sl"],
+                                "stage": "SL_HIT",
+                                "pnl_pct": -loss_pct,
+                                "time_ist": now_ist_str,
+                                "headline": f"🛑 STOP LOSS HIT: {open_trade['side']} {open_trade['sym']} at {open_trade['sl']} (-{loss_pct:.2f}%)",
+                            }
                             save_daily_state()
+
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
                         buffer_pct = cur_pnl - DAILY_LOSS_LIMIT_PCT
                         guard_note = ""
                         if daily_state["consecutive_losses"] >= 2:
                             guard_note = "\n\n🛡️ <b>FREQTRADE STOPLOSS GUARD ACTIVATED:</b> 2 consecutive losses. Global trading paused for 120 minutes."
                         send_telegram(
-                            f"🛑 <b>TRADE RECORDED AS LOSS (-{loss_pct:.2f}%)</b>\n\n"
-                            f"• <b>Today's P&L:</b> <code>{cur_pnl:+.2f}%</code>\n"
-                            f"• <b>Capital Guard Buffer:</b> <code>{buffer_pct:.2f}%</code> remaining before circuit breaker\n"
-                            f"• <b>Daily Limit:</b> {DAILY_LOSS_LIMIT_PCT:.1f}%\n"
+                            f"🛑 <b>TRADE HIT STOP LOSS: {open_trade['side']} {open_trade['sym']}</b>\n\n"
+                            f"• <b>Exit Price:</b> <code>{open_trade['sl']}</code>\n"
+                            f"• <b>Loss:</b> -{loss_pct:.2f}% (-1.0R)\n"
+                            f"• <b>Time:</b> <code>{now_ist_str}</code>\n"
+                            f"• <b>Today's Net P&L:</b> <code>{cur_pnl:+.2f}%</code>\n"
+                            f"• <b>Capital Guard Buffer:</b> <code>{buffer_pct:.2f}%</code> to Safe Limit ({DAILY_LOSS_LIMIT_PCT:.1f}%)\n"
                             + guard_note
-                            + "\n🛡️ <i>Active position closed. Active Position Guard cleared.</i>"
+                            + "\n🛡️ <i>Active position closed. Cooldown initiated. Active Position Guard cleared.</i>"
                         )
 
                     elif cmd in ("/be", "be", "breakeven"):
-                        be_gain = 0.35  # Order A TP1 partial profit percentage
+                        now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST")
                         with state_lock:
-                            daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) + be_gain, 2)
-                            daily_state["pnl"] = daily_state["pnl_pct"]
-                            for at in daily_state.get("active_trades", []):
-                                if not at.get("closed", False):
-                                    at["closed"] = True
-                                    at["close_reason"] = "MANUAL_BE"
-                                    break
+                            open_trade = next((at for at in daily_state.get("active_trades", []) if not at.get("closed", False)), None)
+                            if not open_trade:
+                                spot_p = fetch_spot_gold_price() or 4028.50
+                                open_trade = {
+                                    "id": f"TB-XAUUSD-{int(time.time())}",
+                                    "sym": "XAUUSD",
+                                    "side": "SELL",
+                                    "strategy": "1. AMT 80% Value Area Rule",
+                                    "entry": round(spot_p, 2),
+                                    "sl": round(spot_p + 6.00, 2),
+                                    "tp1": round(spot_p - 6.00, 2),
+                                    "tp2": round(spot_p - 13.80, 2),
+                                    "dec": 2,
+                                }
+                                daily_state.setdefault("active_trades", []).append(open_trade)
+                                daily_state["trades_count"] += 1
+
+                            open_trade["closed"] = True
+                            open_trade["close_reason"] = "BE_EXIT"
+                            open_trade["stage"] = "BE_EXIT"
+                            open_trade["order_b_status"] = "CLOSED AT BREAKEVEN (0.00%)"
+                            open_trade["exit_price"] = open_trade["entry"]
+                            open_trade["exit_time"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                            open_trade["exit_time_ist"] = now_ist_str
+                            open_trade["total_gain_pct"] = 0.70  # Preserved Order A
+                            daily_state.setdefault("pair_cooldowns", {})[open_trade.get("sym", "XAUUSD")] = time.time() + 1800
+                            daily_state.setdefault("recent_trades", []).append(open_trade.copy())
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "BE_EXIT",
+                                "trade_id": open_trade.get("id"),
+                                "sym": open_trade["sym"],
+                                "side": open_trade["side"],
+                                "exit_price": open_trade["entry"],
+                                "entry_price": open_trade["entry"],
+                                "stage": "BE_EXIT",
+                                "gain_pct": 0.0,
+                                "total_gain_pct": 0.70,
+                                "time_ist": now_ist_str,
+                                "headline": f"⚖️ ORDER B CLOSED AT BREAKEVEN ({open_trade['entry']}) • Order A +0.70% Preserved",
+                            }
                             save_daily_state()
+
+                        cur_pnl = daily_state.get("pnl_pct", 0.0)
                         send_telegram(
-                            f"⚖️ <b>TRADE RECORDED AT BREAKEVEN (+{be_gain:.2f}%)!</b>\n\n"
-                            f"• <b>Today's P&L:</b> <code>+{daily_state.get('pnl_pct', 0.0):.2f}%</code>\n"
-                            f"• <b>Order A:</b> +{be_gain:.2f}% profit secured at TP1.\n"
-                            f"• <b>Order B:</b> Exited at breakeven ($0 loss).\n"
-                            f"🛡️ <i>Active position closed. Active Position Guard cleared.</i>"
+                            f"⚖️ <b>ORDER B CLOSED AT BREAKEVEN: {open_trade['side']} {open_trade['sym']}</b>\n\n"
+                            f"• <b>Exit Price:</b> <code>{open_trade['entry']}</code> (Entry: <code>{open_trade['entry']}</code>)\n"
+                            f"• <b>Order B Loss:</b> 0.00% (Risk-Free Exit)\n"
+                            f"• <b>Order A Profit:</b> +0.70% safely locked in your account!\n"
+                            f"• <b>Time:</b> <code>{now_ist_str}</code>\n\n"
+                            f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
+                            f"🛡️ <i>Symbol position cleared. Active Position Guard unlocked for next session!</i>"
+                        )
+
+                    elif cmd in ("/trade", "trade", "arm"):
+                        now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST")
+                        spot_p = fetch_spot_gold_price() or 4028.50
+                        with state_lock:
+                            new_trade = {
+                                "id": f"TB-XAUUSD-{int(time.time())}",
+                                "sym": "XAUUSD",
+                                "side": "SELL",
+                                "strategy": "1. AMT 80% Value Area Rule",
+                                "entry": round(spot_p, 2),
+                                "sl": round(spot_p + 6.00, 2),
+                                "tp1": round(spot_p - 6.00, 2),
+                                "tp2": round(spot_p - 13.80, 2),
+                                "dec": 2,
+                                "lots": 0.08,
+                                "half1": 0.05,
+                                "half2": 0.03,
+                                "stage": "OPEN",
+                                "order_a_status": "RUNNING (Targeting TP1)",
+                                "order_b_status": "RUNNING (Targeting TP2)",
+                                "order_b_sl": round(spot_p + 6.00, 2),
+                                "be_alerted": False,
+                                "closed": False,
+                                "close_reason": None,
+                                "open_time": dt.datetime.now(dt.timezone.utc).isoformat(),
+                                "open_time_ist": now_ist_str,
+                                "bar_ts": int(time.time()),
+                            }
+                            daily_state.setdefault("active_trades", []).append(new_trade)
+                            daily_state["trades_count"] += 1
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "NEW_TRADE",
+                                "trade_id": new_trade["id"],
+                                "sym": "XAUUSD",
+                                "side": "SELL",
+                                "entry": new_trade["entry"],
+                                "tp1": new_trade["tp1"],
+                                "tp2": new_trade["tp2"],
+                                "sl": new_trade["sl"],
+                                "stage": "OPEN",
+                                "time_ist": now_ist_str,
+                                "headline": f"🚨 NEW TRIGGER: SELL XAUUSD at {new_trade['entry']}",
+                            }
+                            save_daily_state()
+
+                        send_telegram(
+                            f"🚨 <b>TEST ORDER FLOW TRIGGER ACTIVATED: SELL XAUUSD</b>\n\n"
+                            f"• <b>Entry:</b> <code>{new_trade['entry']}</code>\n"
+                            f"• <b>Stop Loss:</b> <code>{new_trade['sl']}</code>\n"
+                            f"• <b>Target 1 (POC - 70% Scale-Out):</b> <code>{new_trade['tp1']}</code>\n"
+                            f"• <b>Target 2 (VAL - 30% Runner):</b> <code>{new_trade['tp2']}</code>\n"
+                            f"• <b>Status:</b> 🟢 Trade is LIVE and monitoring 24/7.\n"
+                            f"• <b>Telegram & WebApp:</b> Will update instantly when TP1, TP2, BE, or SL hits!\n\n"
+                            f"<i>Send <b>tp1</b>, <b>tp2</b>, <b>be</b>, or <b>sl</b> to test lifecycle events immediately.</i>"
                         )
 
                     elif cmd.startswith(("/close", "close")):
@@ -1809,22 +2084,31 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
         if path == "/api/signals":
             self._set_cors_headers(200)
             with state_lock:
+                active_list = [at for at in daily_state.get("active_trades", []) if not at.get("closed", False)]
                 res = {
                     "timestamp": int(time.time()),
                     "date": daily_state["date"],
                     "trades_count": daily_state["trades_count"],
                     "max_trades": MAX_DAILY_TRADES,
                     "pnl": daily_state["pnl"],
+                    "pnl_pct": daily_state.get("pnl_pct", 0.0),
+                    "today_pnl": f"{daily_state.get('pnl_pct', 0.0):+.2f}%",
+                    "daily_target": f"+{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%",
+                    "capital_guard": f"{DAILY_LOSS_LIMIT_PCT:.1f}%",
+                    "is_flat": len(active_list) == 0,
                     "latest_summary": latest_status_summary,
-                    "active_trades": daily_state.get("active_trades", []),
+                    "latest_lifecycle_event": daily_state.get("latest_lifecycle_event"),
+                    "active_trades": active_list,
+                    "recent_trades": daily_state.get("recent_trades", []),
                     "trades_list": daily_state.get("trades_list", []),
                     "rules": {
                         "account": "TRADING BOY ACCOUNT",
-                        "risk_per_trade": "1.0%",
-                        "daily_target": "Unlimited",
-                        "max_trades_per_day": 3,
-                        "rr_order_a": "1:1",
-                        "rr_order_b": "1:2",
+                        "risk_per_trade": f"{TARGET_RISK_PER_TRADE_PCT:.1f}%",
+                        "daily_target": "+2.0% - 3.0%",
+                        "capital_guard": "-2.5%",
+                        "max_trades_per_day": MAX_DAILY_TRADES,
+                        "rr_order_a": "1:1 (70% Scale-Out)",
+                        "rr_order_b": "1:2.3 (30% Runner with SL @ BE)",
                     },
                 }
             self.wfile.write(json.dumps(res).encode("utf-8"))
@@ -1839,16 +2123,16 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
 
 
 def breakeven_monitor() -> None:
-    """Continuously monitors live prices of active trades every 25 seconds.
-    Tracks the complete trade lifecycle:
-      1. Initial Stop Loss: If price hits SL before TP1, marks closed, updates loss (-1.0R), alerts user.
-      2. TP1 (+0.50R): Banks Order A profit (+0.25R account gain), alerts user to move Order B SL to Breakeven.
-      3. TP2 (+5.00R / 1:5R Runner): Banks Order B profit (+2.50R account gain), marks closed, alerts user.
-      4. Breakeven Retest: If Order B retraces to Entry, exits at $0.00 loss, keeps Order A gain, marks closed.
+    """Continuously monitors live prices of active trades every 10 seconds.
+    Tracks the complete trade lifecycle and pushes instant real-time Telegram updates:
+      1. Initial Stop Loss: If price hits SL before TP1, marks closed (-0.50%), alerts Telegram, checks Capital Guard (-2.5%).
+      2. TP1 (POC): When price touches TP1, banks Order A (+0.70%), alerts Telegram to pull Order B SL to Breakeven in MT5.
+      3. TP2 (Opposite Value Area Full Rotation): When price touches TP2, banks Order B (+0.45%), alerts Telegram (+1.15% Total Win).
+      4. Breakeven Retest: If Order B retraces to Entry after TP1, exits at $0.00 loss, preserves Order A +0.70% gain, alerts Telegram.
       5. Micro Single Order (half2 <= 0): Completed upon reaching TP1.
-    Once marked closed, the Active Position Guard unlocks the symbol, allowing subsequent session setups (e.g. Gold in NY session).
+    Once marked closed, the Active Position Guard unlocks the symbol, allowing subsequent session setups.
     """
-    print("[BE MONITOR] 24/7 Breakeven & Trade Lifecycle Watcher started.")
+    print("[BE MONITOR] 24/7 Breakeven & Trade Lifecycle Watcher started (10s live spot loop).")
     y_map = {x[0]: (x[2], x[1]) for x in INSTRUMENTS}
 
     while True:
@@ -1874,12 +2158,19 @@ def breakeven_monitor() -> None:
                     continue
 
                 y_sym, _ = y_info
-                _, live_p = fetch_1h_bars(y_sym, dec)
+                # High-speed live spot Gold price check
+                live_spot = fetch_spot_gold_price() if sym == "XAUUSD" else None
+                if live_spot and live_spot > 1000.0:
+                    live_p = live_spot
+                else:
+                    _, live_p = fetch_1h_bars(y_sym, dec)
+
                 if live_p <= 0:
                     continue
 
                 unit = "$" if sym == "XAUUSD" else "pips"
                 p_factor = 1.0 if sym == "XAUUSD" else 0.0001
+                now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST, %d %b %Y")
 
                 # STAGE 1: Fresh trade, monitoring for TP1 or initial SL
                 if not be_alerted:
@@ -1890,13 +2181,31 @@ def breakeven_monitor() -> None:
                         with state_lock:
                             trade["closed"] = True
                             trade["close_reason"] = "SL_HIT"
+                            trade["stage"] = "SL_HIT"
                             trade["exit_price"] = live_p
                             trade["exit_time"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                            trade["exit_time_ist"] = now_ist_str
+                            trade["order_a_status"] = "STOPPED OUT (-0.25%)"
+                            trade["order_b_status"] = "STOPPED OUT (-0.25%)"
+                            trade["total_gain_pct"] = -loss_pct
                             daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) - loss_pct, 2)
                             daily_state["pnl"] = daily_state["pnl_pct"]
                             daily_state["consecutive_losses"] = daily_state.get("consecutive_losses", 0) + 1
                             daily_state["last_loss_ts"] = time.time()
                             daily_state.setdefault("pair_cooldowns", {})[sym] = time.time() + 3600
+                            daily_state.setdefault("recent_trades", []).append(trade.copy())
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "SL_HIT",
+                                "trade_id": trade.get("id"),
+                                "sym": sym,
+                                "side": side,
+                                "exit_price": live_p,
+                                "sl_price": sl,
+                                "stage": "SL_HIT",
+                                "pnl_pct": -loss_pct,
+                                "time_ist": now_ist_str,
+                                "headline": f"🛑 STOP LOSS HIT: {side} {sym} at {live_p:.{dec}f} (-{loss_pct:.2f}%)",
+                            }
                             save_daily_state()
 
                         sl_pnl = daily_state.get("pnl_pct", 0.0)
@@ -1905,6 +2214,7 @@ def breakeven_monitor() -> None:
                             f"🛑 <b>TRADE HIT STOP LOSS: {side} {sym}</b>\n\n"
                             f"• <b>Exit Price:</b> <code>{live_p:.{dec}f}</code> (SL: <code>{sl:.{dec}f}</code>)\n"
                             f"• <b>Loss:</b> -{loss_pct:.2f}% (-1.0R)\n"
+                            f"• <b>Time:</b> <code>{now_ist_str}</code>\n"
                             f"• <b>Today's Net P&L:</b> <code>{sl_pnl:+.2f}%</code>\n"
                             f"• <b>Capital Guard Buffer:</b> <code>{buffer_pct:.2f}%</code> to Limit ({DAILY_LOSS_LIMIT_PCT:.1f}%)\n"
                             f"🛡️ <i>Symbol {sym} placed in 60-min cooldown. Active Position Guard cleared.</i>"
@@ -1922,6 +2232,11 @@ def breakeven_monitor() -> None:
                         gain_order_a = 0.70  # 70% scale out partial gain
                         with state_lock:
                             trade["be_alerted"] = True
+                            trade["stage"] = "TP1_BANKED_BE_ACTIVE"
+                            trade["order_a_status"] = "BANKED (+0.70%)"
+                            trade["order_b_status"] = "RUNNING (SL @ BREAKEVEN)"
+                            trade["order_b_sl"] = entry
+                            trade["tp1_time_ist"] = now_ist_str
                             daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) + gain_order_a, 2)
                             daily_state["pnl"] = daily_state["pnl_pct"]
                             daily_state["consecutive_losses"] = 0
@@ -1929,6 +2244,21 @@ def breakeven_monitor() -> None:
                                 trade["closed"] = True
                                 trade["close_reason"] = "TP1_SINGLE_HIT"
                                 trade["exit_price"] = live_p
+                                daily_state.setdefault("recent_trades", []).append(trade.copy())
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "TP1_HIT",
+                                "trade_id": trade.get("id"),
+                                "sym": sym,
+                                "side": side,
+                                "price": live_p,
+                                "tp1_price": tp1,
+                                "be_price": entry,
+                                "stage": "TP1_BANKED_BE_ACTIVE",
+                                "gain_pct": gain_order_a,
+                                "time_ist": now_ist_str,
+                                "headline": f"🎯 TARGET 1 HIT: {side} {sym} at {live_p:.{dec}f} (+{gain_order_a:.2f}%)",
+                                "action": f"👉 ACTION IN MT5: Move Order B Stop Loss to Breakeven ({entry:.{dec}f})!",
+                            }
                             save_daily_state()
 
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
@@ -1937,8 +2267,9 @@ def breakeven_monitor() -> None:
                                 f"🔔 <b>BREAKEVEN ALERT: {side} {sym} REACHED TARGET 1 (POC)!</b>\n\n"
                                 f"🎯 <b>Price Hit POC:</b> <code>{live_p:.{dec}f}</code> (TP1: <code>{tp1:.{dec}f}</code>)\n"
                                 f"📈 <b>Order A Banked (70% Scale-Out):</b> +{diff_pips:.1f} {unit} (+{gain_order_a:.2f}%)!\n"
+                                f"⏰ <b>Execution Time:</b> <code>{now_ist_str}</code>\n"
                                 f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n\n"
-                                f"👉 <b>ACTION REQUIRED NOW IN MT5:</b>\n"
+                                f"👉 <b>MANDATORY ACTION REQUIRED IN MT5:</b>\n"
                                 f"Modify <b>Order B</b> and change its Stop Loss to <b>Breakeven (<code>{entry:.{dec}f}</code>)</b>.\n\n"
                                 f"🛡️ <i>Your trade is now 100% RISK-FREE. Order B runner is targeting TP2 (<code>{tp2:.{dec}f}</code>)!</i>"
                             )
@@ -1947,11 +2278,12 @@ def breakeven_monitor() -> None:
                                 f"🎯 <b>PROFIT BANKED: {side} {sym} REACHED TARGET 1!</b>\n\n"
                                 f"• <b>Exit Price:</b> <code>{live_p:.{dec}f}</code> (+{diff_pips:.1f} {unit})\n"
                                 f"• <b>Profit Banked:</b> +{gain_order_a:.2f}%\n"
+                                f"• <b>Time:</b> <code>{now_ist_str}</code>\n"
                                 f"• <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
                                 f"🛡️ <i>Single position completed. Active Position Guard cleared.</i>"
                             )
                         send_telegram(be_msg)
-                        print(f"[TP1 HIT] {side} {sym} reached TP1 ({tp1}) at {live_p}.")
+                        print(f"[TP1 HIT] {side} {sym} reached TP1 ({tp1}) at {live_p}. Sent Breakeven alert to Telegram.")
                         continue
 
                 # STAGE 2: Order A was banked; Order B is running with SL at Breakeven
@@ -1960,30 +2292,49 @@ def breakeven_monitor() -> None:
                     hit_tp2 = (side == "BUY" and live_p >= tp2) or (side == "SELL" and live_p <= tp2)
                     if hit_tp2:
                         gain_order_b = 0.45  # 30% runner to opposite VA
+                        tot_gain = round(gain_order_b + 0.70, 2)
                         with state_lock:
                             trade["closed"] = True
                             trade["close_reason"] = "TP2_HIT"
+                            trade["stage"] = "TP2_HIT"
+                            trade["order_b_status"] = "BANKED (+0.45%)"
                             trade["exit_price"] = live_p
                             trade["exit_time"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                            trade["exit_time_ist"] = now_ist_str
+                            trade["total_gain_pct"] = tot_gain
                             daily_state["pnl_pct"] = round(daily_state.get("pnl_pct", 0.0) + gain_order_b, 2)
                             daily_state["pnl"] = daily_state["pnl_pct"]
                             daily_state.setdefault("pair_cooldowns", {})[sym] = time.time() + 3600
+                            daily_state.setdefault("recent_trades", []).append(trade.copy())
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "TP2_HIT",
+                                "trade_id": trade.get("id"),
+                                "sym": sym,
+                                "side": side,
+                                "exit_price": live_p,
+                                "tp2_price": tp2,
+                                "stage": "TP2_HIT",
+                                "gain_pct": gain_order_b,
+                                "total_gain_pct": tot_gain,
+                                "time_ist": now_ist_str,
+                                "headline": f"🏆 FULL ROTATION TARGET 2 HIT: {side} {sym} at {live_p:.{dec}f} (+{tot_gain:.2f}% NET PROFIT)",
+                            }
                             save_daily_state()
 
                         diff_pips = abs(live_p - entry) / p_factor
-                        tot_gain = round(gain_order_b + 0.70, 2)
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
                         tp2_msg = (
                             f"🏆 <b>FULL VALUE AREA ROTATION TARGET HIT!</b>\n"
                             f"<b>Asset:</b> {side} <b>{sym}</b>\n\n"
                             f"🎯 <b>Price Reached TP2:</b> <code>{live_p:.{dec}f}</code> (+{diff_pips:.1f} {unit})\n"
                             f"💰 <b>Order B Banked:</b> <b>+{gain_order_b:.2f}%</b>\n"
-                            f"🎉 <b>Total Trade Profit:</b> <b>+{tot_gain:.2f}% Net Gain</b>\n\n"
+                            f"🎉 <b>Total Trade Profit:</b> <b>+{tot_gain:.2f}% Net Gain</b>\n"
+                            f"⏰ <b>Completion Time:</b> <code>{now_ist_str}</code>\n\n"
                             f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Daily Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n"
                             f"🛡️ <i>Symbol {sym} position closed. Active Position Guard cleared for next session!</i>"
                         )
                         send_telegram(tp2_msg)
-                        print(f"[TP2 HIT] {side} {sym} reached TP2 ({tp2}) at {live_p}. Banked +{gain_order_b:.2f}%.")
+                        print(f"[TP2 HIT] {side} {sym} reached TP2 ({tp2}) at {live_p}. Total profit +{tot_gain:.2f}%.")
                         continue
 
                     # Check Breakeven exit on Order B
@@ -1992,9 +2343,27 @@ def breakeven_monitor() -> None:
                         with state_lock:
                             trade["closed"] = True
                             trade["close_reason"] = "BE_EXIT"
+                            trade["stage"] = "BE_EXIT"
+                            trade["order_b_status"] = "CLOSED AT BREAKEVEN (0.00%)"
                             trade["exit_price"] = live_p
                             trade["exit_time"] = dt.datetime.now(dt.timezone.utc).isoformat()
+                            trade["exit_time_ist"] = now_ist_str
+                            trade["total_gain_pct"] = 0.70  # Preserved Order A
                             daily_state.setdefault("pair_cooldowns", {})[sym] = time.time() + 1800
+                            daily_state.setdefault("recent_trades", []).append(trade.copy())
+                            daily_state["latest_lifecycle_event"] = {
+                                "type": "BE_EXIT",
+                                "trade_id": trade.get("id"),
+                                "sym": sym,
+                                "side": side,
+                                "exit_price": live_p,
+                                "entry_price": entry,
+                                "stage": "BE_EXIT",
+                                "gain_pct": 0.0,
+                                "total_gain_pct": 0.70,
+                                "time_ist": now_ist_str,
+                                "headline": f"⚖️ ORDER B CLOSED AT BREAKEVEN ({entry:.{dec}f}) • Order A +0.70% Preserved",
+                            }
                             save_daily_state()
 
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
@@ -2002,19 +2371,18 @@ def breakeven_monitor() -> None:
                             f"⚖️ <b>ORDER B CLOSED AT BREAKEVEN: {side} {sym}</b>\n\n"
                             f"• <b>Exit Price:</b> <code>{live_p:.{dec}f}</code> (Entry: <code>{entry:.{dec}f}</code>)\n"
                             f"• <b>Order B Loss:</b> 0.00% (Risk-Free Exit)\n"
-                            f"• <b>Order A Profit:</b> +0.70% safely locked in your account!\n\n"
+                            f"• <b>Order A Profit:</b> +0.70% safely locked in your account!\n"
+                            f"• <b>Exit Time:</b> <code>{now_ist_str}</code>\n\n"
                             f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
                             f"🛡️ <i>Symbol {sym} position cleared. Active Position Guard unlocked for next session!</i>"
                         )
                         send_telegram(be_exit_msg)
                         print(f"[BE EXIT] {side} {sym} closed at breakeven {live_p}.")
                         continue
-                        print(f"[BE EXIT] {side} {sym} closed at breakeven {live_p}.")
-                        continue
 
         except Exception as e:
             print(f"[BE MONITOR ERROR] {e}")
-        time.sleep(25)
+        time.sleep(10)
 
 
 def main():

@@ -13,6 +13,7 @@ import {
   getLiveOrderFlow,
   getLiveFootprintClusters,
   getLiveExecutionSignals,
+  evaluateTradeLifecycle,
   getCachedBars,
   subscribeLiveMarketTicks,
 } from './services/liveMarketService';
@@ -148,7 +149,7 @@ export default function App() {
         const of = await getLiveOrderFlow(SYMBOLS, { [activeSymbol]: live.bars }, { [activeSymbol]: live.livePrice });
         if (of && of.length > 0) setOrderFlowData(of);
 
-        const sigs = getLiveExecutionSignals(activeSymbol, live.livePrice);
+        const sigs = await getLiveExecutionSignals(activeSymbol, live.livePrice, apiUrl);
         setSignalsData(sigs);
       }
     } catch (err) {
@@ -161,6 +162,13 @@ export default function App() {
     const unsub = subscribeLiveMarketTicks(activeSymbol, timeframe, (update) => {
       if (update.livePrice != null) {
         setCurrentPrice(update.livePrice);
+
+        // Immediate tick lifecycle evaluator: triggers sound and UI updates when SL, TP1, TP2, or BE is reached
+        const lifecycleEvent = evaluateTradeLifecycle(update.livePrice);
+        if (lifecycleEvent) {
+          playAlertSound();
+          getLiveExecutionSignals(activeSymbol, update.livePrice, apiUrl).then(setSignalsData);
+        }
       }
 
       if (update.lastBar) {
@@ -204,7 +212,15 @@ export default function App() {
     });
 
     return () => unsub();
-  }, [activeSymbol, timeframe]);
+  }, [activeSymbol, timeframe, apiUrl, playAlertSound]);
+
+  const handleLifecycleChange = useCallback(async (event) => {
+    if (event) {
+      playAlertSound();
+    }
+    const sigs = await getLiveExecutionSignals(activeSymbol, currentPrice, apiUrl);
+    setSignalsData(sigs);
+  }, [activeSymbol, currentPrice, apiUrl, playAlertSound]);
 
   // Initial fetch and fast auto-refresh every 3 seconds
   useEffect(() => {
@@ -254,6 +270,7 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeView={activeView}
         onChangeView={setActiveView}
+        signalsData={signalsData}
       />
 
       {/* 2. Main Terminal Content (Mobile to 4K Responsive Grid) */}
@@ -264,6 +281,7 @@ export default function App() {
           orderFlowData={orderFlowData}
           livePrice={currentPrice}
           activeVP={activeVP}
+          signalsData={signalsData}
         />
 
         {/* Charting & Execution Layout */}
@@ -305,7 +323,11 @@ export default function App() {
           <div className="xl:col-span-4 3xl:col-span-4 space-y-4 sm:space-y-6">
             {/* Live Signals & MT5 Tickets */}
             <div id="signals-section">
-              <SignalsFeed signalsData={signalsData} />
+              <SignalsFeed
+                signalsData={signalsData}
+                onLifecycleChange={handleLifecycleChange}
+                currentPrice={currentPrice}
+              />
             </div>
 
             {/* Horizontal Volume Profile Ladder (100% Synchronized with Chart VP) */}

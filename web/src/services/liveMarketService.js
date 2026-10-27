@@ -450,14 +450,357 @@ export function getLiveFootprintClusters(bars, symbol, timeframe) {
   });
 }
 
+// Local trade lifecycle tracking store (persisted in browser session)
+let localTradeState = {
+  activeTrades: [],
+  recentTrades: [],
+  pnlPct: 0.0,
+  tradesCount: 0,
+  latestEvent: null,
+};
+
+try {
+  const savedState = localStorage.getItem('tb_trade_lifecycle_state');
+  if (savedState) {
+    localTradeState = JSON.parse(savedState);
+  }
+} catch (e) {}
+
+function saveLocalTradeState() {
+  try {
+    localStorage.setItem('tb_trade_lifecycle_state', JSON.stringify(localTradeState));
+  } catch (e) {}
+}
+
+/**
+ * Evaluates live tick price against open active trades.
+ * Automatically transitions trade states (TP1 Hit, TP2 Hit, Breakeven, Stop Loss)
+ * with instant client-side latency (<10ms).
+ */
+export function evaluateTradeLifecycle(currentPrice) {
+  if (!currentPrice || localTradeState.activeTrades.length === 0) return null;
+
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }) + ' IST';
+
+  let eventTriggered = null;
+
+  localTradeState.activeTrades = localTradeState.activeTrades.filter((trade) => {
+    if (trade.closed) return false;
+
+    const side = trade.side;
+    const entry = trade.entry;
+    const sl = trade.sl;
+    const tp1 = trade.tp1;
+    const tp2 = trade.tp2;
+    const isBuy = side === 'BUY';
+
+    // 1. FRESH TRADE: Monitor for TP1 or Initial Hard SL
+    if (!trade.be_alerted) {
+      // Check Initial Hard Stop Loss Hit
+      const hitSL = isBuy ? currentPrice <= sl : currentPrice >= sl;
+      if (hitSL) {
+        trade.closed = true;
+        trade.close_reason = 'SL_HIT';
+        trade.stage = 'SL_HIT';
+        trade.exit_price = currentPrice;
+        trade.exit_time = timeStr;
+        trade.order_a_status = 'STOPPED OUT (-0.25%)';
+        trade.order_b_status = 'STOPPED OUT (-0.25%)';
+        trade.total_gain_pct = -0.50;
+
+        localTradeState.pnlPct = Number((localTradeState.pnlPct - 0.50).toFixed(2));
+        localTradeState.recentTrades.unshift({ ...trade });
+
+        eventTriggered = {
+          type: 'SL_HIT',
+          trade_id: trade.id,
+          sym: trade.sym,
+          side: trade.side,
+          price: currentPrice,
+          sl: trade.sl,
+          pnl_pct: -0.50,
+          time: timeStr,
+          headline: `🛑 STOP LOSS HIT: ${trade.side} XAUUSD at ${currentPrice.toFixed(2)} (-0.50%)`,
+          subtext: 'Hard Stop Loss triggered. Capital Guard safe (-2.5% safe limit).',
+        };
+        localTradeState.latestEvent = eventTriggered;
+        saveLocalTradeState();
+        return false;
+      }
+
+      // Check Target 1 Hit (POC Rotation / 70% Scale-Out)
+      const hitTP1 = isBuy ? currentPrice >= tp1 : currentPrice <= tp1;
+      if (hitTP1) {
+        trade.be_alerted = true;
+        trade.stage = 'TP1_BANKED_BE_ACTIVE';
+        trade.order_a_status = 'BANKED (+0.70%)';
+        trade.order_b_status = 'RUNNING (SL @ BREAKEVEN)';
+        trade.order_b_sl = entry;
+        trade.tp1_hit_time = timeStr;
+
+        localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.70).toFixed(2));
+
+        eventTriggered = {
+          type: 'TP1_HIT',
+          trade_id: trade.id,
+          sym: trade.sym,
+          side: trade.side,
+          price: currentPrice,
+          tp1: trade.tp1,
+          be_price: entry,
+          gain_pct: 0.70,
+          time: timeStr,
+          headline: `🎯 TARGET 1 HIT: ${trade.side} XAUUSD at ${currentPrice.toFixed(2)} (+0.70%)`,
+          subtext: `👉 ACTION IN MT5: Order A closed at POC (+0.70%). Move Order B Stop Loss to Breakeven (${entry.toFixed(2)})!`,
+        };
+        localTradeState.latestEvent = eventTriggered;
+        saveLocalTradeState();
+        return true; // Keep Order B running
+      }
+    } else {
+      // 2. STAGE 2: Order A Banked, Order B Running with SL at Breakeven
+      // Check Target 2 Hit (Opposite Value Area Full Rotation)
+      const hitTP2 = isBuy ? currentPrice >= tp2 : currentPrice <= tp2;
+      if (hitTP2) {
+        trade.closed = true;
+        trade.close_reason = 'TP2_HIT';
+        trade.stage = 'TP2_HIT';
+        trade.order_b_status = 'BANKED (+0.45%)';
+        trade.exit_price = currentPrice;
+        trade.exit_time = timeStr;
+        trade.total_gain_pct = 1.15; // 0.70 + 0.45
+
+        localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.45).toFixed(2));
+        localTradeState.recentTrades.unshift({ ...trade });
+
+        eventTriggered = {
+          type: 'TP2_HIT',
+          trade_id: trade.id,
+          sym: trade.sym,
+          side: trade.side,
+          price: currentPrice,
+          tp2: trade.tp2,
+          gain_pct: 0.45,
+          total_gain_pct: 1.15,
+          time: timeStr,
+          headline: `🏆 FULL ROTATION TARGET 2 HIT: ${trade.side} XAUUSD (+1.15% Net Profit)`,
+          subtext: 'Order B banked (+0.45%). Total trade win: +1.15%. Position 100% completed!',
+        };
+        localTradeState.latestEvent = eventTriggered;
+        saveLocalTradeState();
+        return false;
+      }
+
+      // Check Breakeven Exit on Order B
+      const hitBE = isBuy ? currentPrice <= entry : currentPrice >= entry;
+      if (hitBE) {
+        trade.closed = true;
+        trade.close_reason = 'BE_EXIT';
+        trade.stage = 'BE_EXIT';
+        trade.order_b_status = 'CLOSED AT BREAKEVEN (0.00%)';
+        trade.exit_price = currentPrice;
+        trade.exit_time = timeStr;
+        trade.total_gain_pct = 0.70; // Order A profit safely preserved
+
+        localTradeState.recentTrades.unshift({ ...trade });
+
+        eventTriggered = {
+          type: 'BE_EXIT',
+          trade_id: trade.id,
+          sym: trade.sym,
+          side: trade.side,
+          price: currentPrice,
+          entry: entry,
+          total_gain_pct: 0.70,
+          time: timeStr,
+          headline: `⚖️ ORDER B CLOSED AT BREAKEVEN (${entry.toFixed(2)}) • Order A +0.70% Locked`,
+          subtext: 'Order B exited at zero risk ($0 loss). Order A +0.70% profit safely kept.',
+        };
+        localTradeState.latestEvent = eventTriggered;
+        saveLocalTradeState();
+        return false;
+      }
+    }
+
+    return true;
+  });
+
+  return eventTriggered;
+}
+
+/**
+ * Triggers a simulated trade lifecycle event for instantaneous testing and verification
+ */
+export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
+  const dec = 2;
+  const p = Number(currentPrice.toFixed(dec));
+  const now = new Date();
+  const timeStr = now.toLocaleTimeString('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }) + ' IST';
+
+  if (actionType === 'ARM_TRADE') {
+    const newTrade = {
+      id: `TB-XAUUSD-${Date.now()}`,
+      sym: 'XAUUSD',
+      side: 'SELL',
+      strategy: '1. AMT 80% Value Area Rule',
+      entry: p,
+      sl: Number((p + 6.00).toFixed(dec)),
+      tp1: Number((p - 6.00).toFixed(dec)),
+      tp2: Number((p - 13.80).toFixed(dec)),
+      dec: 2,
+      lots: 0.08,
+      half1: 0.05,
+      half2: 0.03,
+      stage: 'OPEN',
+      order_a_status: 'RUNNING (Targeting TP1)',
+      order_b_status: 'RUNNING (Targeting TP2)',
+      order_b_sl: Number((p + 6.00).toFixed(dec)),
+      be_alerted: false,
+      closed: false,
+      time: timeStr,
+    };
+    localTradeState.activeTrades = [newTrade];
+    localTradeState.tradesCount += 1;
+    localTradeState.latestEvent = {
+      type: 'NEW_TRADE',
+      headline: `🚨 ACTIVE SIGNAL: SELL XAUUSD at ${p.toFixed(2)}`,
+      subtext: `Target 1: ${(p - 6.0).toFixed(2)} | Target 2: ${(p - 13.8).toFixed(2)} | Hard SL: ${(p + 6.0).toFixed(2)}`,
+      time: timeStr,
+    };
+    saveLocalTradeState();
+    return localTradeState.latestEvent;
+  }
+
+  if (actionType === 'TP1') {
+    let t = localTradeState.activeTrades[0];
+    if (!t) {
+      simulateLifecycleAction('ARM_TRADE', currentPrice);
+      t = localTradeState.activeTrades[0];
+    }
+    t.be_alerted = true;
+    t.stage = 'TP1_BANKED_BE_ACTIVE';
+    t.order_a_status = 'BANKED (+0.70%)';
+    t.order_b_status = 'RUNNING (SL @ BREAKEVEN)';
+    t.order_b_sl = t.entry;
+    localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.70).toFixed(2));
+    localTradeState.latestEvent = {
+      type: 'TP1_HIT',
+      headline: `🎯 TARGET 1 HIT: Order A Banked (+0.70%)`,
+      subtext: `👉 ACTION IN MT5: Modify Order B Stop Loss to Breakeven (${t.entry.toFixed(2)})!`,
+      time: timeStr,
+    };
+    saveLocalTradeState();
+    return localTradeState.latestEvent;
+  }
+
+  if (actionType === 'TP2') {
+    let t = localTradeState.activeTrades[0];
+    if (!t) {
+      simulateLifecycleAction('TP1', currentPrice);
+      t = localTradeState.activeTrades[0];
+    }
+    t.closed = true;
+    t.stage = 'TP2_HIT';
+    t.order_b_status = 'BANKED (+0.45%)';
+    t.exit_price = t.tp2;
+    t.exit_time = timeStr;
+    t.total_gain_pct = 1.15;
+    localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.45).toFixed(2));
+    localTradeState.recentTrades.unshift({ ...t });
+    localTradeState.activeTrades = [];
+    localTradeState.latestEvent = {
+      type: 'TP2_HIT',
+      headline: `🏆 FULL ROTATION TARGET 2 HIT (+1.15% Net Profit)`,
+      subtext: 'Order B runner banked (+0.45%). Total trade gain: +1.15%. Position completed!',
+      time: timeStr,
+    };
+    saveLocalTradeState();
+    return localTradeState.latestEvent;
+  }
+
+  if (actionType === 'BE') {
+    let t = localTradeState.activeTrades[0];
+    if (!t) {
+      simulateLifecycleAction('TP1', currentPrice);
+      t = localTradeState.activeTrades[0];
+    }
+    t.closed = true;
+    t.stage = 'BE_EXIT';
+    t.order_b_status = 'CLOSED AT BREAKEVEN (0.00%)';
+    t.exit_price = t.entry;
+    t.exit_time = timeStr;
+    t.total_gain_pct = 0.70;
+    localTradeState.recentTrades.unshift({ ...t });
+    localTradeState.activeTrades = [];
+    localTradeState.latestEvent = {
+      type: 'BE_EXIT',
+      headline: `⚖️ ORDER B CLOSED AT BREAKEVEN (${t.entry.toFixed(2)})`,
+      subtext: 'Runner exited at $0 loss. Order A +0.70% profit safely locked in your account!',
+      time: timeStr,
+    };
+    saveLocalTradeState();
+    return localTradeState.latestEvent;
+  }
+
+  if (actionType === 'SL') {
+    let t = localTradeState.activeTrades[0];
+    if (!t) {
+      simulateLifecycleAction('ARM_TRADE', currentPrice);
+      t = localTradeState.activeTrades[0];
+    }
+    t.closed = true;
+    t.stage = 'SL_HIT';
+    t.order_a_status = 'STOPPED OUT (-0.25%)';
+    t.order_b_status = 'STOPPED OUT (-0.25%)';
+    t.exit_price = t.sl;
+    t.exit_time = timeStr;
+    t.total_gain_pct = -0.50;
+    localTradeState.pnlPct = Number((localTradeState.pnlPct - 0.50).toFixed(2));
+    localTradeState.recentTrades.unshift({ ...t });
+    localTradeState.activeTrades = [];
+    localTradeState.latestEvent = {
+      type: 'SL_HIT',
+      headline: `🛑 STOP LOSS HIT (-0.50%)`,
+      subtext: 'Hard Stop Loss triggered. Capital Guard safe (-2.5% safe limit).',
+      time: timeStr,
+    };
+    saveLocalTradeState();
+    return localTradeState.latestEvent;
+  }
+
+  if (actionType === 'RESET') {
+    localTradeState = {
+      activeTrades: [],
+      recentTrades: [],
+      pnlPct: 0.0,
+      tradesCount: 0,
+      latestEvent: null,
+    };
+    saveLocalTradeState();
+    return null;
+  }
+
+  return null;
+}
+
 /**
  * Return real-time execution signals exclusively for Gold XAUUSD
- * Based on the 3 core order flow strategies:
- *  1. AMT 80% Value Area Rule (76%–82% Win Rate, 1:2.3 RR)
- *  2. VWAP 2-SD Absorption Fade (70%–75% Win Rate, 1:1.8–1:2.2 RR)
- *  3. LVN Trend Pullback (58%–65% Win Rate, 1:2.5–1:4.0+ RR)
+ * Synchronizes with backend /api/signals and merges live client lifecycle events.
  */
-export function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.50) {
+export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.50, apiUrl = '') {
   const dec = 2; // Exclusively Gold (2 decimals)
   const entry = Number(Number(currentPrice || 4026.50).toFixed(dec));
 
@@ -486,66 +829,113 @@ export function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 4026.5
   const s3_tp1 = Number((s3_entry + 5.00).toFixed(dec));
   const s3_tp2 = Number((s3_entry + 9.50).toFixed(dec));
 
+  const baseStrategies = [
+    {
+      id: 'amt_80',
+      strategy_id: 'amt_80',
+      strategy_name: '1. AMT 80% Value Area Rule',
+      symbol: 'XAUUSD',
+      side: 'SELL',
+      setup: 'Failed Auction Breakout above VAH (Rotation to POC)',
+      timeframe: '5M Footprint / 15M Profile',
+      entry,
+      sl: s1_sl,
+      tp1: s1_tp1,
+      tp2: s1_tp2,
+      status: 'WATCHLIST_LEVELS',
+      is_triggered: false,
+      target_risk: '0.5% risk | $6.00 Stop',
+      time: istTimeStr,
+    },
+    {
+      id: 'vwap_fade',
+      strategy_id: 'vwap_fade',
+      strategy_name: '2. VWAP 2-SD Absorption Fade',
+      symbol: 'XAUUSD',
+      side: 'SELL',
+      setup: '+2σ VWAP Band Exhaustion with CVD Divergence',
+      timeframe: '5M Footprint + CVD',
+      entry: s2_entry,
+      sl: s2_sl,
+      tp1: s2_tp1,
+      tp2: s2_tp2,
+      status: 'WATCHLIST_LEVELS',
+      is_triggered: false,
+      target_risk: '0.5% risk | $3.00 Stop',
+      time: istTimeStr,
+    },
+    {
+      id: 'lvn_pullback',
+      strategy_id: 'lvn_pullback',
+      strategy_name: '3. LVN Trend Pullback',
+      symbol: 'XAUUSD',
+      side: 'BUY',
+      setup: 'Trend Day LVN Valley Reload with 300%+ Stacked Imbalance',
+      timeframe: '15M Profile / 5M Footprint',
+      entry: s3_entry,
+      sl: s3_sl,
+      tp1: s3_tp1,
+      tp2: s3_tp2,
+      status: 'WATCHLIST_LEVELS',
+      is_triggered: false,
+      target_risk: '0.5% risk | $2.50 Stop',
+      time: istTimeStr,
+    },
+  ];
+
+  // Try fetching real-time signals from backend API if configured
+  if (apiUrl) {
+    try {
+      const res = await fetch(`${apiUrl}/api/signals`, {
+        headers: { Accept: 'application/json' },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        const activeList = data.active_trades || [];
+        const isFlat = activeList.length === 0;
+
+        // If backend has active trades, sync local store
+        if (activeList.length > 0) {
+          localTradeState.activeTrades = activeList;
+          localTradeState.tradesCount = data.trades_count || localTradeState.tradesCount;
+          localTradeState.pnlPct = data.pnl_pct != null ? data.pnl_pct : localTradeState.pnlPct;
+          saveLocalTradeState();
+        }
+
+        return {
+          trades_count: data.trades_count || localTradeState.tradesCount,
+          max_trades: 3,
+          today_pnl: data.today_pnl || (localTradeState.pnlPct >= 0 ? `+${localTradeState.pnlPct.toFixed(2)}%` : `${localTradeState.pnlPct.toFixed(2)}%`),
+          pnl_pct: data.pnl_pct != null ? data.pnl_pct : localTradeState.pnlPct,
+          daily_target: '+2.0% - 3.0%',
+          capital_guard: '-2.5%',
+          is_flat: isFlat && localTradeState.activeTrades.length === 0,
+          market_state: isFlat && localTradeState.activeTrades.length === 0 ? '100% FLAT (Scanning for Institutional Setups)' : '🟢 ACTIVE TRADE RUNNING',
+          latest_lifecycle_event: data.latest_lifecycle_event || localTradeState.latestEvent,
+          active_trades: activeList.length > 0 ? activeList : localTradeState.activeTrades,
+          recent_trades: data.recent_trades?.length ? data.recent_trades : localTradeState.recentTrades,
+          signals_stream: baseStrategies,
+        };
+      }
+    } catch (e) {
+      // API unreachable, gracefully fallback to local evaluated trade state
+    }
+  }
+
+  // Fallback to local evaluated trade state (100% self-contained in browser)
+  const isFlat = localTradeState.activeTrades.length === 0;
   return {
-    trades_count: 0,
+    trades_count: localTradeState.tradesCount,
     max_trades: 3,
-    today_pnl: '+0.00%',
+    today_pnl: localTradeState.pnlPct >= 0 ? `+${localTradeState.pnlPct.toFixed(2)}%` : `${localTradeState.pnlPct.toFixed(2)}%`,
+    pnl_pct: localTradeState.pnlPct,
     daily_target: '+2.0% - 3.0%',
     capital_guard: '-2.5%',
-    is_flat: true,
-    market_state: '100% FLAT (Scanning for Institutional Setups)',
-    signals_stream: [
-      {
-        id: 'amt_80',
-        strategy_id: 'amt_80',
-        strategy_name: '1. AMT 80% Value Area Rule',
-        symbol: 'XAUUSD',
-        side: 'SELL',
-        setup: 'Failed Auction Breakout above VAH (Rotation to POC)',
-        timeframe: '5M Footprint / 15M Profile',
-        entry,
-        sl: s1_sl,
-        tp1: s1_tp1,
-        tp2: s1_tp2,
-        status: 'WATCHLIST_LEVELS',
-        is_triggered: false,
-        target_risk: '0.5% risk | $6.00 Stop',
-        time: istTimeStr,
-      },
-      {
-        id: 'vwap_fade',
-        strategy_id: 'vwap_fade',
-        strategy_name: '2. VWAP 2-SD Absorption Fade',
-        symbol: 'XAUUSD',
-        side: 'SELL',
-        setup: '+2σ VWAP Band Exhaustion with CVD Divergence',
-        timeframe: '5M Footprint + CVD',
-        entry: s2_entry,
-        sl: s2_sl,
-        tp1: s2_tp1,
-        tp2: s2_tp2,
-        status: 'WATCHLIST_LEVELS',
-        is_triggered: false,
-        target_risk: '0.5% risk | $3.00 Stop',
-        time: istTimeStr,
-      },
-      {
-        id: 'lvn_pullback',
-        strategy_id: 'lvn_pullback',
-        strategy_name: '3. LVN Trend Pullback',
-        symbol: 'XAUUSD',
-        side: 'BUY',
-        setup: 'Trend Day LVN Valley Reload with 300%+ Stacked Imbalance',
-        timeframe: '15M Profile / 5M Footprint',
-        entry: s3_entry,
-        sl: s3_sl,
-        tp1: s3_tp1,
-        tp2: s3_tp2,
-        status: 'WATCHLIST_LEVELS',
-        is_triggered: false,
-        target_risk: '0.5% risk | $2.50 Stop',
-        time: istTimeStr,
-      },
-    ],
+    is_flat: isFlat,
+    market_state: isFlat ? '100% FLAT (Scanning for Institutional Setups)' : '🟢 ACTIVE TRADE RUNNING',
+    latest_lifecycle_event: localTradeState.latestEvent,
+    active_trades: localTradeState.activeTrades,
+    recent_trades: localTradeState.recentTrades,
+    signals_stream: baseStrategies,
   };
 }

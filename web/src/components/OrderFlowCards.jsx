@@ -1,9 +1,12 @@
 import React from 'react';
 import { Target, Layers, ArrowUpRight, ArrowDownRight, ShieldCheck, Flame, Shield } from 'lucide-react';
 
-export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP }) {
+export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP, signalsData }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const dec = symbol === 'XAUUSD' ? 2 : 5;
+
+  const todayPnl = signalsData?.today_pnl || '+0.00%';
+  const tradesCount = signalsData?.trades_count ?? 0;
 
   // Synchronized directly with the chart auction so the above data box and chart match 100% perfectly
   const poc = activeVP?.pocPrice ?? of?.pPOC ?? 0;
@@ -131,16 +134,18 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
         </div>
         <div className="flex items-center justify-between text-xs font-mono font-bold mt-1 gap-2">
           <div className="bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 flex-1">
-            <span className="text-slate-400 text-[10px] block font-sans">Daily Target</span>
-            <span className="text-emerald-700 text-sm font-black">+2.0% - 3.0%</span>
+            <span className="text-slate-400 text-[10px] block font-sans">Today's Net P&L</span>
+            <span className={`text-sm font-black ${todayPnl.startsWith('+') ? 'text-emerald-700' : 'text-rose-600'}`}>
+              {todayPnl}
+            </span>
           </div>
           <div className="bg-slate-50 px-2.5 py-1 rounded-xl border border-slate-200 flex-1 text-right">
-            <span className="text-slate-400 text-[10px] block font-sans">Max Trades</span>
-            <span className="text-slate-800 text-sm font-black">3 / Day</span>
+            <span className="text-slate-400 text-[10px] block font-sans">Trades Pacing</span>
+            <span className="text-slate-800 text-sm font-black">{tradesCount} / 3 Max</span>
           </div>
         </div>
         <p className="text-[11px] text-slate-500 mt-2 font-medium">
-          70% Scale-Out at Target 1 (POC) pulls Stop Loss to Breakeven.
+          Target: +2.0% - 3.0% • 70% scale-out at POC moves SL to Breakeven.
         </p>
       </div>
     </div>

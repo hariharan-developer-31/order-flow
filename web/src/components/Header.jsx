@@ -28,6 +28,7 @@ export default function Header({
   onOpenSettings,
   activeView,
   onChangeView,
+  signalsData,
 }) {
   const currentOF = orderFlowData?.find((o) => o.symbol === activeSymbol);
 
@@ -144,6 +145,17 @@ export default function Header({
                 </div>
               )}
             </div>
+
+            {/* Live Today's Net P&L % Badge */}
+            {signalsData?.today_pnl && (
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono font-bold shadow-2xs">
+                <span className="text-[10px] text-slate-400 font-sans uppercase">Today's P&L:</span>
+                <span className={signalsData.today_pnl.startsWith('+') ? 'text-emerald-700 font-black' : 'text-rose-600 font-black'}>
+                  {signalsData.today_pnl}
+                </span>
+                <span className="text-[10px] text-slate-400">({signalsData.trades_count ?? 0}/3)</span>
+              </div>
+            )}
 
             {/* View Switcher: Combined vs Profile vs Footprint */}
             <div className="hidden lg:flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
