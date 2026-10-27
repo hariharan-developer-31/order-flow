@@ -4,8 +4,8 @@ import os from 'node:os';
 import { fetchLiveBars, fetchLiveSignals } from './_lib/market.js';
 
 // Configuration
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '8937175323:AAFwkqXGpR9O-uZDZsSLVMbPSyq-q0JMlWA';
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '1049609307';
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN || '';
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID || '';
 const STATE_FILE = path.join(os.tmpdir(), 'tb_daily_signals_state.json');
 
 // In-memory fallback cache across lambda warm invocations

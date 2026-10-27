@@ -40,8 +40,8 @@ if os.path.exists(_env_file):
         pass
 
 # Configuration (Supplied via Environment Variables)
-TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN") or "8937175323:AAFwkqXGpR9O-uZDZsSLVMbPSyq-q0JMlWA"
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID") or "1049609307"
+TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 LEARNING_CHANNEL_ID = os.getenv("LEARNING_CHANNEL_ID", "")
 TARGET_RISK_PER_TRADE_PCT = float(os.getenv("TARGET_RISK_PER_TRADE_PCT", "0.5"))   # 0.5% risk per trade
 MAX_DAILY_TRADES = int(os.getenv("MAX_DAILY_TRADES", "3"))                       # Hard cap: 3 trades/day
