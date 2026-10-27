@@ -292,7 +292,9 @@ export default function App() {
                 <FootprintChart
                   symbol={activeSymbol}
                   footprintData={footprintData}
+                  currentPrice={currentPrice}
                   timeframe={timeframe}
+                  onSelectTimeframe={handleSelectTimeframe}
                   decimals={decimals}
                 />
               </div>

@@ -399,7 +399,7 @@ export function getLiveFootprintClusters(bars, symbol, timeframe) {
       : 2.5
     : 0.0002;
 
-  const recentBars = bars.slice(-12);
+  const recentBars = bars.slice(-35);
   let runningCvd = 0;
 
   return recentBars.map((b) => {

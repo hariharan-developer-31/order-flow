@@ -21,6 +21,7 @@ import {
 } from 'lucide-react';
 
 import { calculateDynamicVolumeProfile } from '../utils/volumeProfile';
+import AtasFootprintChart from './AtasFootprintChart';
 
 function toDate(time) {
   if (typeof time === 'number') return new Date(time * 1000);
@@ -1048,111 +1049,20 @@ export default function CandleChart({
           </div>
         )}
 
-        {/* In-Chart Footprint View */}
+        {/* In-Chart Interactive ATAS Footprint View */}
         {chartView === 'footprint' && (
-          <div className="flex-1 p-4 bg-slate-50/50 overflow-x-auto flex flex-col" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : `${getResponsiveHeight()}px` }}>
-            <div className="mb-2.5 flex items-center justify-between px-1 shrink-0">
-              <div className="flex items-center gap-2">
-                <span className="text-xs font-black text-slate-800">
-                  {symbolDisplay} {timeframe?.toUpperCase()} Footprint Delta Ladder
-                </span>
-                <span className="text-[10px] font-bold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded border border-emerald-200">
-                  🇮🇳 Indian Standard Time (IST, UTC+05:30)
-                </span>
-              </div>
-              <div className="text-[10px] text-slate-500 font-mono flex items-center gap-2">
-                <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Granularity: {timeframe?.toUpperCase()}</span>
-                <span className="bg-white px-2 py-0.5 rounded border border-slate-200">Imbalance: &ge;300%</span>
-              </div>
-            </div>
-            <div className="flex items-start gap-3 min-w-max pb-2 flex-1">
-              {(footprintData || []).map((bar, bIdx) => {
-                const isBull = bar.close >= bar.open;
-                const delta = bar.delta || 0;
-                const isDeltaPos = delta >= 0;
-
-                let maxClusterVol = -1;
-                let barPoc = null;
-                (bar.clusters || []).forEach((c) => {
-                  const tot = (c.bid || 0) + (c.ask || 0);
-                  if (tot > maxClusterVol) {
-                    maxClusterVol = tot;
-                    barPoc = c.price;
-                  }
-                });
-
-                const sortedClusters = [...(bar.clusters || [])].sort((a, b) => b.price - a.price);
-
-                return (
-                  <div
-                    key={bar.time || bIdx}
-                    className="w-56 bg-white border border-slate-200 rounded-xl shadow-sm overflow-hidden flex flex-col hover:border-blue-400 transition"
-                  >
-                    <div
-                      className={`p-2 border-b text-xs font-mono flex items-center justify-between ${
-                        isBull ? 'bg-emerald-50/80 border-emerald-200' : 'bg-rose-50/80 border-rose-200'
-                      }`}
-                    >
-                      <span className="font-bold text-slate-800">{bar.datetime}</span>
-                      <span className={`font-black flex items-center gap-0.5 ${isDeltaPos ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {isDeltaPos ? <ArrowUp className="w-3 h-3" /> : <ArrowDown className="w-3 h-3" />}
-                        {delta > 0 ? `+${delta.toFixed(0)}` : delta.toFixed(0)}
-                      </span>
-                    </div>
-
-                    <div className="px-2.5 py-1 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-mono text-slate-500">
-                      <span>O: {bar.open?.toFixed(decimals)}</span>
-                      <span>C: {bar.close?.toFixed(decimals)}</span>
-                      <span>Vol: {bar.volume ? Math.round(bar.volume).toLocaleString() : '---'}</span>
-                    </div>
-
-                    <div className="p-2 space-y-1 flex-1 overflow-y-auto max-h-[380px]">
-                      {sortedClusters.map((c, cIdx) => {
-                        const isPOC = c.price === barPoc;
-                        const isBuyImb = c.imbalance === 'BUY';
-                        const isSellImb = c.imbalance === 'SELL';
-
-                        return (
-                          <div
-                            key={cIdx}
-                            className={`flex items-center text-[10px] font-mono rounded px-1 py-0.5 border transition ${
-                              isPOC ? 'bg-amber-50 border-amber-300 font-bold' : 'bg-white border-slate-100 hover:bg-slate-50'
-                            }`}
-                          >
-                            <div
-                              className={`flex-1 text-right pr-2 py-0.5 rounded-l ${
-                                isSellImb ? 'bg-rose-500 text-white font-black shadow-sm' : 'text-rose-700 bg-rose-50/50'
-                              }`}
-                            >
-                              {c.bid}
-                            </div>
-
-                            <div className={`px-1.5 font-bold text-center text-[10px] ${isPOC ? 'text-amber-800 font-extrabold' : 'text-slate-600'}`}>
-                              {c.price?.toFixed(decimals)}
-                            </div>
-
-                            <div
-                              className={`flex-1 text-left pl-2 py-0.5 rounded-r ${
-                                isBuyImb ? 'bg-emerald-500 text-white font-black shadow-sm' : 'text-emerald-700 bg-emerald-50/50'
-                              }`}
-                            >
-                              {c.ask}
-                            </div>
-                          </div>
-                        );
-                      })}
-                    </div>
-
-                    <div className="p-2 border-t border-slate-100 bg-slate-50 text-[10px] font-mono flex items-center justify-between">
-                      <span className="text-slate-500">Net Delta:</span>
-                      <span className={`font-bold ${isDeltaPos ? 'text-emerald-700' : 'text-rose-700'}`}>
-                        {delta > 0 ? `+${delta}` : delta}
-                      </span>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
+          <div className="flex-1 w-full overflow-hidden">
+            <AtasFootprintChart
+              symbol={symbol}
+              footprintData={footprintData}
+              currentPrice={barsData && barsData.length > 0 ? barsData[barsData.length - 1].close : null}
+              timeframe={timeframe}
+              onSelectTimeframe={onSelectTimeframe}
+              decimals={decimals}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              height={getResponsiveHeight()}
+            />
           </div>
         )}
 
