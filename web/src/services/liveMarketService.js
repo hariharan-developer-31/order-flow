@@ -811,8 +811,10 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
     t.be_alerted = true;
     t.stage = 'TP1_BANKED_BE_ACTIVE';
     t.order_a_status = 'BANKED (+0.70%)';
-    t.order_b_status = 'RUNNING (SL @ BREAKEVEN)';
-    t.order_b_sl = t.entry;
+    const isBuyT = t.side === 'BUY';
+    const beBufferP = Number((isBuyT ? t.entry + 0.50 : t.entry - 0.50).toFixed(2));
+    t.order_b_status = `RUNNING (SL @ ${beBufferP} BE+Cushion)`;
+    t.order_b_sl = beBufferP;
     t.tp1_hit_time = timeStr;
     localTradeState.pnlPct = Number((localTradeState.pnlPct + 0.70).toFixed(2));
     localTradeState.latestEvent = {

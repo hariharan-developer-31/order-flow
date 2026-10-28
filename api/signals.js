@@ -183,8 +183,10 @@ export default async function handler(req, res) {
             trade.be_alerted = true;
             trade.stage = 'TP1_BANKED_BE_ACTIVE';
             trade.order_a_status = 'BANKED (+0.70%)';
-            trade.order_b_status = 'RUNNING (SL @ BREAKEVEN)';
-            trade.order_b_sl = trade.entry;
+            const isBuyTrade = trade.side === 'BUY';
+            const beCushionPrice = Number((isBuyTrade ? trade.entry + 0.50 : trade.entry - 0.50).toFixed(2));
+            trade.order_b_status = `RUNNING (SL @ ${beCushionPrice} BE+Cushion)`;
+            trade.order_b_sl = beCushionPrice;
             trade.tp1_hit_time = nowIST;
 
             state.pnl_pct = Number(((state.pnl_pct || 0) + 0.70).toFixed(2));
@@ -200,7 +202,7 @@ export default async function handler(req, res) {
               gain_pct: 0.70,
               time: nowIST,
               headline: `🎯 TARGET 1 HIT: Order A Banked (+0.70%)`,
-              subtext: `👉 ACTION IN MT5: Modify Order B Stop Loss to Breakeven (${trade.entry.toFixed(2)})!`,
+              subtext: `👉 ACTION IN MT5: Modify Order B Stop Loss to Breakeven + Cushion (${beCushionPrice.toFixed(2)})!`,
             };
 
             const beMsg =
