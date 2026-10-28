@@ -285,7 +285,7 @@ export default async function handler(req, res) {
               `👉 <b>MANDATORY ACTION REQUIRED IN MT5:</b>\n` +
               `Modify <b>Order B</b> and change Stop Loss to <b>Breakeven (<code>${trade.entry.toFixed(2)}</code>)</b>.\n\n` +
               `🛡️ <i>Your trade is now 100% RISK-FREE. Order B runner is targeting TP2 (<code>${trade.tp2.toFixed(2)}</code>)!</i>`;
-            await sendTelegramAlert(beMsg);
+            if (trade && trade.telegram_alerted === true) { await sendTelegramAlert(beMsg); }
           } else if (body.action === 'TP2' && trade) {
             trade.closed = true;
             trade.stage = 'TP2_HIT';
@@ -324,7 +324,7 @@ export default async function handler(req, res) {
               `🕒 <b>Completion Time:</b> <code>${nowIST}</code>\n\n` +
               `📊 <b>Today's Net P&L:</b> <code>${state.today_pnl}</code>\n` +
               `🛡️ <i>Position completed. Active Position Guard unlocked for next session!</i>`;
-            await sendTelegramAlert(tp2Msg);
+            if (trade && trade.telegram_alerted === true) { await sendTelegramAlert(tp2Msg); }
           } else if (body.action === 'BE' && trade) {
             trade.closed = true;
             trade.stage = 'BE_EXIT';
@@ -357,7 +357,7 @@ export default async function handler(req, res) {
               `• <b>Exit Time:</b> <code>${nowIST}</code>\n\n` +
               `📊 <b>Today's Net P&L:</b> <code>${state.today_pnl}</code>\n` +
               `🛡️ <i>Position cleared. Active Position Guard unlocked for next session!</i>`;
-            await sendTelegramAlert(beExitMsg);
+            if (trade && trade.telegram_alerted === true) { await sendTelegramAlert(beExitMsg); }
           } else if (body.action === 'SL' && trade) {
             trade.closed = true;
             trade.stage = 'SL_HIT';
@@ -394,7 +394,7 @@ export default async function handler(req, res) {
               `• <b>Today's Net P&L:</b> <code>${state.today_pnl}</code>\n` +
               `• <b>Capital Guard Safe:</b> -2.5% Limit\n` +
               `🛡️ <i>Active Position Guard cleared.</i>`;
-            await sendTelegramAlert(slMsg);
+            if (trade && trade.telegram_alerted === true) { await sendTelegramAlert(slMsg); }
           }
 
           state.last_updated = Date.now();
@@ -436,28 +436,10 @@ export default async function handler(req, res) {
     return res.status(200).json(state);
   }
 
-  // Otherwise, auto-initialize live evaluated signal based on live market price
-  try {
-    const barsData = await fetchLiveBars('XAUUSD', '1h', 1);
-    const liveP = barsData?.livePrice || 4015.50;
-    const evaluated = fetchLiveSignals(liveP);
-
-    state.active_trades = evaluated.active_trades || [];
-    state.trades_count = Math.max(state.trades_count || 1, 1);
-    state.is_flat = false;
-    state.latest_lifecycle_event = evaluated.latest_lifecycle_event;
-    state.signals_stream = evaluated.signals_stream;
-    state.rules = evaluated.rules;
-    saveState(state);
-
-    return res.status(200).json({
-      ...state,
-      ...evaluated,
-      active_trades: state.active_trades,
-      recent_trades: state.recent_trades,
-    });
-  } catch (e) {
-    const fallback = fetchLiveSignals(4015.50);
-    return res.status(200).json(fallback);
-  }
+  // When flat, return pristine flat state without fabricating phantom active trades
+  state.is_flat = !state.active_trades || state.active_trades.length === 0;
+  return res.status(200).json({
+    ...state,
+    market_state: state.is_flat ? '100% FLAT (Scanning for Institutional Setups)' : '⚡ ACTIVE TRADE RUNNING',
+  });
 }

@@ -1432,6 +1432,8 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                     "open_time": dt.datetime.now(dt.timezone.utc).isoformat(),
                     "open_time_ist": ist_time.strftime("%I:%M %p IST, %d %b %Y"),
                     "bar_ts": bar_ts,
+                    "telegram_alerted": True,
+                    "source": "BOT_TRIGGER",
                 }
                 daily_state.setdefault("active_trades", []).append(trade_record)
                 daily_state["latest_lifecycle_event"] = {
@@ -1854,20 +1856,8 @@ def telegram_listener() -> None:
                         with state_lock:
                             open_trade = next((at for at in daily_state.get("active_trades", []) if not at.get("closed", False)), None)
                             if not open_trade:
-                                spot_p = fetch_spot_gold_price() or 4028.50
-                                open_trade = {
-                                    "id": f"TB-XAUUSD-{int(time.time())}",
-                                    "sym": "XAUUSD",
-                                    "side": "SELL",
-                                    "strategy": "1. AMT 80% Value Area Rule",
-                                    "entry": round(spot_p, 2),
-                                    "sl": round(spot_p + 6.00, 2),
-                                    "tp1": round(spot_p - 6.00, 2),
-                                    "tp2": round(spot_p - 13.80, 2),
-                                    "dec": 2,
-                                }
-                                daily_state.setdefault("active_trades", []).append(open_trade)
-                                daily_state["trades_count"] += 1
+                                send_telegram("ℹ️ No active trade currently running. Market is 100% flat.")
+                                continue
 
                             open_trade["closed"] = True
                             open_trade["close_reason"] = "SL_HIT"
@@ -1917,20 +1907,8 @@ def telegram_listener() -> None:
                         with state_lock:
                             open_trade = next((at for at in daily_state.get("active_trades", []) if not at.get("closed", False)), None)
                             if not open_trade:
-                                spot_p = fetch_spot_gold_price() or 4028.50
-                                open_trade = {
-                                    "id": f"TB-XAUUSD-{int(time.time())}",
-                                    "sym": "XAUUSD",
-                                    "side": "SELL",
-                                    "strategy": "1. AMT 80% Value Area Rule",
-                                    "entry": round(spot_p, 2),
-                                    "sl": round(spot_p + 6.00, 2),
-                                    "tp1": round(spot_p - 6.00, 2),
-                                    "tp2": round(spot_p - 13.80, 2),
-                                    "dec": 2,
-                                }
-                                daily_state.setdefault("active_trades", []).append(open_trade)
-                                daily_state["trades_count"] += 1
+                                send_telegram("ℹ️ No active trade currently running. Market is 100% flat.")
+                                continue
 
                             open_trade["closed"] = True
                             open_trade["close_reason"] = "BE_EXIT"
@@ -2658,6 +2636,9 @@ def breakeven_monitor() -> None:
 
             for trade in active:
                 if trade.get("closed", False):
+                    continue
+                # TELEGRAM INTEGRITY GUARD: Never send alerts for phantom or unalerted trades!
+                if not trade.get("telegram_alerted", False):
                     continue
 
                 sym = trade["sym"]

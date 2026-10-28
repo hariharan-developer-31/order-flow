@@ -1168,45 +1168,7 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
     };
   }
 
-  // 4. Default: Auto-initialize the confirmed active order flow trade from live spot Gold price
-  // Guarantees WebApp is NEVER at 0 trades when Telegram sent a trade entry alert!
-  const isBuy = entry < 4014.50; // Below POC (AMT 80% Rule rotation to POC)
-  const autoTrade = {
-    id: `TB-XAUUSD-${Date.now()}`,
-    sym: 'XAUUSD',
-    side: isBuy ? 'BUY' : 'SELL',
-    strategy: '1. AMT 80% Value Area Rule',
-    setup: isBuy
-      ? 'Failed Breakdown Below VAL (Rotation to POC 4014.50)'
-      : 'Failed Auction Breakout above VAH (Rotation to POC)',
-    entry: entry,
-    sl: Number((isBuy ? entry - 6.00 : entry + 6.00).toFixed(dec)),
-    tp1: Number((isBuy ? entry + 6.00 : entry - 6.00).toFixed(dec)),
-    tp2: Number((isBuy ? entry + 14.00 : entry - 14.00).toFixed(dec)),
-    dec: 2,
-    lots: 0.08,
-    half1: 0.05,
-    half2: 0.03,
-    stage: 'OPEN',
-    order_a_status: 'RUNNING (Targeting TP1)',
-    order_b_status: 'RUNNING (Targeting TP2)',
-    order_b_sl: Number((isBuy ? entry - 6.00 : entry + 6.00).toFixed(dec)),
-    be_alerted: false,
-    closed: false,
-    time: istTimeStr,
-    open_time_ist: istTimeStr,
-  };
-
-  localTradeState.activeTrades = [autoTrade];
-  localTradeState.tradesCount = Math.max(1, localTradeState.tradesCount);
-  localTradeState.latestEvent = {
-    type: 'NEW_TRADE',
-    headline: `🚀 ACTIVE TRADE: ${autoTrade.side} XAUUSD at ${autoTrade.entry.toFixed(2)}`,
-    subtext: `Target 1: ${autoTrade.tp1.toFixed(2)} (70% Scale-Out & BE) | Target 2: ${autoTrade.tp2.toFixed(2)} (Runner) | SL: ${autoTrade.sl.toFixed(2)}`,
-    time: istTimeStr,
-  };
-  saveLocalTradeState();
-
+  // 4. Default: Flat Market State (Zero phantom trades created)
   return {
     trades_count: localTradeState.tradesCount,
     max_trades: 3,
@@ -1214,11 +1176,12 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
     pnl_pct: localTradeState.pnlPct,
     daily_target: '+2.0% - 3.0%',
     capital_guard: '-2.5%',
-    is_flat: false,
-    market_state: '⚡ ACTIVE TRADE RUNNING',
+    is_flat: true,
+    market_state: '100% FLAT (Scanning for Institutional Setups)',
     latest_lifecycle_event: localTradeState.latestEvent,
-    active_trades: localTradeState.activeTrades,
+    active_trades: [],
     recent_trades: localTradeState.recentTrades,
+    pre_alert: localTradeState.preAlert || null,
     signals_stream: baseStrategies,
   };
 }
