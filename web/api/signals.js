@@ -26,6 +26,7 @@ function loadState() {
     active_trades: [],
     recent_trades: [],
     latest_lifecycle_event: null,
+    pre_alert: null,
     last_updated: Date.now(),
   };
 
@@ -129,6 +130,75 @@ export default async function handler(req, res) {
           return res.status(200).json({ ok: true, state });
         }
 
+        if (body.action === 'CLEAR_PRE_ALERT') {
+          state.pre_alert = null;
+          state.last_updated = Date.now();
+          saveState(state);
+          return res.status(200).json({ ok: true, state });
+        }
+
+        if (body.action === 'PRE_ALERT') {
+          const p = Number(body.price || 4028.50);
+          const keyLvl = 4032.00;
+          state.pre_alert = {
+            active: true,
+            sym: 'XAUUSD',
+            side: 'SELL',
+            strategy: '1. AMT 80% Value Area Rule',
+            current_price: p,
+            key_level: keyLvl,
+            level_name: 'Prior Day VAH',
+            est_time: 'in ~28 mins (1H Candle Close)',
+            lots_a: 0.04,
+            lots_b: 0.03,
+            tp1: 4022.00,
+            tp2: 4014.00,
+            sl: 4034.50,
+            timestamp: Date.now(),
+          };
+
+          state.latest_lifecycle_event = {
+            type: 'PRE_ALERT',
+            trade_id: 'PRE-XAUUSD',
+            sym: 'XAUUSD',
+            side: 'SELL',
+            price: p,
+            time: nowIST,
+            headline: `⏳ 30-MIN PRE-ENTRY NOTICE: Probable SELL XAUUSD in ~28 mins`,
+            subtext: `Testing VAH ($${keyLvl.toFixed(2)}). Free yourself & open MT5 to prepare orders!`,
+          };
+
+          const preAlertMsg =
+            `⏳ <b>PRE-TRADE PREPARATION ALERT (~30 MINS NOTICE)</b>\n\n` +
+            `⚠️ <b>High Probability Setup Developing!</b>\n` +
+            `• <b>Asset:</b> <b>XAUUSD (Gold Spot)</b>\n` +
+            `• <b>Expected Direction:</b> 🔴 <b>SELL (Rotation to POC)</b>\n` +
+            `• <b>Strategy:</b> <i>1. AMT 80% Value Area Rule</i>\n` +
+            `• <b>Session:</b> <code>London / NY Overlap Killzone</code>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📍 <b>Current Price:</b> <code>$${p.toFixed(2)}</code>\n` +
+            `🎯 <b>Key Watch Zone:</b> <code>$${keyLvl.toFixed(2)}</code> (Prior Day VAH)\n` +
+            `⏱️ <b>Expected Entry:</b> <code>in ~28 mins (on 1H Candle Close)</code>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📊 <b>Setup Analysis:</b>\n` +
+            `• Gold is testing the VAH auction boundary ($${keyLvl.toFixed(2)}).\n` +
+            `• Upper selling absorption wick developing on 1H candle.\n` +
+            `• 4H Macro Trend: <b>Aligned</b> | Defined Risk: <b>$6.00/oz</b>\n` +
+            `━━━━━━━━━━━━━━━━━━━━━\n` +
+            `📲 <b>MT5 PREPARATION (DO THIS NOW):</b>\n` +
+            `1️⃣ <b>Free yourself:</b> Ensure 5–10 mins of uninterrupted focus.\n` +
+            `2️⃣ <b>Open MT5:</b> Bring up <b>XAUUSD</b> order execution screen.\n` +
+            `3️⃣ <b>Pre-fill Lot Sizes:</b>\n` +
+            `   • <b>Order A (70% Banker):</b> <code>0.04 lots</code> (TP1 ~<code>$4022.00</code>)\n` +
+            `   • <b>Order B (30% Runner):</b> <code>0.03 lots</code> (TP2 ~<code>$4014.00</code>)\n` +
+            `   • <b>Planned Stop Loss:</b> <code>$4034.50</code>\n\n` +
+            `🔔 <i>Stand by! The confirmed execution trigger will be sent automatically when the candle closes!</i>`;
+
+          await sendTelegramAlert(preAlertMsg);
+          saveState(state);
+          return res.status(200).json({ ok: true, pre_alert: state.pre_alert, state });
+        }
+
         if (body.action === 'CLEAR_HISTORY') {
           state.recent_trades = [];
           state.last_updated = Date.now();
@@ -163,6 +233,7 @@ export default async function handler(req, res) {
           };
           state.active_trades = [newTrade];
           state.is_flat = false;
+          state.pre_alert = null;
           state.trades_count = Math.max(state.trades_count || 1, 1);
           state.latest_lifecycle_event = {
             type: 'NEW_TRADE',
@@ -344,6 +415,7 @@ export default async function handler(req, res) {
             .filter((v, i, a) => a.findIndex(t => t.id === v.id) === i);
         }
         if (body.latest_lifecycle_event) state.latest_lifecycle_event = body.latest_lifecycle_event;
+        if (body.pre_alert !== undefined) state.pre_alert = body.pre_alert;
         state.is_flat = !state.active_trades || state.active_trades.length === 0;
         state.last_updated = Date.now();
         saveState(state);

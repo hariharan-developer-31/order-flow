@@ -92,6 +92,9 @@ def load_daily_state() -> Dict[str, Any]:
         "pair_cooldowns": {},
         "active_trades": [],
         "latest_lifecycle_event": None,
+        "pre_alert": None,
+        "last_pre_alert_candle": None,
+        "last_pre_alert_ts": 0.0,
         "learning_channel_id": LEARNING_CHANNEL_ID,
         "triggered_candles": {},
     }
@@ -110,6 +113,12 @@ def load_daily_state() -> Dict[str, Any]:
                         saved["recent_trades"] = []
                     if "latest_lifecycle_event" not in saved:
                         saved["latest_lifecycle_event"] = None
+                    if "pre_alert" not in saved:
+                        saved["pre_alert"] = None
+                    if "last_pre_alert_candle" not in saved:
+                        saved["last_pre_alert_candle"] = None
+                    if "last_pre_alert_ts" not in saved:
+                        saved["last_pre_alert_ts"] = 0.0
                     print(f"[STATE] Restored state from disk: {saved.get('trades_count')} trades, PnL: {saved.get('pnl_pct', 0.0):+.2f}%")
                     return saved
         except Exception as e:
@@ -139,6 +148,7 @@ def sync_trade_to_webapp(state_data: Dict[str, Any]) -> None:
                 "active_trades": [at for at in state_data.get("active_trades", []) if not at.get("closed", False)],
                 "latest_lifecycle_event": state_data.get("latest_lifecycle_event"),
                 "recent_trades": state_data.get("recent_trades", []),
+                "pre_alert": state_data.get("pre_alert"),
             }).encode("utf-8")
 
             url = f"{target_url}/api/signals"
@@ -846,6 +856,338 @@ def evaluate_confluence(bars: List[Dict[str, Any]], idx: int, dec: int, sym: str
     return None
 
 
+def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """Evaluates probability of an institutional setup forming in the next ~30 mins on developing 1H bar."""
+    if len(bars) < 2 or not of_data:
+        return None
+
+    curr = bars[-1]
+    prev = bars[-2]
+    live_p = curr["close"]
+    curr_high = curr["high"]
+    curr_low = curr["low"]
+    curr_open = curr["open"]
+
+    now_utc = dt.datetime.now(dt.timezone.utc)
+    ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
+    minute = now_utc.minute
+    mins_remaining = max(1, 60 - minute) if minute > 0 else 60
+    trigger_dt = ist_time + dt.timedelta(minutes=mins_remaining)
+    trigger_time_str = trigger_dt.strftime("%I:%M %p IST")
+
+    # Session / Killzone calculation
+    ist_dec = ist_time.hour + ist_time.minute / 60.0
+    is_london = 13.0 <= ist_dec < 17.5
+    is_ny = 17.5 <= ist_dec <= 22.0
+    session_tag = "London Open Killzone" if is_london else ("NY Session Overlap" if is_ny else "Asian Pre-Market")
+
+    p_vah = of_data.get("pVAH")
+    p_val = of_data.get("pVAL")
+    p_poc = of_data.get("pPOC")
+
+    # 1. AMT 80% Rule (Developing Sell Setup at VAH)
+    if p_vah and p_poc and p_val:
+        tested_vah = (curr_high >= p_vah - 1.50 or prev["high"] >= p_vah - 1.00)
+        if tested_vah and live_p <= p_vah + 3.00:
+            sl_dist = 6.00
+            sl = round(live_p + sl_dist, dec)
+            tp1 = round(p_poc, dec) if p_poc < live_p else round(live_p - 6.00, dec)
+            tp2 = round(p_val, dec) if p_val < tp1 else round(live_p - 13.80, dec)
+            return {
+                "side": "SELL",
+                "sym": sym,
+                "strategy": "1. AMT 80% Value Area Rule",
+                "current_price": live_p,
+                "key_level": p_vah,
+                "level_name": "Prior Day VAH",
+                "distance": round(abs(live_p - p_vah), 2),
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "mins_remaining": mins_remaining,
+                "trigger_time_str": trigger_time_str,
+                "session_tag": session_tag,
+                "reason": f"Gold is testing the VAH auction boundary (${p_vah:.2f}). If this candle closes back below VAH in ~{mins_remaining} mins, an 80% Rule rotation to POC (${p_poc:.2f}) triggers!",
+            }
+
+        # 1. AMT 80% Rule (Developing Buy Setup at VAL)
+        tested_val = (curr_low <= p_val + 1.50 or prev["low"] <= p_val + 1.00)
+        if tested_val and live_p >= p_val - 3.00:
+            sl_dist = 6.00
+            sl = round(live_p - sl_dist, dec)
+            tp1 = round(p_poc, dec) if p_poc > live_p else round(live_p + 6.00, dec)
+            tp2 = round(p_vah, dec) if p_vah > tp1 else round(live_p + 13.80, dec)
+            return {
+                "side": "BUY",
+                "sym": sym,
+                "strategy": "1. AMT 80% Value Area Rule",
+                "current_price": live_p,
+                "key_level": p_val,
+                "level_name": "Prior Day VAL",
+                "distance": round(abs(live_p - p_val), 2),
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "mins_remaining": mins_remaining,
+                "trigger_time_str": trigger_time_str,
+                "session_tag": session_tag,
+                "reason": f"Gold is testing the VAL auction boundary (${p_val:.2f}). If this candle closes back above VAL in ~{mins_remaining} mins, an 80% Rule rotation to POC (${p_poc:.2f}) triggers!",
+            }
+
+    # 2. VWAP 2-SD Absorption Fade (Developing)
+    idx = len(bars) - 1
+    vwap_sum_pv = sum(x["close"] * (x.get("volume", 1.0) or 1.0) for x in bars[max(0, idx - 24) : idx + 1])
+    vwap_sum_v = sum(x.get("volume", 1.0) or 1.0 for x in bars[max(0, idx - 24) : idx + 1]) + 1e-9
+    session_vwap = vwap_sum_pv / vwap_sum_v
+    variance = sum(((x["close"] - session_vwap) ** 2) * (x.get("volume", 1.0) or 1.0) for x in bars[max(0, idx - 24) : idx + 1]) / vwap_sum_v
+    sd = math.sqrt(max(1.5, variance))
+    vwap_upper_2sd = session_vwap + 2.0 * sd
+    vwap_lower_2sd = session_vwap - 2.0 * sd
+
+    if (curr_high >= vwap_upper_2sd - 0.75 or live_p >= vwap_upper_2sd - 0.75) and live_p >= session_vwap + 2.50:
+        sl_dist = 3.00
+        sl = round(live_p + sl_dist, dec)
+        tp1 = round(session_vwap, dec)
+        tp2 = round(session_vwap - 1.0 * sd, dec)
+        return {
+            "side": "SELL",
+            "sym": sym,
+            "strategy": "2. VWAP 2-SD Absorption Fade",
+            "current_price": live_p,
+            "key_level": vwap_upper_2sd,
+            "level_name": "+2σ VWAP Band",
+            "distance": round(abs(live_p - vwap_upper_2sd), 2),
+            "sl": sl,
+            "tp1": tp1,
+            "tp2": tp2,
+            "mins_remaining": mins_remaining,
+            "trigger_time_str": trigger_time_str,
+            "session_tag": session_tag,
+            "reason": f"Gold has extended into the upper +2σ VWAP band (${vwap_upper_2sd:.2f}). Potential mean-reversion fade back to Central VWAP (${session_vwap:.2f}) forming!",
+        }
+
+    if (curr_low <= vwap_lower_2sd + 0.75 or live_p <= vwap_lower_2sd + 0.75) and live_p <= session_vwap - 2.50:
+        sl_dist = 3.00
+        sl = round(live_p - sl_dist, dec)
+        tp1 = round(session_vwap, dec)
+        tp2 = round(session_vwap + 1.0 * sd, dec)
+        return {
+            "side": "BUY",
+            "sym": sym,
+            "strategy": "2. VWAP 2-SD Absorption Fade",
+            "current_price": live_p,
+            "key_level": vwap_lower_2sd,
+            "level_name": "-2σ VWAP Band",
+            "distance": round(abs(live_p - vwap_lower_2sd), 2),
+            "sl": sl,
+            "tp1": tp1,
+            "tp2": tp2,
+            "mins_remaining": mins_remaining,
+            "trigger_time_str": trigger_time_str,
+            "session_tag": session_tag,
+            "reason": f"Gold has extended into the lower -2σ VWAP band (${vwap_lower_2sd:.2f}). Potential mean-reversion fade back to Central VWAP (${session_vwap:.2f}) forming!",
+        }
+
+    # 3. LVN Trend Pullback (Developing)
+    ema20 = curr.get("ema20")
+    ema50 = curr.get("ema50")
+    ema200 = curr.get("ema200")
+    if ema20 and ema50 and ema200:
+        if ema20 > ema50 > ema200 and curr_low <= ema20 + 0.50 and live_p >= ema20 - 1.50:
+            sl_dist = 2.50
+            sl = round(live_p - sl_dist, dec)
+            tp1 = round(live_p + 5.00, dec)
+            tp2 = round(live_p + 9.50, dec)
+            return {
+                "side": "BUY",
+                "sym": sym,
+                "strategy": "3. LVN Trend Pullback",
+                "current_price": live_p,
+                "key_level": ema20,
+                "level_name": "EMA20 / LVN Reload",
+                "distance": round(abs(live_p - ema20), 2),
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "mins_remaining": mins_remaining,
+                "trigger_time_str": trigger_time_str,
+                "session_tag": session_tag,
+                "reason": f"Gold uptrend is pulling back into the EMA20 / LVN reload zone (${ema20:.2f}). Potential trend continuation reload forming!",
+            }
+        elif ema20 < ema50 < ema200 and curr_high >= ema20 - 0.50 and live_p <= ema20 + 1.50:
+            sl_dist = 2.50
+            sl = round(live_p + sl_dist, dec)
+            tp1 = round(live_p - 5.00, dec)
+            tp2 = round(live_p - 9.50, dec)
+            return {
+                "side": "SELL",
+                "sym": sym,
+                "strategy": "3. LVN Trend Pullback",
+                "current_price": live_p,
+                "key_level": ema20,
+                "level_name": "EMA20 / LVN Reload",
+                "distance": round(abs(live_p - ema20), 2),
+                "sl": sl,
+                "tp1": tp1,
+                "tp2": tp2,
+                "mins_remaining": mins_remaining,
+                "trigger_time_str": trigger_time_str,
+                "session_tag": session_tag,
+                "reason": f"Gold downtrend is pulling back into the EMA20 / LVN reload zone (${ema20:.2f}). Potential trend continuation reload forming!",
+            }
+
+    return None
+
+
+def check_pre_entry_alert(is_manual_check: bool = False) -> Optional[str]:
+    """Scans for developing setups ~30 mins before 1H candle close and reminds trader on Telegram."""
+    global daily_state
+
+    # Guard checks
+    active_now = [at for at in daily_state.get("active_trades", []) if not at.get("closed", False)]
+    if active_now and not is_manual_check:
+        print("[PRE-ALERT] Active position already running. Skipping pre-alert.")
+        return None
+
+    if daily_state.get("trades_count", 0) >= MAX_DAILY_TRADES and not is_manual_check:
+        return None
+
+    pnl_pct = daily_state.get("pnl_pct", 0.0)
+    if (pnl_pct <= DAILY_LOSS_LIMIT_PCT or pnl_pct >= DAILY_PROFIT_TARGET_MIN_PCT) and not is_manual_check:
+        return None
+
+    now_utc = dt.datetime.now(dt.timezone.utc)
+    ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
+
+    # For automatic background scheduler: verify we are in the ~30 minute window
+    if not is_manual_check:
+        if not (20 <= now_utc.minute <= 42):
+            return None
+
+    for sym, dec, y_sym, pip_val, is_gold in INSTRUMENTS:
+        if sym != "XAUUSD":
+            continue
+        try:
+            bars, live_tick = fetch_1h_bars(y_sym, dec)
+            if len(bars) < 60:
+                continue
+            enrich_bars(bars)
+            of_data = compute_order_flow_profile(bars, dec, is_gold)
+
+            pre_setup = evaluate_pre_alert(bars, dec, sym, of_data)
+            if not pre_setup:
+                if is_manual_check:
+                    msg = (
+                        f"ℹ️ <b>PRE-ALERT SCAN STATUS ({ist_time.strftime('%I:%M %p IST')}):</b>\n\n"
+                        f"• <b>Gold XAUUSD:</b> <code>${live_tick:.{dec}f}</code>\n"
+                        f"• <b>Status:</b> Safe inside Value Area. No imminent trade entry in the next ~30 mins.\n"
+                        f"• <i>Next automatic pre-check will run ~30 mins before the next 1H candle close.</i>"
+                    )
+                    send_telegram(msg)
+                    return msg
+                continue
+
+            # Anti-spam deduplication check
+            curr_candle_ts = bars[-1].get("ts")
+            last_alerted_candle = daily_state.get("last_pre_alert_candle")
+            last_alerted_ts = daily_state.get("last_pre_alert_ts", 0)
+
+            if not is_manual_check:
+                if last_alerted_candle == curr_candle_ts or (time.time() - last_alerted_ts) < 2100:
+                    print(f"[PRE-ALERT SKIP] Already alerted for candle {curr_candle_ts}.")
+                    return None
+
+            # Calculate MT5 lot sizes
+            dist = abs(pre_setup["current_price"] - pre_setup["sl"])
+            raw_lots = TARGET_RISK_PER_TRADE / (dist * 100.0) if dist > 0 else 0.08
+            floored_lots = math.floor(raw_lots * 100.0) / 100.0
+            total_lots = round(max(0.01, min(0.15, floored_lots)), 2)
+            half1 = math.ceil((total_lots / 2.0) * 100.0) / 100.0
+            half2 = round(total_lots - half1, 2)
+            if half2 < 0.01:
+                half1 = total_lots
+                half2 = 0.0
+
+            side_emoji = "🟢 BUY" if pre_setup["side"] == "BUY" else "🔴 SELL"
+            mins_rem = pre_setup["mins_remaining"]
+
+            tg_msg = (
+                f"⏳ <b>PRE-TRADE PREPARATION ALERT (~30 MINS NOTICE)</b>\n\n"
+                f"⚠️ <b>High Probability Setup Developing!</b>\n"
+                f"• <b>Asset:</b> <b>XAUUSD (Gold Spot)</b>\n"
+                f"• <b>Expected Direction:</b> {side_emoji}\n"
+                f"• <b>Strategy:</b> <i>{pre_setup['strategy']}</i>\n"
+                f"• <b>Session:</b> <code>{pre_setup['session_tag']}</code>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📍 <b>Current Price:</b> <code>${pre_setup['current_price']:.{dec}f}</code>\n"
+                f"🎯 <b>Key Watch Zone:</b> <code>${pre_setup['key_level']:.{dec}f}</code> ({pre_setup['level_name']})\n"
+                f"⏱️ <b>Expected Entry:</b> <code>~{pre_setup['trigger_time_str']} (in ~{mins_rem} mins on 1H Close)</code>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📊 <b>Setup Analysis:</b>\n"
+                f"• {pre_setup['reason']}\n"
+                f"• Defined Risk per Ounce: <code>${dist:.2f}</code>\n"
+                f"━━━━━━━━━━━━━━━━━━━━━\n"
+                f"📲 <b>MT5 PREPARATION (DO THIS NOW):</b>\n"
+                f"1️⃣ <b>Free yourself:</b> Ensure 5–10 mins of uninterrupted focus.\n"
+                f"2️⃣ <b>Open MT5:</b> Bring up <b>XAUUSD</b> order execution screen.\n"
+                f"3️⃣ <b>Pre-fill Lot Sizes:</b>\n"
+                f"   • <b>Order A (70% Banker):</b> <code>{half1:.2f} lots</code> (TP1 ~<code>${pre_setup['tp1']:.{dec}f}</code>)\n"
+                f"   • <b>Order B (30% Runner):</b> <code>{half2:.2f} lots</code> (TP2 ~<code>${pre_setup['tp2']:.{dec}f}</code>)\n"
+                f"   • <b>Planned Stop Loss:</b> <code>${pre_setup['sl']:.{dec}f}</code>\n\n"
+                f"🔔 <i>Stand by! The confirmed execution trigger with exact order levels will be sent automatically when the 1H candle closes!</i>"
+            )
+
+            send_telegram(tg_msg)
+            print(f"[PRE-ALERT SENT TO TELEGRAM] {pre_setup['side']} {sym} in ~{mins_rem} mins")
+
+            # Broadcast to subscribers
+            with state_lock:
+                extra_subs = [s for s in daily_state.get("subscribers", []) if str(s) != str(TELEGRAM_CHAT_ID)]
+            for sub_id in extra_subs:
+                try:
+                    send_telegram(tg_msg, target_chat=str(sub_id))
+                except Exception:
+                    pass
+
+            # Save state and sync to webapp
+            with state_lock:
+                daily_state["last_pre_alert_candle"] = curr_candle_ts
+                daily_state["last_pre_alert_ts"] = time.time()
+                daily_state["pre_alert"] = {
+                    "active": True,
+                    "sym": sym,
+                    "side": pre_setup["side"],
+                    "strategy": pre_setup["strategy"],
+                    "current_price": pre_setup["current_price"],
+                    "key_level": pre_setup["key_level"],
+                    "level_name": pre_setup["level_name"],
+                    "est_time": f"~{mins_rem} mins ({pre_setup['trigger_time_str']})",
+                    "lots_a": half1,
+                    "lots_b": half2,
+                    "tp1": pre_setup["tp1"],
+                    "tp2": pre_setup["tp2"],
+                    "sl": pre_setup["sl"],
+                    "timestamp": int(time.time()),
+                }
+                daily_state["latest_lifecycle_event"] = {
+                    "type": "PRE_ALERT",
+                    "trade_id": "PRE-XAUUSD",
+                    "sym": sym,
+                    "side": pre_setup["side"],
+                    "price": pre_setup["current_price"],
+                    "time": ist_time.strftime("%I:%M %p IST"),
+                    "headline": f"⏳ 30-MIN PRE-ENTRY NOTICE: Probable {pre_setup['side']} {sym} in ~{mins_rem} mins",
+                    "subtext": f"Testing {pre_setup['level_name']} (${pre_setup['key_level']:.2f}). Free yourself & open MT5 to prepare orders!",
+                }
+                save_daily_state()
+
+            return tg_msg
+        except Exception as e:
+            print(f"[PRE-ALERT SCAN ERROR] {e}")
+
+    return None
+
+
 def generate_order_flow_map() -> str:
     """Generates complete Institutional Order Flow Level Map for Gold XAUUSD."""
     lines = [
@@ -1065,6 +1407,7 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                 daily_state["triggered_candles"][t["sym"]] = bar_ts
                 daily_state["trades_count"] += 1
                 daily_state["trades_list"].append(f"{t['side']} {t['sym']}")
+                daily_state["pre_alert"] = None
                 trade_id = f"TB-XAUUSD-{int(time.time())}"
                 trade_record = {
                     "id": trade_id,
@@ -1317,6 +1660,7 @@ def telegram_listener() -> None:
                         help_text = (
                             "🤖 <b>TRADING BOY AI Bot Interactive Menu:</b>\n\n"
                             "• <b>status</b> or <b>scan</b>: Live scan on Gold XAUUSD Order Flow + view active trades\n"
+                            "• <b>prealert</b> or <b>remind</b>: Instant ~30-min advance setup check & MT5 prep guide\n"
                             "• <b>chart gold</b>: Instant 1H chart snapshot with exact TP/SL levels\n"
                             "• <b>levels</b>: View Institutional Order Flow Map (POC & Value Area)\n"
                             "• <b>close [gold/all]</b>: Manually mark open position closed to unlock next setup\n"
@@ -1361,6 +1705,10 @@ def telegram_listener() -> None:
                         send_telegram("🏛️ <i>Calculating institutional Order Flow Value Areas & POCs...</i>")
                         report = generate_order_flow_map()
                         send_telegram(report)
+
+                    elif cmd in ("/prealert", "prealert", "/remind", "remind", "headsup", "alert"):
+                        send_telegram("⏳ <i>Running instant ~30-min advance pre-alert probability check for Gold XAUUSD...</i>")
+                        check_pre_entry_alert(is_manual_check=True)
 
                     elif cmd in ("/tp1", "tp1"):
                         now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST")
@@ -1801,6 +2149,11 @@ def background_scheduler() -> None:
             if now.minute in (1, 2) and now.hour != last_scanned_hour:
                 last_scanned_hour = now.hour
                 run_hourly_scan()
+
+            # 30-Minute Pre-Alert Check (~30 mins before candle close at :00 UTC / :30 IST)
+            if now.minute in (28, 29, 30, 31, 32) and now.hour != getattr(background_scheduler, "last_pre_alert_hour", -1):
+                background_scheduler.last_pre_alert_hour = now.hour
+                check_pre_entry_alert(is_manual_check=False)
         except Exception as e:
             print(f"[SCHEDULER ERROR] {e}")
         time.sleep(20)

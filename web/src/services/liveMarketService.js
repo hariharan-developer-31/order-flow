@@ -526,6 +526,7 @@ let localTradeState = {
   pnlPct: 0.0,
   tradesCount: 0,
   latestEvent: null,
+  preAlert: null,
 };
 
 try {
@@ -539,6 +540,7 @@ try {
         pnlPct: parsed.pnlPct || 0.0,
         tradesCount: parsed.tradesCount || 0,
         latestEvent: parsed.latestEvent || null,
+        preAlert: parsed.preAlert || null,
         isManuallyReset: parsed.isManuallyReset || false,
       };
     }
@@ -565,6 +567,12 @@ export function mergeRecentTrades(primaryList = [], secondaryList = []) {
     }
   }
   return unique;
+}
+
+export function clearPreAlert() {
+  localTradeState.preAlert = null;
+  saveLocalTradeState();
+  syncLifecycleToBackend('CLEAR_PRE_ALERT', 4028.50);
 }
 
 export function clearTradeHistory() {
@@ -765,7 +773,44 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
     hour12: false,
   }) + ' IST';
 
+  if (actionType === 'PRE_ALERT') {
+    const keyLvl = 4032.00;
+    localTradeState.preAlert = {
+      active: true,
+      sym: 'XAUUSD',
+      side: 'SELL',
+      strategy: '1. AMT 80% Value Area Rule',
+      currentPrice: p,
+      keyLevel: keyLvl,
+      levelName: 'Prior Day VAH',
+      estTime: 'in ~28 mins (1H Candle Close)',
+      lotsA: 0.04,
+      lotsB: 0.03,
+      tp1: 4022.00,
+      tp2: 4014.00,
+      sl: 4034.50,
+      timestamp: Date.now(),
+    };
+    localTradeState.latestEvent = {
+      type: 'PRE_ALERT',
+      headline: `⏳ 30-MIN PRE-ENTRY NOTICE: Probable SELL XAUUSD in ~28 mins`,
+      subtext: `Testing VAH ($${keyLvl.toFixed(2)}). Free yourself & open MT5 to prepare orders!`,
+      time: timeStr,
+    };
+    saveLocalTradeState();
+    syncLifecycleToBackend('PRE_ALERT', p);
+    return localTradeState.latestEvent;
+  }
+
+  if (actionType === 'CLEAR_PRE_ALERT') {
+    localTradeState.preAlert = null;
+    saveLocalTradeState();
+    syncLifecycleToBackend('CLEAR_PRE_ALERT', p);
+    return null;
+  }
+
   if (actionType === 'ARM_TRADE') {
+    localTradeState.preAlert = null;
     delete localTradeState.isManuallyReset;
     const newTrade = {
       id: `TB-XAUUSD-${Date.now()}`,
@@ -916,6 +961,7 @@ export function simulateLifecycleAction(actionType, currentPrice = 4028.50) {
       pnlPct: 0.0,
       tradesCount: 0,
       latestEvent: null,
+      preAlert: null,
       isManuallyReset: true,
     };
     saveLocalTradeState();
@@ -1055,6 +1101,9 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
         if (data.latest_lifecycle_event) {
           localTradeState.latestEvent = data.latest_lifecycle_event;
         }
+        if (data.pre_alert !== undefined) {
+          localTradeState.preAlert = data.pre_alert;
+        }
 
         saveLocalTradeState();
 
@@ -1074,6 +1123,7 @@ export async function getLiveExecutionSignals(symbol = 'XAUUSD', currentPrice = 
           latest_lifecycle_event: localTradeState.latestEvent,
           active_trades: localTradeState.activeTrades,
           recent_trades: localTradeState.recentTrades,
+          pre_alert: localTradeState.preAlert || null,
           signals_stream: baseStrategies,
         };
       }
