@@ -70,17 +70,17 @@ export default function Header({
     if (state.includes('BELOW')) {
       return 'bg-[#F8DCC7] text-[#0D0D0C] border-[#0D0D0C]/20';
     }
-    return 'bg-[#F4EBC6] text-[#0D0D0C] border-[#0D0D0C]/20';
+    return 'bg-[#F4F4F5] text-[#0D0D0C] border-[#0D0D0C]/20';
   };
 
   return (
-    <header className="bg-[#FBF6EF]/90 backdrop-blur-md border-b border-[#0D0D0C]/12 sticky top-0 z-30 w-full max-w-full overflow-x-hidden">
+    <header className="bg-white/95 backdrop-blur-md border-b border-[#0D0D0C]/12 sticky top-0 z-30 w-full max-w-full overflow-x-hidden">
       <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto px-2.5 sm:px-6 3xl:px-10 py-2.5 sm:py-3">
         <div className="flex flex-wrap items-center justify-between gap-2.5 sm:gap-4">
           {/* Logo & Brand (Editorial Inter Tight Typography) */}
           <div className="flex items-center gap-2.5 sm:gap-3.5 shrink-0">
             {/* Glossy 3D inflated brand accent */}
-            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[7px] bg-[#0D0D0C] text-[#FBF6EF] flex items-center justify-center font-bold text-sm sm:text-base shrink-0 border border-[#0D0D0C] shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),0_2px_8px_rgba(13,13,12,0.14)] relative overflow-hidden group">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-[7px] bg-[#0D0D0C] text-white flex items-center justify-center font-bold text-sm sm:text-base shrink-0 border border-[#0D0D0C] shadow-[inset_0_1px_2px_rgba(255,255,255,0.22),0_2px_8px_rgba(13,13,12,0.14)] relative overflow-hidden group">
               <span className="relative z-10 tracking-tight font-headline font-semibold">TB</span>
               <div className="absolute inset-0 bg-gradient-to-tr from-white/10 via-transparent to-transparent pointer-events-none"></div>
             </div>
@@ -89,7 +89,7 @@ export default function Header({
                 <h1 className="text-lg sm:text-[25px] font-semibold tracking-[-0.025em] text-[#0D0D0C] font-headline leading-tight">
                   TRADING BOY
                 </h1>
-                <span className="text-[10px] font-medium tracking-wide uppercase px-2 py-0.5 rounded-[7px] bg-[#F4EBC6] text-[#0D0D0C] border border-[#0D0D0C]/15 font-sans">
+                <span className="text-[10px] font-medium tracking-wide uppercase px-2 py-0.5 rounded-[7px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/15 font-sans">
                   Order Flow Pro
                 </span>
               </div>
@@ -100,18 +100,18 @@ export default function Header({
           </div>
 
           {/* Dedicated Institutional Gold (XAUUSD) Asset Badge */}
-          <div className="flex items-center gap-2 bg-[#F2ECDF] border border-[#0D0D0C]/15 px-3 py-1.5 rounded-[7px] shrink-0">
+          <div className="flex items-center gap-2 bg-[#F8F9FA] border border-[#0D0D0C]/15 px-3 py-1.5 rounded-[7px] shrink-0">
             <span className="w-2 h-2 rounded-full bg-[#E9C22E] animate-pulse"></span>
             <span className="text-xs font-semibold text-[#0D0D0C] tracking-tight font-sans">
               XAUUSD • Gold Spot
             </span>
-            <span className="text-[10px] font-medium text-[#0D0D0C]/80 bg-[#F4EBC6] px-1.5 py-0.5 rounded-[5px] font-mono border border-[#0D0D0C]/10 hidden xs:inline">
+            <span className="text-[10px] font-medium text-[#0D0D0C]/80 bg-[#F4F4F5] px-1.5 py-0.5 rounded-[5px] font-mono border border-[#0D0D0C]/10 hidden xs:inline">
               COMEX GC
             </span>
           </div>
 
           {/* Live Indian Standard Time & Active Institutional Session */}
-          <div className="hidden md:flex items-center gap-2.5 bg-[#FBF6EF] border border-[#0D0D0C]/15 px-3 py-1.5 rounded-[7px]">
+          <div className="hidden md:flex items-center gap-2.5 bg-white border border-[#0D0D0C]/15 px-3 py-1.5 rounded-[7px]">
             <div className="flex items-center gap-1.5 font-mono text-xs font-medium text-[#0D0D0C]">
               <span className="w-2 h-2 rounded-full bg-[#3FB874] animate-pulse"></span>
               <span>{istClock || 'Loading...'} IST</span>
@@ -124,7 +124,7 @@ export default function Header({
 
           {/* Current Asset Live Stats & Controls */}
           <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-            <div className="flex items-center gap-2.5 sm:gap-3.5 bg-[#FBF6EF] border border-[#0D0D0C]/15 px-3 py-1.5 rounded-[7px]">
+            <div className="flex items-center gap-2.5 sm:gap-3.5 bg-white border border-[#0D0D0C]/15 px-3 py-1.5 rounded-[7px]">
               <div>
                 <span className="text-[10px] uppercase font-medium text-[#0D0D0C]/56 block font-sans">
                   {activeSymbol} Spot
@@ -151,7 +151,7 @@ export default function Header({
 
             {/* Live Today's Net P&L % Badge */}
             {signalsData?.today_pnl && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] bg-[#FBF6EF] border border-[#0D0D0C]/15 text-xs font-mono font-medium">
+              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] bg-white border border-[#0D0D0C]/15 text-xs font-mono font-medium">
                 <span className="text-[11px] text-[#0D0D0C]/56 font-sans">Today:</span>
                 <span className={signalsData.today_pnl.startsWith('+') ? 'text-[#3FB874] font-bold' : 'text-[#F2772F] font-bold'}>
                   {signalsData.today_pnl}
@@ -161,12 +161,12 @@ export default function Header({
             )}
 
             {/* View Switcher: Chart & VP vs Footprint vs VP Depth vs Signals vs Combined */}
-            <div className="hidden lg:flex items-center bg-[#F4EFE6] p-1 rounded-[7px] border border-[#0D0D0C]/12 text-[14px] font-sans font-medium">
+            <div className="hidden lg:flex items-center bg-[#F4F4F5] p-1 rounded-[7px] border border-[#0D0D0C]/12 text-[14px] font-sans font-medium">
               <button
                 onClick={() => onChangeView('candles')}
                 className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${
                   activeView === 'candles'
-                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    ? 'bg-[#0D0D0C] text-white font-semibold'
                     : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C] hover:bg-[#0D0D0C]/5'
                 }`}
               >
@@ -176,7 +176,7 @@ export default function Header({
                 onClick={() => onChangeView('footprint')}
                 className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${
                   activeView === 'footprint'
-                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    ? 'bg-[#0D0D0C] text-white font-semibold'
                     : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C] hover:bg-[#0D0D0C]/5'
                 }`}
               >
@@ -186,7 +186,7 @@ export default function Header({
                 onClick={() => onChangeView('volume-profile')}
                 className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${
                   activeView === 'volume-profile'
-                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    ? 'bg-[#0D0D0C] text-white font-semibold'
                     : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C] hover:bg-[#0D0D0C]/5'
                 }`}
               >
@@ -196,7 +196,7 @@ export default function Header({
                 onClick={() => onChangeView('signals')}
                 className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${
                   activeView === 'signals'
-                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    ? 'bg-[#0D0D0C] text-white font-semibold'
                     : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C] hover:bg-[#0D0D0C]/5'
                 }`}
               >
@@ -206,7 +206,7 @@ export default function Header({
                 onClick={() => onChangeView('all')}
                 className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${
                   activeView === 'all'
-                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    ? 'bg-[#0D0D0C] text-white font-semibold'
                     : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C] hover:bg-[#0D0D0C]/5'
                 }`}
               >
@@ -219,7 +219,7 @@ export default function Header({
               <button
                 onClick={onToggleSound}
                 title={soundEnabled ? 'Mute Alert Sound' : 'Enable Alert Sound'}
-                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] transition-all duration-300"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] transition-all duration-300"
               >
                 {soundEnabled ? (
                   <Volume2 className="w-4 h-4" />
@@ -232,7 +232,7 @@ export default function Header({
                 onClick={onRefresh}
                 disabled={isLoading}
                 title="Refresh Live Data"
-                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] transition-all duration-300 disabled:opacity-40"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] transition-all duration-300 disabled:opacity-40"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
@@ -242,7 +242,7 @@ export default function Header({
               <button
                 onClick={onOpenSettings}
                 title="Configure Backend API URL"
-                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] transition-all duration-300"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] transition-all duration-300"
               >
                 <Settings className="w-4 h-4" />
               </button>

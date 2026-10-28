@@ -28,9 +28,8 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
       {/* 1. Point of Control Card - Pastel Lemon Cream (#F2ECDF to #F4EBC6) */}
-      <div className="grad-lemon border border-[#0D0D0C]/15 rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        {/* Soft Radial Glow */}
-        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full radial-glow-lemon pointer-events-none"></div>
+      <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
+        
 
         <div>
           <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
@@ -40,7 +39,7 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
               </span>
               Point of Control (POC)
             </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
               Magnet Node
             </span>
           </div>
@@ -49,7 +48,7 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
             <span className="text-3xl sm:text-4xl lg:text-[54px] font-semibold font-headline text-[#0D0D0C] tracking-[-0.03em] leading-none">
               {poc ? poc.toFixed(dec) : '---'}
             </span>
-            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-[5px] bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 shrink-0">
+            <span className="text-xs font-mono font-medium px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/15 shrink-0">
               {poc ? distPOCFormatted : ''}
             </span>
           </div>
@@ -61,9 +60,8 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
       </div>
 
       {/* 2. Value Area Range - Pastel Rose Lilac (#F0E4E6 to #ECD6E2) */}
-      <div className="grad-rose border border-[#0D0D0C]/15 rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        {/* Soft Radial Glow */}
-        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full radial-glow-rose pointer-events-none"></div>
+      <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
+        
 
         <div>
           <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
@@ -73,7 +71,7 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
               </span>
               70% Value Area (VA)
             </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
               Balance Zone
             </span>
           </div>
@@ -105,9 +103,8 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
       </div>
 
       {/* 3. Prior Day Liquidity Range - Pastel Peach Apricot (#F8DCC7 to #F9CBA9) */}
-      <div className="grad-peach border border-[#0D0D0C]/15 rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        {/* Soft Radial Glow */}
-        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full radial-glow-peach pointer-events-none"></div>
+      <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
+        
 
         <div>
           <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
@@ -117,7 +114,7 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
               </span>
               Liquidity Extremes (PDH/PDL)
             </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
               Stop Pools
             </span>
           </div>
@@ -145,9 +142,8 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
       </div>
 
       {/* 4. Capital Guard & Daily Pacing Card - Pastel Sage Mint (#E9EBE0 to #DFE9D4) */}
-      <div className="grad-sage border border-[#0D0D0C]/15 rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        {/* Soft Radial Glow */}
-        <div className="absolute -right-8 -top-8 w-32 h-32 rounded-full radial-glow-sage pointer-events-none"></div>
+      <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
+        
 
         <div>
           <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
@@ -157,19 +153,19 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
               </span>
               Capital Guard & Risk
             </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
+            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
               Safe: -2.5%
             </span>
           </div>
 
           <div className="flex items-center justify-between text-xs font-mono font-medium mt-2 gap-2 relative z-10">
-            <div className="bg-[#FBF6EF] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1">
+            <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1">
               <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Today's Net P&L</span>
               <span className={`text-base font-bold font-headline ${todayPnl.startsWith('+') ? 'text-[#3FB874]' : 'text-[#F2772F]'}`}>
                 {todayPnl}
               </span>
             </div>
-            <div className="bg-[#FBF6EF] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1 text-right">
+            <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1 text-right">
               <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Trades Pacing</span>
               <span className="text-[#0D0D0C] text-base font-bold font-headline">{tradesCount} / 3 Max</span>
             </div>

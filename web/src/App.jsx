@@ -254,12 +254,8 @@ export default function App() {
   }, [barsData]);
 
   return (
-    <div className="min-h-screen bg-[#FBF6EF] text-[#0D0D0C] flex flex-col font-sans selection:bg-[#0D0D0C] selection:text-[#FBF6EF] w-full max-w-full overflow-x-hidden relative">
-      {/* Layered Soft Radial Glows */}
-      <div className="absolute top-[-100px] left-[-100px] w-[600px] h-[600px] rounded-full radial-glow-lemon pointer-events-none opacity-70 animate-drift"></div>
-      <div className="absolute top-[250px] right-[-150px] w-[650px] h-[650px] rounded-full radial-glow-peach pointer-events-none opacity-50"></div>
-      <div className="absolute bottom-[200px] left-[10%] w-[550px] h-[550px] rounded-full radial-glow-sage pointer-events-none opacity-40"></div>
-      <div className="absolute top-[60%] right-[10%] w-[500px] h-[500px] rounded-full radial-glow-rose pointer-events-none opacity-45"></div>
+    <div className="min-h-screen bg-white text-[#0D0D0C] flex flex-col font-sans selection:bg-[#0D0D0C] selection:text-white w-full max-w-full overflow-x-hidden relative">
+      {/* Clean Pure White Canvas */}
 
       {/* 1. Top Navigation & Ticker Header */}
       <Header
@@ -302,15 +298,15 @@ export default function App() {
 
             {/* Quick Hero Metrics Group */}
             <div className="flex flex-wrap items-center gap-2 sm:gap-3 shrink-0">
-              <div className="bg-[#F4EFE6] border border-[#0D0D0C]/12 rounded-[7px] p-3 sm:p-3.5 min-w-[130px]">
+              <div className="bg-[#F8F9FA] border border-[#0D0D0C]/12 rounded-[7px] p-3 sm:p-3.5 min-w-[130px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
                 <span className="text-[11px] text-[#0D0D0C]/56 block font-sans font-medium">Daily Target</span>
                 <span className="text-xl sm:text-2xl font-semibold text-[#3FB874] font-headline">+2.0% - 3.0%</span>
               </div>
-              <div className="bg-[#F4EFE6] border border-[#0D0D0C]/12 rounded-[7px] p-3 sm:p-3.5 min-w-[130px]">
+              <div className="bg-[#F8F9FA] border border-[#0D0D0C]/12 rounded-[7px] p-3 sm:p-3.5 min-w-[130px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
                 <span className="text-[11px] text-[#0D0D0C]/56 block font-sans font-medium">Risk Limit</span>
                 <span className="text-xl sm:text-2xl font-semibold text-[#0D0D0C] font-headline">-2.5% Safe</span>
               </div>
-              <div className="bg-[#F4EFE6] border border-[#0D0D0C]/12 rounded-[7px] p-3 sm:p-3.5 min-w-[130px]">
+              <div className="bg-[#F8F9FA] border border-[#0D0D0C]/12 rounded-[7px] p-3 sm:p-3.5 min-w-[130px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
                 <span className="text-[11px] text-[#0D0D0C]/56 block font-sans font-medium">Pacing</span>
                 <span className="text-xl sm:text-2xl font-semibold text-[#0D0D0C] font-headline">{signalsData?.trades_count ?? 0} / 3 Max</span>
               </div>

@@ -18,7 +18,7 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
 
   if (!profile || profile.length === 0) {
     return (
-      <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] p-6 text-center text-[#0D0D0C]/42 shadow-xs">
+      <div className="bg-white border border-[#0D0D0C]/15 rounded-[7px] p-6 text-center text-[#0D0D0C]/42 shadow-xs">
         <p className="text-xs font-semibold">Volume profile histogram loading...</p>
       </div>
     );
@@ -32,22 +32,22 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
   const sortedProfile = [...profile].reverse();
 
   return (
-    <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] shadow-[0_2px_12px_rgba(13,13,12,0.04)] overflow-hidden flex flex-col h-full font-sans">
+    <div className="bg-white border border-[#0D0D0C]/15 rounded-[7px] shadow-[0_2px_12px_rgba(13,13,12,0.04)] overflow-hidden flex flex-col h-full font-sans">
       {/* Top Header */}
-      <div className="px-4 py-3 border-b border-[#0D0D0C]/12 flex items-center justify-between bg-[#FBF6EF]">
+      <div className="px-4 py-3 border-b border-[#0D0D0C]/12 flex items-center justify-between bg-white">
         <div className="flex items-center gap-2">
           <BarChart3 className="w-4 h-4 text-[#0D0D0C]" />
           <h3 className="font-semibold text-[#0D0D0C] text-xs sm:text-sm tracking-tight font-headline">
             Horizontal Volume Profile (Active Auction)
           </h3>
         </div>
-        <span className="text-[10.5px] font-mono font-medium text-[#0D0D0C]/70 bg-[#F4EFE6] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12">
+        <span className="text-[10.5px] font-mono font-medium text-[#0D0D0C]/70 bg-[#F8F9FA] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12">
           Total: {Math.round(totalVol).toLocaleString()} lots
         </span>
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2 bg-[#F4EFE6] border-b border-[#0D0D0C]/12 flex items-center justify-between text-[11px] font-medium">
+      <div className="px-4 py-2 bg-[#F8F9FA] border-b border-[#0D0D0C]/12 flex items-center justify-between text-[11px] font-medium">
         <span className="text-[#0D0D0C] flex items-center gap-1.5 font-mono">
           <span className="w-2.5 h-2.5 rounded-[3px] bg-[#E9C22E] border border-[#0D0D0C]/20"></span> POC ({pocPrice ? pocPrice.toFixed(decimals) : '---'})
         </span>
@@ -68,7 +68,7 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
           let borderColor = 'border-transparent';
 
           if (isPOC) {
-            barColor = 'bg-[#0D0D0C] text-[#FBF6EF] font-bold';
+            barColor = 'bg-[#0D0D0C] text-white font-bold';
             textColor = 'text-[#0D0D0C] font-bold';
             borderColor = 'border-[#0D0D0C]/35 ring-1 ring-[#0D0D0C]/20';
           } else if (inVA) {
@@ -79,7 +79,7 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
           return (
             <div
               key={idx}
-              className={`flex items-center text-[10px] font-mono rounded-[5px] px-2 py-1 border ${borderColor} hover:bg-[#F4EFE6] transition`}
+              className={`flex items-center text-[10px] font-mono rounded-[5px] px-2 py-1 border ${borderColor} hover:bg-[#F8F9FA] transition`}
             >
               {/* Price Label */}
               <div className={`w-16 font-semibold ${textColor}`}>
@@ -93,7 +93,7 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
                   style={{ width: `${widthPct}%` }}
                 ></div>
                 {isPOC && (
-                  <span className="absolute inset-0 flex items-center justify-center text-[8.5px] font-black text-[#FBF6EF] uppercase tracking-wider">
+                  <span className="absolute inset-0 flex items-center justify-center text-[8.5px] font-black text-white uppercase tracking-wider">
                     ★ POC NODE
                   </span>
                 )}

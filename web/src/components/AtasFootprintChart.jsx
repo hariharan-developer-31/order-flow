@@ -617,12 +617,12 @@ export default function AtasFootprintChart({
   return (
     <div
       ref={containerRef}
-      className={`bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col transition-all shadow-[0_2px_12px_rgba(13,13,12,0.04)] font-sans ${
+      className={`bg-white text-[#0D0D0C] border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col transition-all shadow-[0_2px_12px_rgba(13,13,12,0.04)] font-sans ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : 'relative'
       }`}
     >
       {/* 1. Footprint Header & Control Toolbar */}
-      <div className="bg-[#FBF6EF] border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
+      <div className="bg-white border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
         {/* Left: Title & Live Pill */}
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm tracking-tight text-[#0D0D0C] font-headline">
@@ -630,7 +630,7 @@ export default function AtasFootprintChart({
             <span>XAUUSD (Gold Spot)</span>
           </div>
 
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-[5px] bg-[#F4EFE6] text-[#0D0D0C] border border-[#0D0D0C]/12 uppercase font-mono">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/12 uppercase font-mono">
             {timeframe} Footprint
           </span>
 
@@ -642,14 +642,14 @@ export default function AtasFootprintChart({
 
         {/* Center: Timeframe Switcher */}
         {onSelectTimeframe && (
-          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4EFE6] text-xs font-medium">
+          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4F4F5] text-xs font-medium">
             {['5m', '15m', '1h', '4h'].map((tf) => (
               <button
                 key={tf}
                 onClick={() => onSelectTimeframe(tf)}
                 className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                   timeframe.toLowerCase() === tf
-                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    ? 'bg-[#0D0D0C] text-white font-semibold'
                     : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
                 }`}
               >
@@ -662,12 +662,12 @@ export default function AtasFootprintChart({
         {/* Right: Display Mode, Zoom Controls, Reset */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Display Mode: Bid x Ask vs Delta vs Volume */}
-          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4EFE6] text-[11px] font-medium">
+          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4F4F5] text-[11px] font-medium">
             <button
               onClick={() => setDisplayMode('bid_ask')}
               className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                 displayMode === 'bid_ask'
-                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  ? 'bg-[#0D0D0C] text-white font-semibold'
                   : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
               title="Show Bid x Ask Volume"
@@ -678,7 +678,7 @@ export default function AtasFootprintChart({
               onClick={() => setDisplayMode('delta')}
               className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                 displayMode === 'delta'
-                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  ? 'bg-[#0D0D0C] text-white font-semibold'
                   : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
               title="Show Cluster Net Delta"
@@ -689,7 +689,7 @@ export default function AtasFootprintChart({
               onClick={() => setDisplayMode('volume')}
               className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                 displayMode === 'volume'
-                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  ? 'bg-[#0D0D0C] text-white font-semibold'
                   : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
               title="Show Total Volume"
@@ -699,24 +699,24 @@ export default function AtasFootprintChart({
           </div>
 
           {/* Zoom Buttons */}
-          <div className="flex items-center gap-0.5 bg-[#F4EFE6] p-0.5 rounded-[5px] border border-[#0D0D0C]/12">
+          <div className="flex items-center gap-0.5 bg-[#F4F4F5] p-0.5 rounded-[5px] border border-[#0D0D0C]/12">
             <button
               onClick={handleZoomIn}
-              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-[#FBF6EF] transition"
+              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-white transition"
               title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleZoomOut}
-              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-[#FBF6EF] transition"
+              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-white transition"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleResetView}
-              className="px-1.5 h-7 flex items-center gap-1 rounded-[4px] text-[10px] font-semibold text-[#0D0D0C] hover:bg-[#FBF6EF] transition"
+              className="px-1.5 h-7 flex items-center gap-1 rounded-[4px] text-[10px] font-semibold text-[#0D0D0C] hover:bg-white transition"
               title="Reset View"
             >
               <RotateCcw className="w-3 h-3" />
@@ -728,7 +728,7 @@ export default function AtasFootprintChart({
           {onToggleFullscreen && (
             <button
               onClick={onToggleFullscreen}
-              className="p-1.5 rounded-[5px] border border-[#0D0D0C]/15 bg-[#F4EFE6] text-[#0D0D0C] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] transition duration-300"
+              className="p-1.5 rounded-[5px] border border-[#0D0D0C]/15 bg-[#F4F4F5] text-[#0D0D0C] hover:bg-[#0D0D0C] hover:text-white transition duration-300"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Footprint'}
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -738,7 +738,7 @@ export default function AtasFootprintChart({
       </div>
 
       {/* 2. Top Metric Ribbon */}
-      <div className="bg-[#F4EFE6] border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono w-full">
+      <div className="bg-[#F4F4F5] border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono w-full">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="text-[11px] text-[#0D0D0C]/56 font-sans">Active Candle:</span>
           <span className={`font-bold ${latestDelta >= 0 ? 'text-[#3FB874]' : 'text-[#F2772F]'}`}>

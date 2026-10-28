@@ -185,9 +185,9 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
   };
 
   return (
-    <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col h-full font-sans shadow-[0_2px_12px_rgba(13,13,12,0.04)]">
+    <div className="bg-white border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col h-full font-sans shadow-[0_2px_12px_rgba(13,13,12,0.04)]">
       {/* 1. Header Toolbar */}
-      <div className="px-4 sm:px-5 py-3 border-b border-[#0D0D0C]/12 flex flex-wrap items-center justify-between gap-2 bg-[#FBF6EF]">
+      <div className="px-4 sm:px-5 py-3 border-b border-[#0D0D0C]/12 flex flex-wrap items-center justify-between gap-2 bg-white">
         <div className="flex items-center gap-2.5">
           <div className="w-2.5 h-2.5 rounded-full bg-[#3FB874] animate-pulse"></div>
           <div>
@@ -204,12 +204,12 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
         <div className="flex items-center gap-1.5">
           <button
             onClick={() => setShowTester((v) => !v)}
-            className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F4EFE6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 font-mono transition duration-300"
+            className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F4F4F5] hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] border border-[#0D0D0C]/15 font-mono transition duration-300"
             title="Toggle Lifecycle Testing Bar"
           >
             {showTester ? 'Hide Test' : '⚡ Test Lifecycle'}
           </button>
-          <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F4EFE6] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono">
             @tradingboyorderbot
           </span>
           <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#DFE9D4] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono">
@@ -220,7 +220,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
 
       {/* Interactive Lifecycle Simulator Toolbar */}
       {showTester && (
-        <div className="p-2.5 bg-[#F4EFE6] border-b border-[#0D0D0C]/12 flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono">
+        <div className="p-2.5 bg-[#F4F4F5] border-b border-[#0D0D0C]/12 flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono">
           <span className="font-medium text-[#0D0D0C] text-[11px] flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-[#0D0D0C]" />
             <span>Interactive Simulator:</span>
@@ -228,44 +228,44 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
           <div className="flex flex-wrap items-center gap-1">
             <button
               onClick={() => handleSimulate('PRE_ALERT')}
-              className="px-2 py-1 rounded-[5px] bg-[#F4EBC6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
+              className="px-2 py-1 rounded-[5px] bg-[#F4F4F5] hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
               title="Simulate 30-min advance heads-up pre-alert"
             >
               0. Pre-Alert (30m)
             </button>
             <button
               onClick={() => handleSimulate('ARM_TRADE')}
-              className="px-2 py-1 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/20 text-[10px] transition duration-300"
+              className="px-2 py-1 rounded-[5px] bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold border border-[#0D0D0C]/20 text-[10px] transition duration-300"
             >
               1. Arm Trade
             </button>
             <button
               onClick={() => handleSimulate('TP1')}
-              className="px-2 py-1 rounded-[5px] bg-[#DFE9D4] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
+              className="px-2 py-1 rounded-[5px] bg-[#DFE9D4] hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               2. Hit TP1 (+0.70% & BE)
             </button>
             <button
               onClick={() => handleSimulate('TP2')}
-              className="px-2 py-1 rounded-[5px] bg-[#DFE9D4] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
+              className="px-2 py-1 rounded-[5px] bg-[#DFE9D4] hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               3. Hit TP2 (+1.15% Win)
             </button>
             <button
               onClick={() => handleSimulate('BE')}
-              className="px-2 py-1 rounded-[5px] bg-[#F4EBC6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
+              className="px-2 py-1 rounded-[5px] bg-[#F4F4F5] hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               4. BE Exit (+0.70% Kept)
             </button>
             <button
               onClick={() => handleSimulate('SL')}
-              className="px-2 py-1 rounded-[5px] bg-[#F8DCC7] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
+              className="px-2 py-1 rounded-[5px] bg-[#F8DCC7] hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               5. Hit SL (-0.50%)
             </button>
             <button
               onClick={() => handleSimulate('RESET')}
-              className="px-2 py-1 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
+              className="px-2 py-1 rounded-[5px] bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
               title="Reset state to flat"
             >
               <RotateCcw className="w-3 h-3" />
@@ -293,14 +293,14 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
       )}
 
       {/* 2. Top Navigation Tabs: Live Signal | Strategy | History */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 px-3 sm:px-4 py-2 bg-[#F4EFE6] border-b border-[#0D0D0C]/12 w-full">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 px-3 sm:px-4 py-2 bg-[#F4F4F5] border-b border-[#0D0D0C]/12 w-full">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => setActiveTab('live')}
             className={`px-3 py-1.5 rounded-[5px] text-xs transition duration-300 flex items-center gap-1.5 ${
               activeTab === 'live'
-                ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
-                : 'bg-[#FBF6EF] text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
+                ? 'bg-[#0D0D0C] text-white font-semibold'
+                : 'bg-white text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
             }`}
           >
             <Zap className={`w-3.5 h-3.5 ${activeTab === 'live' ? 'text-[#E9C22E]' : 'text-[#0D0D0C]'}`} />
@@ -314,8 +314,8 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
             onClick={() => setActiveTab('strategy')}
             className={`px-3 py-1.5 rounded-[5px] text-xs transition duration-300 flex items-center gap-1.5 ${
               activeTab === 'strategy'
-                ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
-                : 'bg-[#FBF6EF] text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
+                ? 'bg-[#0D0D0C] text-white font-semibold'
+                : 'bg-white text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -326,14 +326,14 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
             onClick={() => setActiveTab('history')}
             className={`px-3 py-1.5 rounded-[5px] text-xs transition duration-300 flex items-center gap-1.5 ${
               activeTab === 'history'
-                ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
-                : 'bg-[#FBF6EF] text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
+                ? 'bg-[#0D0D0C] text-white font-semibold'
+                : 'bg-white text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
             }`}
           >
             <span>History</span>
             <span
               className={`px-1.5 py-0.2 rounded-[5px] text-[10px] font-mono ${
-                activeTab === 'history' ? 'bg-[#FBF6EF] text-[#0D0D0C]' : 'bg-[#0D0D0C]/10 text-[#0D0D0C]'
+                activeTab === 'history' ? 'bg-white text-[#0D0D0C]' : 'bg-[#0D0D0C]/10 text-[#0D0D0C]'
               }`}
             >
               {recentTrades.length}
@@ -365,14 +365,14 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
               return (
                 <div
                   key={idx}
-                  className="p-4 sm:p-5 rounded-[7px] border-2 border-[#0D0D0C] bg-[#FBF6EF] shadow-[0_2px_12px_rgba(13,13,12,0.05)]"
+                  className="p-4 sm:p-5 rounded-[7px] border-2 border-[#0D0D0C] bg-white shadow-[0_2px_12px_rgba(13,13,12,0.05)]"
                 >
                   {/* Header: Side & Status */}
                   <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 pb-3 border-b border-[#0D0D0C]/12">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-[#3FB874] animate-ping"></span>
                       <span
-                        className={`text-xs font-semibold px-2.5 py-1 rounded-[5px] text-[#FBF6EF] font-mono tracking-tight bg-[#0D0D0C]`}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-[5px] text-white font-mono tracking-tight bg-[#0D0D0C]`}
                       >
                         ACTIVE SIGNAL: {at.side} XAUUSD
                       </span>
@@ -388,7 +388,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                           <span>TP1 HIT • SL AT BREAKEVEN</span>
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 rounded-[5px] bg-[#F4EBC6] text-[#0D0D0C] border border-[#0D0D0C]/15 flex items-center gap-1 font-semibold">
+                        <span className="px-2.5 py-1 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/15 flex items-center gap-1 font-semibold">
                           <Activity className="w-3.5 h-3.5 text-[#0D0D0C] animate-pulse" />
                           <span>INITIAL POSITION RUNNING</span>
                         </span>
@@ -408,7 +408,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                       </p>
                     </div>
                   ) : (
-                    <div className="mb-3.5 p-3 rounded-[5px] bg-[#F4EFE6] border border-[#0D0D0C]/15 text-[#0D0D0C] text-xs font-mono">
+                    <div className="mb-3.5 p-3 rounded-[5px] bg-[#F4F4F5] border border-[#0D0D0C]/15 text-[#0D0D0C] text-xs font-mono">
                       <div className="flex items-center gap-1.5 font-bold text-[#0D0D0C] mb-1">
                         <Activity className="w-4 h-4 text-[#0D0D0C] animate-pulse" />
                         <span>TWIN ORDERS ACTIVE IN MT5</span>
@@ -420,7 +420,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                   )}
 
                   {/* 3-Step Lifecycle Visual Progress Bar */}
-                  <div className="mb-3.5 bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono text-[11px]">
+                  <div className="mb-3.5 bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono text-[11px]">
                     <div className="flex items-center justify-between text-[#0D0D0C]/56 mb-1.5 text-[10px] font-sans font-medium uppercase">
                       <span>Trade Progress Stepper</span>
                       <span>Lifecycle State</span>
@@ -434,13 +434,13 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                         className={`p-2 rounded-[5px] border font-semibold ${
                           isAtTP1
                             ? 'bg-[#DFE9D4] text-[#0D0D0C] border-[#0D0D0C]/25 ring-1 ring-[#0D0D0C]/20'
-                            : 'bg-[#FBF6EF] text-[#0D0D0C] border-[#0D0D0C]/15'
+                            : 'bg-white text-[#0D0D0C] border-[#0D0D0C]/15'
                         }`}
                       >
                         <span className="block text-[9px] text-[#0D0D0C]/56">2. Target 1 (POC)</span>
                         <span className="text-sm">{at.tp1}</span>
                       </div>
-                      <div className="p-2 rounded-[5px] bg-[#FBF6EF] border border-[#0D0D0C]/15 text-[#0D0D0C] font-semibold">
+                      <div className="p-2 rounded-[5px] bg-white border border-[#0D0D0C]/15 text-[#0D0D0C] font-semibold">
                         <span className="block text-[9px] text-[#0D0D0C]/56">3. Target 2 (Opp. VA)</span>
                         <span className="text-sm">{at.tp2}</span>
                       </div>
@@ -449,13 +449,13 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
 
                   {/* Twin Orders Real-Time Breakdown */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono mb-3.5">
-                    <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                    <div className="bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                       <span className="text-[10px] text-[#0D0D0C]/56 block font-sans font-medium">Order A (70% Banker):</span>
                       <span className="font-bold text-[#0D0D0C] text-sm">
                         {isAtTP1 ? '✅ Banked (+0.70%) at POC' : `Target: ${at.tp1}`}
                       </span>
                     </div>
-                    <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                    <div className="bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                       <span className="text-[10px] text-[#0D0D0C]/56 block font-sans font-medium">Order B (30% Runner):</span>
                       <span className="font-bold text-[#0D0D0C] text-sm">
                         {isAtTP1 ? `Running to ${at.tp2} (SL @ Breakeven)` : `Target: ${at.tp2} (SL: ${at.sl})`}
@@ -466,7 +466,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                   {/* Copy Live Ticket Button */}
                   <button
                     onClick={() => handleCopyTicket(at, idx, 'LIVE SIGNAL')}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[7px] text-xs font-semibold transition-all duration-300 bg-[#0D0D0C] text-[#FBF6EF] hover:bg-[#0D0D0C]/85 border border-[#0D0D0C] active:scale-[0.99]"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[7px] text-xs font-semibold transition-all duration-300 bg-[#0D0D0C] text-white hover:bg-[#0D0D0C]/85 border border-[#0D0D0C] active:scale-[0.99]"
                   >
                     {copiedId === idx ? (
                       <>
@@ -485,18 +485,18 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
             })
           ) : preAlert && preAlert.active ? (
             /* 30-Minute Advance Pre-Entry Alert & Preparation Card */
-            <div className="grad-lemon border-2 border-[#0D0D0C] rounded-[7px] p-5 sm:p-6 shadow-[0_2px_12px_rgba(13,13,12,0.06)] font-mono">
+            <div className="bg-white border-2 border-[#0D0D0C] rounded-[7px] p-5 sm:p-6 shadow-[0_2px_12px_rgba(13,13,12,0.06)] font-mono">
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0D0D0C]/15 pb-3 mb-4">
                 <div className="flex items-center gap-2">
                   <span className="w-2.5 h-2.5 rounded-full bg-[#E9C22E] animate-ping"></span>
-                  <span className="px-2.5 py-0.5 rounded-[5px] bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 font-bold text-xs uppercase tracking-wide">
+                  <span className="px-2.5 py-0.5 rounded-[5px] bg-white text-[#0D0D0C] border border-[#0D0D0C]/15 font-bold text-xs uppercase tracking-wide">
                     ⏳ 30-Min Advance Heads-Up
                   </span>
                   <span className="text-xs font-semibold text-[#0D0D0C] font-headline">
                     {preAlert.sym} ({preAlert.side})
                   </span>
                 </div>
-                <span className="text-[11px] font-semibold text-[#0D0D0C] bg-[#FBF6EF] px-2.5 py-1 rounded-[5px] border border-[#0D0D0C]/15">
+                <span className="text-[11px] font-semibold text-[#0D0D0C] bg-white px-2.5 py-1 rounded-[5px] border border-[#0D0D0C]/15">
                   {preAlert.est_time || preAlert.estTime || 'in ~28 mins'}
                 </span>
               </div>
@@ -513,26 +513,26 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
 
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                  <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                     <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Current Price</span>
                     <span className="font-bold text-[#0D0D0C]">${Number(preAlert.current_price || preAlert.currentPrice || currentPrice).toFixed(2)}</span>
                   </div>
-                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                  <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                     <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Watch Level</span>
                     <span className="font-bold text-[#0D0D0C]">${Number(preAlert.key_level || preAlert.keyLevel || 4032).toFixed(2)}</span>
                   </div>
-                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                  <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                     <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Order A (70% Banker)</span>
                     <span className="font-bold text-[#0D0D0C]">{preAlert.lots_a || preAlert.lotsA || 0.04} lots (TP1)</span>
                   </div>
-                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                  <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                     <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Order B (30% Runner)</span>
                     <span className="font-bold text-[#0D0D0C]">{preAlert.lots_b || preAlert.lotsB || 0.03} lots (TP2)</span>
                   </div>
                 </div>
 
                 {/* Preparation Steps Box */}
-                <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[5px] p-3 text-xs font-sans space-y-1.5 text-[#0D0D0C]">
+                <div className="bg-white border border-[#0D0D0C]/15 rounded-[5px] p-3 text-xs font-sans space-y-1.5 text-[#0D0D0C]">
                   <span className="font-bold font-mono text-[11px] text-[#0D0D0C] uppercase tracking-wide block">
                     📋 Advance Preparation Checklist (Do this now):
                   </span>
@@ -568,7 +568,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                       profit_factor: '2.71',
                       stage: 'WAIT'
                     }, 'pre-alert-copy', 'PRE_ALERT')}
-                    className="px-3 py-1.5 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-xs border border-[#0D0D0C]/15 transition duration-300 flex items-center gap-1.5"
+                    className="px-3 py-1.5 rounded-[5px] bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-semibold text-xs border border-[#0D0D0C]/15 transition duration-300 flex items-center gap-1.5"
                   >
                     {copiedId === 'pre-alert-copy' ? (
                       <>
@@ -584,13 +584,13 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                   </button>
                   <button
                     onClick={() => handleSimulate('CLEAR_PRE_ALERT')}
-                    className="px-3 py-1.5 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-medium text-xs border border-[#0D0D0C]/15 transition duration-300"
+                    className="px-3 py-1.5 rounded-[5px] bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] font-medium text-xs border border-[#0D0D0C]/15 transition duration-300"
                   >
                     Dismiss Notice
                   </button>
                   <button
                     onClick={() => handleSimulate('ARM_TRADE')}
-                    className="px-3.5 py-1.5 rounded-[5px] bg-[#0D0D0C] hover:bg-[#0D0D0C]/85 text-[#FBF6EF] font-semibold text-xs transition duration-300 flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-[5px] bg-[#0D0D0C] hover:bg-[#0D0D0C]/85 text-white font-semibold text-xs transition duration-300 flex items-center gap-1.5"
                   >
                     <Zap className="w-3.5 h-3.5 text-[#E9C22E]" />
                     <span>Arm Trade Now</span>
@@ -600,8 +600,8 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
             </div>
           ) : (
             /* Clean Minimalist Flat Status State */
-            <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] p-6 sm:p-8 text-center font-mono">
-              <div className="w-12 h-12 rounded-[7px] bg-[#F4EFE6] text-[#0D0D0C] border border-[#0D0D0C]/15 flex items-center justify-center mx-auto mb-3.5 shadow-xs">
+            <div className="bg-white border border-[#0D0D0C]/15 rounded-[7px] p-6 sm:p-8 text-center font-mono">
+              <div className="w-12 h-12 rounded-[7px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/15 flex items-center justify-center mx-auto mb-3.5 shadow-xs">
                 <Shield className="w-6 h-6" />
               </div>
               <h4 className="text-base sm:text-lg font-semibold text-[#0D0D0C] font-headline mb-1">
@@ -613,19 +613,19 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
 
               {/* Status Metric Pills */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs max-w-lg mx-auto mb-4">
-                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                <div className="bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                   <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Daily Target</span>
                   <span className="font-bold text-[#3FB874]">+2.0% - 3.0%</span>
                 </div>
-                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                <div className="bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                   <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Capital Guard</span>
                   <span className="font-bold text-[#0D0D0C]">Safe (-2.5%)</span>
                 </div>
-                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                <div className="bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                   <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Daily Pacing</span>
                   <span className="font-bold text-[#0D0D0C]">{tradesCount} / {maxTrades} Taken</span>
                 </div>
-                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                <div className="bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                   <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Scan Schedule</span>
                   <span className="font-bold text-[#0D0D0C]">:31 Hourly</span>
                 </div>
@@ -652,8 +652,8 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                   onClick={() => setActiveStrategyId(strat.id)}
                   className={`text-left p-3 rounded-[7px] transition-all duration-300 border text-xs ${
                     active
-                      ? 'bg-[#0D0D0C] text-[#FBF6EF] border-[#0D0D0C] font-semibold shadow-sm'
-                      : 'bg-[#FBF6EF] text-[#0D0D0C]/70 border-[#0D0D0C]/15 hover:bg-[#F4EFE6] hover:text-[#0D0D0C]'
+                      ? 'bg-[#0D0D0C] text-white border-[#0D0D0C] font-semibold shadow-sm'
+                      : 'bg-white text-[#0D0D0C]/70 border-[#0D0D0C]/15 hover:bg-[#F4F4F5] hover:text-[#0D0D0C]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
@@ -662,20 +662,20 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                     </span>
                     <span
                       className={`text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono font-bold ${
-                        active ? 'bg-[#FBF6EF] text-[#0D0D0C]' : 'bg-[#F4EFE6] text-[#0D0D0C]'
+                        active ? 'bg-white text-[#0D0D0C]' : 'bg-[#F4F4F5] text-[#0D0D0C]'
                       }`}
                     >
                       {strat.winRatePOC} Win
                     </span>
                   </div>
-                  <div className={`text-[11px] truncate ${active ? 'text-[#FBF6EF]/75' : 'text-[#0D0D0C]/56'}`}>{strat.name}</div>
+                  <div className={`text-[11px] truncate ${active ? 'text-white/75' : 'text-[#0D0D0C]/56'}`}>{strat.name}</div>
                 </button>
               );
             })}
           </div>
 
           {/* Strategy Details Card */}
-          <div className="bg-[#F4EFE6] border border-[#0D0D0C]/15 rounded-[7px] p-4 sm:p-5">
+          <div className="bg-[#F4F4F5] border border-[#0D0D0C]/15 rounded-[7px] p-4 sm:p-5">
             <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-[#0D0D0C]/12">
               <div>
                 <span className="text-[10.5px] font-mono text-[#3FB874] uppercase tracking-wider font-bold">
@@ -701,7 +701,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                 </span>
                 <div className="space-y-1.5 text-[11px] font-mono">
                   {activeStrat.gates.map((g, gi) => (
-                    <div key={gi} className="flex items-center gap-2 text-[#0D0D0C] bg-[#FBF6EF] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12">
+                    <div key={gi} className="flex items-center gap-2 text-[#0D0D0C] bg-white px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12">
                       <span>{g}</span>
                     </div>
                   ))}
@@ -711,25 +711,25 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
 
             {/* Strategy KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono mb-4">
-              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+              <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                 <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Target 1 Win Rate</span>
                 <span className="text-sm font-bold text-[#3FB874]">{activeStrat.winRatePOC}</span>
                 <span className="text-[9px] text-[#0D0D0C]/42 block truncate">Scale 70% Off</span>
               </div>
 
-              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+              <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                 <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Full Target Win</span>
                 <span className="text-sm font-bold text-[#3FB874]">{activeStrat.winRateFull}</span>
                 <span className="text-[9px] text-[#0D0D0C]/42 block truncate">30% Runner</span>
               </div>
 
-              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+              <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                 <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Defined Stop Risk</span>
                 <span className="text-sm font-bold text-[#F2772F]">{activeStrat.riskPips}</span>
                 <span className="text-[9px] text-[#0D0D0C]/42 block truncate">Max 0.5% - 1.0%</span>
               </div>
 
-              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+              <div className="bg-white p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
                 <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Footprint Confluence</span>
                 <span className="text-xs font-bold text-[#0D0D0C] truncate block">
                   {activeStrat.footprintDelta}
@@ -739,7 +739,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
             </div>
 
             {/* Theoretical & Execution Specs */}
-            <div className="bg-[#FBF6EF] p-3 rounded-[5px] border border-[#0D0D0C]/15 text-xs font-mono space-y-1.5 mb-4">
+            <div className="bg-white p-3 rounded-[5px] border border-[#0D0D0C]/15 text-xs font-mono space-y-1.5 mb-4">
               <div className="flex items-center justify-between text-[#0D0D0C]">
                 <span className="text-[#0D0D0C]/56 font-sans">Context Timeframe:</span>
                 <span className="font-semibold">{activeStrat.contextTf}</span>
@@ -755,9 +755,9 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
             </div>
 
             {/* Calculated Strategy Blueprint & Watchlist Levels */}
-            <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] p-3.5">
+            <div className="bg-white border border-[#0D0D0C]/15 rounded-[7px] p-3.5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-[5px] bg-[#F4EBC6] text-[#0D0D0C] border border-[#0D0D0C]/15 font-mono">
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/15 font-mono">
                   Calculated Strategy Blueprint Levels
                 </span>
                 <span className="text-xs font-bold text-[#0D0D0C] font-mono">
@@ -765,7 +765,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs mb-3 bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs mb-3 bg-[#F4F4F5] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                 <div>
                   <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Entry Price</span>
                   <span className="font-bold text-[#0D0D0C] text-sm">{activeBlueprint.entry}</span>
@@ -790,7 +790,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
 
               <button
                 onClick={() => handleCopyTicket(activeBlueprint, 'strat-bp', 'STRATEGY BLUEPRINT')}
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-[5px] text-xs font-medium transition duration-300 bg-[#F4EFE6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-[5px] text-xs font-medium transition duration-300 bg-[#F4F4F5] hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] border border-[#0D0D0C]/15 active:scale-[0.99]"
               >
                 {copiedId === 'strat-bp' ? (
                   <>
@@ -829,7 +829,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                   clearTradeHistory();
                   if (onLifecycleChange) onLifecycleChange({ type: 'CLEAR_HISTORY' });
                 }}
-                className="text-[10px] font-medium px-2 py-1 rounded-[5px] bg-[#F4EFE6] hover:bg-[#F8DCC7] text-[#0D0D0C] border border-[#0D0D0C]/15 transition flex items-center gap-1 font-mono"
+                className="text-[10px] font-medium px-2 py-1 rounded-[5px] bg-[#F4F4F5] hover:bg-[#F8DCC7] text-[#0D0D0C] border border-[#0D0D0C]/15 transition flex items-center gap-1 font-mono"
                 title="Clear completed trade logs"
               >
                 <Trash2 className="w-3 h-3" />
@@ -839,7 +839,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
           </div>
 
           {recentTrades.length === 0 ? (
-            <div className="text-center py-12 text-[#0D0D0C]/42 font-mono text-xs bg-[#F4EFE6]/50 rounded-[7px] border border-dashed border-[#0D0D0C]/15">
+            <div className="text-center py-12 text-[#0D0D0C]/42 font-mono text-xs bg-[#F4F4F5]/50 rounded-[7px] border border-dashed border-[#0D0D0C]/15">
               <Shield className="w-8 h-8 text-[#0D0D0C]/30 mx-auto mb-2" />
               <p className="font-semibold text-[#0D0D0C] text-sm">No completed trades yet today.</p>
               <p className="text-[11px] text-[#0D0D0C]/56 mt-1">Trades will automatically record here when they hit Target 1, Target 2, Breakeven, or Stop Loss.</p>
@@ -859,12 +859,12 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
               return (
                 <div
                   key={idx}
-                  className="bg-[#FBF6EF] border border-[#0D0D0C]/15 hover:border-[#0D0D0C]/35 rounded-[7px] p-3 sm:p-3.5 shadow-xs font-mono text-xs flex flex-wrap items-center justify-between gap-3 transition"
+                  className="bg-white border border-[#0D0D0C]/15 hover:border-[#0D0D0C]/35 rounded-[7px] p-3 sm:p-3.5 shadow-xs font-mono text-xs flex flex-wrap items-center justify-between gap-3 transition"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-[5px] text-[#FBF6EF] bg-[#0D0D0C]`}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-[5px] text-white bg-[#0D0D0C]`}
                       >
                         {rt.side} {rt.sym || 'XAUUSD'}
                       </span>
@@ -894,7 +894,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                       </span>
                     )}
                     {isBE && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#F4EBC6] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
                         ⚖️ Runner @ Breakeven (+0.70% Kept)
                       </span>
                     )}
@@ -904,7 +904,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
                       </span>
                     )}
                     {!isTP2 && !isTP1 && !isBE && !isLoss && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#F4EFE6] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
                         Closed ({rt.total_gain_pct >= 0 ? '+' : ''}{rt.total_gain_pct || 0}%)
                       </span>
                     )}
@@ -917,7 +917,7 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
       )}
 
       {/* 4. Footer Policy Note */}
-      <div className="p-3 bg-[#F4EFE6] border-t border-[#0D0D0C]/12 text-[10.5px] text-[#0D0D0C]/56 flex flex-wrap items-center justify-between gap-2 font-mono">
+      <div className="p-3 bg-[#F4F4F5] border-t border-[#0D0D0C]/12 text-[10.5px] text-[#0D0D0C]/56 flex flex-wrap items-center justify-between gap-2 font-mono">
         <span>Daily Target: +2.0% - 3.0% / Day</span>
         <span>•</span>
         <span>Capital Guard Limit: -2.5%</span>
