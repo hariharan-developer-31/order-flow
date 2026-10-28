@@ -199,27 +199,27 @@ export default function CandleChart({
         height: chartHeight,
         layout: {
           background: { type: 'solid', color: '#ffffff' },
-          textColor: '#334155',
-          fontFamily: 'Inter, sans-serif',
+          textColor: '#0D0D0C',
+          fontFamily: '"Inter Tight", Inter, sans-serif',
           fontSize: 12,
         },
         grid: {
-          vertLines: { color: '#f8fafc' },
-          horzLines: { color: '#f8fafc' },
+          vertLines: { color: 'rgba(13, 13, 12, 0.04)' },
+          horzLines: { color: 'rgba(13, 13, 12, 0.04)' },
         },
         crosshair: {
           mode: CrosshairMode.Normal,
           vertLine: {
-            color: '#cbd5e1',
+            color: 'rgba(13, 13, 12, 0.35)',
             width: 1,
             style: 3,
-            labelBackgroundColor: '#0f172a',
+            labelBackgroundColor: '#0D0D0C',
           },
           horzLine: {
-            color: '#cbd5e1',
+            color: 'rgba(13, 13, 12, 0.35)',
             width: 1,
             style: 3,
-            labelBackgroundColor: '#0f172a',
+            labelBackgroundColor: '#0D0D0C',
           },
         },
         localization: {
@@ -228,11 +228,11 @@ export default function CandleChart({
           timeFormatter: (time) => formatISTCrosshair(time),
         },
         rightPriceScale: {
-          borderColor: '#e2e8f0',
+          borderColor: 'rgba(13, 13, 12, 0.12)',
           scaleMargins: { top: 0.08, bottom: 0.08 },
         },
         timeScale: {
-          borderColor: '#e2e8f0',
+          borderColor: 'rgba(13, 13, 12, 0.12)',
           timeVisible: true,
           secondsVisible: false,
           rightOffset: 16,
@@ -245,15 +245,15 @@ export default function CandleChart({
       return;
     }
 
-    // Candlestick Series (Crisp green / red - compatible with lightweight-charts v4 and v5)
+    // Candlestick Series (Sage Green / Peach Red accents)
     const candleOptions = {
-      upColor: '#10b981',
-      downColor: '#ef4444',
+      upColor: '#3FB874',
+      downColor: '#F2772F',
       borderVisible: true,
-      borderUpColor: '#059669',
-      borderDownColor: '#dc2626',
-      wickUpColor: '#059669',
-      wickDownColor: '#dc2626',
+      borderUpColor: '#3FB874',
+      borderDownColor: '#F2772F',
+      wickUpColor: '#3FB874',
+      wickDownColor: '#F2772F',
       priceFormat: {
         type: 'price',
         precision: decimals,
@@ -664,30 +664,30 @@ export default function CandleChart({
   return (
     <div
       ref={chartWrapperRef}
-      className={`bg-white border border-slate-200/90 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col transition-all ${
+      className={`bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] shadow-[0_2px_12px_rgba(13,13,12,0.04)] overflow-hidden flex flex-col transition-all font-sans ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none p-4' : 'relative'
       }`}
     >
       {/* 1. Chart Toolbar & Timeframe Controls */}
-      <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-slate-200/80 flex flex-wrap items-center justify-between gap-2 sm:gap-3 bg-white w-full">
+      <div className="px-3 sm:px-4 py-2 sm:py-2.5 border-b border-[#0D0D0C]/12 flex flex-wrap items-center justify-between gap-2 sm:gap-3 bg-[#FBF6EF] w-full">
         {/* Left: Symbol & Timeframe Selectors */}
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5">
-            <span className="font-extrabold text-slate-900 text-sm tracking-tight">
+            <span className="font-semibold text-[#0D0D0C] text-sm tracking-tight font-headline">
               {symbolDisplay}
             </span>
           </div>
 
           {/* Timeframe Buttons: 5m, 15m, 1h, 4h */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+          <div className="flex items-center bg-[#F4EFE6] p-0.5 rounded-[5px] border border-[#0D0D0C]/12 text-xs font-medium">
             {TIMEFRAMES.map((tf) => (
               <button
                 key={tf.id}
                 onClick={() => onSelectTimeframe && onSelectTimeframe(tf.id)}
-                className={`px-2.5 py-1 rounded-md transition ${
+                className={`px-2.5 py-1 rounded-[4px] transition duration-300 ${
                   timeframe.toLowerCase() === tf.id
-                    ? 'bg-blue-600 text-white font-bold shadow-sm'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
                 }`}
               >
                 {tf.label}
@@ -696,26 +696,26 @@ export default function CandleChart({
           </div>
 
           {/* View Mode Toggle: Candles vs Footprint */}
-          <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200 text-xs font-semibold">
+          <div className="flex items-center bg-[#F4EFE6] p-0.5 rounded-[5px] border border-[#0D0D0C]/12 text-xs font-medium">
             <button
               onClick={() => setChartView('candles')}
-              className={`px-2.5 py-1 rounded-md transition ${
+              className={`px-2.5 py-1 rounded-[4px] transition duration-300 ${
                 chartView === 'candles'
-                  ? 'bg-white text-slate-900 font-bold shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
             >
               Candles + VP
             </button>
             <button
               onClick={() => setChartView('footprint')}
-              className={`px-2.5 py-1 rounded-md transition flex items-center gap-1 ${
+              className={`px-2.5 py-1 rounded-[4px] transition duration-300 flex items-center gap-1 ${
                 chartView === 'footprint'
-                  ? 'bg-white text-slate-900 font-bold shadow-sm'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
             >
-              <Flame className="w-3.5 h-3.5 text-amber-500" />
+              <Flame className="w-3.5 h-3.5 text-[#E9C22E]" />
               Footprint
             </button>
           </div>
@@ -724,16 +724,16 @@ export default function CandleChart({
           {chartView === 'candles' && (
             <button
               onClick={() => setShowInChartProfile((v) => !v)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-semibold border flex items-center gap-1.5 transition ${
+              className={`px-2.5 py-1 rounded-[5px] text-xs font-medium border flex items-center gap-1.5 transition duration-300 ${
                 showInChartProfile
-                  ? 'bg-blue-50 text-blue-700 border-blue-200 font-bold'
-                  : 'bg-slate-50 text-slate-500 border-slate-200'
+                  ? 'bg-[#F4EFE6] text-[#0D0D0C] border-[#0D0D0C]/25 font-semibold'
+                  : 'bg-[#FBF6EF] text-[#0D0D0C]/56 border-[#0D0D0C]/15 hover:text-[#0D0D0C]'
               }`}
               title="Toggle Left-Corner Volume Profile"
             >
-              <BarChart3 className="w-3.5 h-3.5 text-amber-500" />
+              <BarChart3 className="w-3.5 h-3.5 text-[#0D0D0C]" />
               <span>Left-Corner VP</span>
-              {showInChartProfile ? <Eye className="w-3 h-3 text-blue-600" /> : <EyeOff className="w-3 h-3" />}
+              {showInChartProfile ? <Eye className="w-3 h-3 text-[#0D0D0C]" /> : <EyeOff className="w-3 h-3" />}
             </button>
           )}
 
@@ -759,27 +759,27 @@ export default function CandleChart({
         <div className="flex items-center gap-2">
           {/* Live Candle Countdown Pill (Top Right Corner - Clean, no IST text) */}
           <div
-            className="flex items-center gap-1.5 font-mono text-xs font-bold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg border border-slate-200 shadow-xs"
+            className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#0D0D0C] bg-[#F4EFE6] px-2.5 py-1 rounded-[5px] border border-[#0D0D0C]/15"
             title={`Time remaining until current ${timeframe.toUpperCase()} candle closes`}
           >
-            <Clock className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
-            <span className="text-[10px] font-semibold text-slate-500 uppercase">{timeframe}:</span>
-            <span className="text-slate-900">{countdownText}</span>
+            <Clock className="w-3.5 h-3.5 text-[#0D0D0C] animate-pulse" />
+            <span className="text-[10px] font-medium text-[#0D0D0C]/56 uppercase">{timeframe}:</span>
+            <span className="text-[#0D0D0C] font-bold">{countdownText}</span>
           </div>
 
           {chartView === 'candles' && (
-            <div className="hidden md:flex items-center gap-2 text-[11px] font-semibold">
-              <span className="flex items-center gap-1 text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
-                <span className="w-2 h-2 bg-emerald-500 rounded-sm"></span> Buy Vol
+            <div className="hidden md:flex items-center gap-2 text-[11px] font-medium font-sans">
+              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#DFE9D4] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12">
+                <span className="w-2 h-2 bg-[#3FB874] rounded-sm"></span> Buy Vol
               </span>
-              <span className="flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                <span className="w-2 h-2 bg-rose-500 rounded-sm"></span> Sell Vol
+              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#F8DCC7] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12">
+                <span className="w-2 h-2 bg-[#F2772F] rounded-sm"></span> Sell Vol
               </span>
-              <span className="flex items-center gap-1 text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200">
-                <span className="w-2.5 h-0.5 bg-rose-500 rounded"></span> POC Line
+              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#F4EBC6] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono">
+                <span className="w-2.5 h-0.5 bg-[#E9C22E] rounded"></span> POC Line
               </span>
-              <span className="flex items-center gap-1 text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                <span className="w-2.5 h-0.5 bg-blue-600 rounded"></span> 70% VA
+              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#ECD6E2] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono">
+                <span className="w-2.5 h-0.5 bg-[#C564C4] rounded"></span> 70% VA
               </span>
             </div>
           )}
@@ -787,7 +787,7 @@ export default function CandleChart({
           {/* Full Screen Toggle Button */}
           <button
             onClick={toggleFullscreen}
-            className="w-8 h-8 rounded-lg border border-slate-200 hover:bg-slate-100 flex items-center justify-center text-slate-700 transition"
+            className="w-8 h-8 rounded-[5px] border border-[#0D0D0C]/15 hover:bg-[#0D0D0C] hover:text-[#FBF6EF] flex items-center justify-center text-[#0D0D0C] transition duration-300"
             title={isFullscreen ? 'Exit Full Screen (ESC)' : 'Full Screen Chart'}
           >
             {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
@@ -799,12 +799,12 @@ export default function CandleChart({
       <div className="flex-1 flex items-stretch relative min-h-[500px]">
         {/* TradingView Left Drawing Toolbar */}
         {chartView === 'candles' && (
-          <div className="w-11 border-r border-slate-200/80 bg-white p-1 flex flex-col items-center gap-1 z-20">
+          <div className="w-11 border-r border-[#0D0D0C]/12 bg-[#FBF6EF] p-1 flex flex-col items-center gap-1 z-20">
             <button
               onClick={() => setActiveTool('cursor')}
               title="Cursor / Crosshair"
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
-                activeTool === 'cursor' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
+                activeTool === 'cursor' ? 'bg-[#0D0D0C] text-[#FBF6EF]' : 'text-[#0D0D0C]/70 hover:bg-[#F4EFE6]'
               }`}
             >
               <Crosshair className="w-4 h-4" />
@@ -813,8 +813,8 @@ export default function CandleChart({
             <button
               onClick={() => setActiveTool('trendline')}
               title="Trendline Tool (Click 2 points)"
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
-                activeTool === 'trendline' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
+                activeTool === 'trendline' ? 'bg-[#0D0D0C] text-[#FBF6EF]' : 'text-[#0D0D0C]/70 hover:bg-[#F4EFE6]'
               }`}
             >
               <TrendingUp className="w-4 h-4" />
@@ -823,8 +823,8 @@ export default function CandleChart({
             <button
               onClick={() => setActiveTool('horizontal')}
               title="Horizontal Support/Resistance Line"
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
-                activeTool === 'horizontal' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
+                activeTool === 'horizontal' ? 'bg-[#0D0D0C] text-[#FBF6EF]' : 'text-[#0D0D0C]/70 hover:bg-[#F4EFE6]'
               }`}
             >
               <Minus className="w-4 h-4" />
@@ -833,20 +833,20 @@ export default function CandleChart({
             <button
               onClick={() => setActiveTool('fib')}
               title="Fibonacci Retracement (Low to High)"
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
-                activeTool === 'fib' ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-600 hover:bg-slate-200'
+              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
+                activeTool === 'fib' ? 'bg-[#0D0D0C] text-[#FBF6EF]' : 'text-[#0D0D0C]/70 hover:bg-[#F4EFE6]'
               }`}
             >
               <Layers className="w-4 h-4" />
             </button>
 
-            <div className="w-6 h-px bg-slate-200 my-1" />
+            <div className="w-6 h-px bg-[#0D0D0C]/15 my-1" />
 
             <button
               onClick={() => setActiveTool('long')}
               title="Long Position Tool (1:1 + 1:2 Twin RR Box)"
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
-                activeTool === 'long' ? 'bg-emerald-600 text-white shadow-sm' : 'text-emerald-700 hover:bg-emerald-50'
+              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
+                activeTool === 'long' ? 'bg-[#0D0D0C] text-[#3FB874]' : 'text-[#0D0D0C]/70 hover:bg-[#F4EFE6]'
               }`}
             >
               <ArrowUpRight className="w-4 h-4" />
@@ -855,8 +855,8 @@ export default function CandleChart({
             <button
               onClick={() => setActiveTool('short')}
               title="Short Position Tool (1:1 + 1:2 Twin RR Box)"
-              className={`w-8 h-8 rounded-lg flex items-center justify-center transition ${
-                activeTool === 'short' ? 'bg-rose-600 text-white shadow-sm' : 'text-rose-700 hover:bg-rose-50'
+              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
+                activeTool === 'short' ? 'bg-[#0D0D0C] text-[#F2772F]' : 'text-[#0D0D0C]/70 hover:bg-[#F4EFE6]'
               }`}
             >
               <ArrowDownRight className="w-4 h-4" />
@@ -868,14 +868,14 @@ export default function CandleChart({
                   <button
                     onClick={handleUndoDrawing}
                     title="Undo Drawing"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-slate-500 hover:bg-slate-200 transition"
+                    className="w-8 h-8 rounded-[5px] flex items-center justify-center text-[#0D0D0C]/56 hover:bg-[#F4EFE6] transition"
                   >
                     <Undo2 className="w-3.5 h-3.5" />
                   </button>
                   <button
                     onClick={handleClearDrawings}
                     title="Clear All Drawings"
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-rose-500 hover:bg-rose-50 transition"
+                    className="w-8 h-8 rounded-[5px] flex items-center justify-center text-[#F2772F] hover:bg-[#F8DCC7] transition"
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </button>

@@ -7,7 +7,7 @@
 
     <!-- PWA & Mobile Meta Tags -->
     <link rel="manifest" href="/manifest.json" />
-    <meta name="theme-color" content="#0284c7" />
+    <meta name="theme-color" content="#FBF6EF" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="TradingBoy" />
@@ -19,7 +19,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
       rel="stylesheet"
     />
     <!-- Tailwind CSS CDN -->
@@ -34,29 +34,83 @@
               '4k': '2560px',
             },
             fontFamily: {
-              sans: ['Inter', 'sans-serif'],
+              headline: ['"Inter Tight"', 'sans-serif'],
+              sans: ['"Inter Tight"', 'Inter', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace'],
             },
             colors: {
+              nearblack: '#0D0D0C',
+              cream: {
+                DEFAULT: '#FBF6EF',
+                50: '#FFFFFF',
+                100: '#FBF6EF',
+                200: '#F4EFE6',
+                300: '#ECE5D8',
+                400: '#DFD5C4',
+                500: '#C8BAA2',
+              },
+              pastel: {
+                lemon: '#F2ECDF',
+                lemonTo: '#F4EBC6',
+                peach: '#F8DCC7',
+                peachTo: '#F9CBA9',
+                sage: '#E9EBE0',
+                sageTo: '#DFE9D4',
+                rose: '#F0E4E6',
+                roseTo: '#ECD6E2',
+              },
+              accent: {
+                lemon: '#E9C22E',
+                peach: '#F2772F',
+                sage: '#3FB874',
+                rose: '#C564C4',
+              },
               brand: {
-                50: '#f0f9ff',
-                100: '#e0f2fe',
-                500: '#0284c7',
-                600: '#0369a1',
-                700: '#075985',
+                50: '#FBF6EF',
+                100: '#F4EFE6',
+                500: '#0D0D0C',
+                600: '#0D0D0C',
+                700: '#000000',
               },
               trade: {
-                green: '#10b981',
-                red: '#ef4444',
-                poc: '#d97706',
-                va: '#2563eb',
+                green: '#3FB874',
+                red: '#F2772F',
+                poc: '#E9C22E',
+                va: '#0D0D0C',
               },
+            },
+            borderRadius: {
+              DEFAULT: '7px',
+              refined: '7px',
+              'ref-sm': '5px',
+              'ref-lg': '12px',
+              'ref-xl': '16px',
+            },
+            transitionDuration: {
+              enter: '500ms',
+              exit: '420ms',
+              bg: '770ms',
+            },
+            transitionTimingFunction: {
+              fintech: 'cubic-bezier(0.16, 1, 0.3, 1)',
             },
           },
         },
       };
     </script>
     <style>
+      :root {
+        --color-nearblack: #0D0D0C;
+        --color-cream: #FBF6EF;
+        --color-cream-subtle: #F4EFE6;
+        --color-text-primary: #0D0D0C;
+        --color-text-secondary: rgba(13, 13, 12, 0.56);
+        --color-text-helper: rgba(13, 13, 12, 0.42);
+        --radius-ref: 7px;
+        --ease-fintech: cubic-bezier(0.16, 1, 0.3, 1);
+        --ref-scale: min(100vw / 1440, 100vh / 960);
+      }
+
       *, *::before, *::after {
         box-sizing: border-box;
       }
@@ -67,34 +121,222 @@
         position: relative;
         margin: 0;
         padding: 0;
-        background-color: #f8fafc;
-        color: #0f172a;
-        font-family: 'Inter', sans-serif;
+        background-color: #FBF6EF;
+        color: #0D0D0C;
+        font-family: 'Inter Tight', 'Inter', sans-serif;
       }
       #root {
         overflow-x: hidden !important;
         max-width: 100vw !important;
         width: 100% !important;
+        background-color: #FBF6EF;
       }
-      /* Custom Scrollbar for white theme */
+
+      /* Subtle 18% Fractal Noise Texture Overlay */
+      .bg-grain-overlay {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+        z-index: 1;
+        opacity: 0.18;
+        mix-blend-mode: multiply;
+        background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E");
+      }
+
+      /* Coordinated Pastel Gradients */
+      .grad-lemon {
+        background: linear-gradient(135deg, #F2ECDF 0%, #F4EBC6 100%);
+      }
+      .grad-peach {
+        background: linear-gradient(135deg, #F8DCC7 0%, #F9CBA9 100%);
+      }
+      .grad-sage {
+        background: linear-gradient(135deg, #E9EBE0 0%, #DFE9D4 100%);
+      }
+      .grad-rose {
+        background: linear-gradient(135deg, #F0E4E6 0%, #ECD6E2 100%);
+      }
+
+      /* Soft Radial Glows */
+      .radial-glow-lemon {
+        background: radial-gradient(circle at 50% 50%, rgba(244, 235, 198, 0.65) 0%, rgba(242, 236, 223, 0) 70%);
+      }
+      .radial-glow-peach {
+        background: radial-gradient(circle at 50% 50%, rgba(249, 203, 169, 0.55) 0%, rgba(248, 220, 199, 0) 70%);
+      }
+      .radial-glow-sage {
+        background: radial-gradient(circle at 50% 50%, rgba(223, 233, 212, 0.6) 0%, rgba(233, 235, 224, 0) 70%);
+      }
+      .radial-glow-rose {
+        background: radial-gradient(circle at 50% 50%, rgba(236, 214, 226, 0.55) 0%, rgba(240, 228, 230, 0) 70%);
+      }
+
+      /* Warm Editorial Typography Hierarchy */
+      .font-editorial-headline {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: clamp(2.5rem, calc(172px * min(100vw / 1440, 1)), 172px);
+        line-height: 0.86;
+        letter-spacing: -0.032em;
+        font-weight: 500;
+      }
+      .font-wordmark {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: 25px;
+        font-weight: 600;
+        letter-spacing: -0.025em;
+        line-height: 1.1;
+      }
+      .font-nav {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: 17px;
+        font-weight: 500;
+        letter-spacing: -0.015em;
+      }
+      .font-supporting {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: 18.5px;
+        line-height: 1.42;
+        letter-spacing: -0.015em;
+        color: rgba(13, 13, 12, 0.56);
+      }
+      .font-heading-2 {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: clamp(22px, 2.2vw, 29px);
+        font-weight: 500;
+        letter-spacing: -0.025em;
+        line-height: 1.15;
+      }
+      .font-metric-prominent {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: clamp(32px, 4vw, 54px);
+        font-weight: 600;
+        letter-spacing: -0.03em;
+        line-height: 0.95;
+      }
+      .font-metric-label {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: 16.5px;
+        font-weight: 500;
+        letter-spacing: -0.015em;
+      }
+      .font-helper {
+        font-family: 'Inter Tight', sans-serif;
+        font-size: 15px;
+        color: rgba(13, 13, 12, 0.42);
+        letter-spacing: -0.01em;
+      }
+
+      /* Opacity Specifications */
+      .text-secondary {
+        color: rgba(13, 13, 12, 0.56);
+      }
+      .text-helper {
+        color: rgba(13, 13, 12, 0.42);
+      }
+
+      /* Warm Minimalist Buttons & Components */
+      .btn-refined {
+        border: 1px solid rgba(13, 13, 12, 0.16);
+        border-radius: 7px;
+        transition: all 500ms cubic-bezier(0.16, 1, 0.3, 1);
+        background-color: #FBF6EF;
+        color: #0D0D0C;
+      }
+      .btn-refined:hover {
+        background-color: #0D0D0C;
+        color: #FBF6EF;
+        border-color: #0D0D0C;
+      }
+      .btn-refined-active {
+        background-color: #0D0D0C;
+        color: #FBF6EF;
+        border-color: #0D0D0C;
+      }
+
+      .card-refined {
+        background-color: #FBF6EF;
+        border: 1px solid rgba(13, 13, 12, 0.14);
+        border-radius: 7px;
+        transition: all 500ms cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .card-refined:hover {
+        border-color: rgba(13, 13, 12, 0.3);
+      }
+
+      /* Keyframe animations */
+      @keyframes fadeRise {
+        from {
+          opacity: 0;
+          transform: translateY(6px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      .animate-fade-rise {
+        animation: fadeRise 500ms cubic-bezier(0.16, 1, 0.3, 1) both;
+      }
+
+      @keyframes floatGentle {
+        0%, 100% {
+          transform: translateY(0px);
+        }
+        50% {
+          transform: translateY(-4px);
+        }
+      }
+      .animate-float {
+        animation: floatGentle 5s ease-in-out infinite;
+      }
+
+      @keyframes driftGlow {
+        0%, 100% {
+          transform: translate(0, 0) scale(1);
+        }
+        50% {
+          transform: translate(12px, -8px) scale(1.05);
+        }
+      }
+      .animate-drift {
+        animation: driftGlow 14s ease-in-out infinite;
+      }
+
+      /* Respect prefers-reduced-motion */
+      @media (prefers-reduced-motion: reduce) {
+        *, ::before, ::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+        .animate-float, .animate-drift, .animate-fade-rise {
+          animation: none !important;
+        }
+      }
+
+      /* Custom Scrollbar for Warm Minimalist Theme */
       ::-webkit-scrollbar {
         width: 6px;
         height: 6px;
       }
       ::-webkit-scrollbar-track {
-        background: #f1f5f9;
+        background: #FBF6EF;
       }
       ::-webkit-scrollbar-thumb {
-        background: #cbd5e1;
-        border-radius: 3px;
+        background: rgba(13, 13, 12, 0.15);
+        border-radius: 7px;
       }
       ::-webkit-scrollbar-thumb:hover {
-        background: #94a3b8;
+        background: rgba(13, 13, 12, 0.3);
       }
     </style>
-    <script type="module" crossorigin src="/assets/index-Dqxq4uoS.js"></script>
+    <script type="module" crossorigin src="/assets/index-7Rmq7mX6.js"></script>
   </head>
-  <body class="bg-slate-50 text-slate-900 antialiased min-h-screen overflow-x-hidden w-full max-w-full">
-    <div id="root" class="w-full max-w-full overflow-x-hidden"></div>
+  <body class="bg-[#FBF6EF] text-[#0D0D0C] antialiased min-h-screen overflow-x-hidden w-full max-w-full font-sans selection:bg-[#0D0D0C] selection:text-[#FBF6EF]">
+    <!-- SVG Grain Texture Overlay (18% Opacity with multiply) -->
+    <div class="bg-grain-overlay" aria-hidden="true"></div>
+    <div id="root" class="w-full max-w-full overflow-x-hidden relative z-10"></div>
   </body>
 </html>

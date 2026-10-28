@@ -97,20 +97,20 @@ export default function BottomNav({
   return (
     <nav
       aria-label="Mobile Bottom Navigation"
-      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-[0_-4px_20px_rgba(0,0,0,0.06)] px-2 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] w-full max-w-full overflow-hidden"
+      className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#FBF6EF]/95 backdrop-blur-md border-t border-[#0D0D0C]/12 shadow-[0_-4px_20px_rgba(13,13,12,0.04)] px-2 pt-1.5 pb-[max(0.6rem,env(safe-area-inset-bottom))] w-full max-w-full overflow-hidden"
     >
       {/* Optional PWA One-Tap Install Pill for Mobile & Tablet */}
       {deferredPrompt && !isInstalled && (
-        <div className="max-w-md mx-auto mb-1 px-2">
+        <div className="max-w-md mx-auto mb-1.5 px-2">
           <button
             onClick={handleInstallClick}
-            className="w-full bg-gradient-to-r from-blue-600 to-sky-600 text-white rounded-lg py-1 px-2.5 text-[11px] font-bold flex items-center justify-between shadow-sm active:scale-[0.99] transition"
+            className="w-full bg-[#0D0D0C] text-[#FBF6EF] rounded-[7px] py-1 px-3 text-[11px] font-medium flex items-center justify-between transition border border-[#0D0D0C]"
           >
             <span className="flex items-center gap-1.5">
-              <Download className="w-3.5 h-3.5 animate-bounce" />
+              <Download className="w-3.5 h-3.5" />
               Install Trading Boy App on Home Screen
             </span>
-            <span className="bg-white/20 text-white text-[10px] px-1.5 py-0.5 rounded font-mono">
+            <span className="bg-[#FBF6EF]/20 text-[#FBF6EF] text-[10px] px-1.5 py-0.5 rounded-[5px] font-mono">
               + ADD
             </span>
           </button>
@@ -118,7 +118,7 @@ export default function BottomNav({
       )}
 
       {/* Main Tabs */}
-      <div className="max-w-md mx-auto grid grid-cols-5 gap-0.5 sm:gap-1 w-full">
+      <div className="max-w-md mx-auto grid grid-cols-5 gap-1 w-full">
         {navItems.map((item) => {
           const Icon = item.icon;
           const active = item.isActive;
@@ -127,29 +127,24 @@ export default function BottomNav({
             <button
               key={item.id}
               onClick={item.action}
-              className={`relative flex flex-col items-center justify-center py-1 px-1 rounded-xl transition-all ${
+              className={`relative flex flex-col items-center justify-center py-1.5 px-1 rounded-[7px] transition-all duration-300 ${
                 active
-                  ? 'text-blue-700 font-bold bg-blue-50/80'
-                  : 'text-slate-500 hover:text-slate-900 active:bg-slate-100'
+                  ? 'text-[#FBF6EF] bg-[#0D0D0C] font-semibold'
+                  : 'text-[#0D0D0C]/60 hover:text-[#0D0D0C] active:bg-[#F4EFE6]'
               }`}
             >
-              {/* Active Indicator Top Dot */}
-              {active && (
-                <span className="absolute top-1 w-1 h-1 rounded-full bg-blue-600"></span>
-              )}
-
               {/* Icon Container */}
               <div className="relative mt-0.5">
-                <Icon className={`w-5 h-5 ${active ? 'stroke-[2.5]' : 'stroke-[1.75]'}`} />
+                <Icon className={`w-4 h-4 ${active ? 'stroke-[2.2]' : 'stroke-[1.75]'}`} />
                 {item.badge && (
-                  <span className="absolute -top-1 -right-2 bg-emerald-500 text-white text-[9px] font-extrabold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-white animate-pulse">
+                  <span className="absolute -top-1.5 -right-2 bg-[#3FB874] text-[#0D0D0C] text-[9px] font-bold w-4 h-4 rounded-full flex items-center justify-center ring-2 ring-[#FBF6EF]">
                     {item.badge}
                   </span>
                 )}
               </div>
 
               {/* Label */}
-              <span className="text-[10px] tracking-tight mt-1 truncate max-w-full">
+              <span className="text-[10px] tracking-tight mt-1 truncate max-w-full font-headline">
                 {item.label}
               </span>
             </button>

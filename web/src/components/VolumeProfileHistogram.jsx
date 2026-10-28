@@ -18,7 +18,7 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
 
   if (!profile || profile.length === 0) {
     return (
-      <div className="bg-white border border-slate-200/80 rounded-2xl p-6 text-center text-slate-400 shadow-sm">
+      <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] p-6 text-center text-[#0D0D0C]/42 shadow-xs">
         <p className="text-xs font-semibold">Volume profile histogram loading...</p>
       </div>
     );
@@ -32,27 +32,27 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
   const sortedProfile = [...profile].reverse();
 
   return (
-    <div className="bg-white border border-slate-200/80 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col h-full font-sans">
-      {/* Top Header (White Theme) */}
-      <div className="px-4 py-3 border-b border-slate-100 flex items-center justify-between bg-white">
+    <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] shadow-[0_2px_12px_rgba(13,13,12,0.04)] overflow-hidden flex flex-col h-full font-sans">
+      {/* Top Header */}
+      <div className="px-4 py-3 border-b border-[#0D0D0C]/12 flex items-center justify-between bg-[#FBF6EF]">
         <div className="flex items-center gap-2">
-          <BarChart3 className="w-4 h-4 text-amber-500" />
-          <h3 className="font-extrabold text-slate-900 text-xs tracking-tight">
+          <BarChart3 className="w-4 h-4 text-[#0D0D0C]" />
+          <h3 className="font-semibold text-[#0D0D0C] text-xs sm:text-sm tracking-tight font-headline">
             Horizontal Volume Profile (Active Auction)
           </h3>
         </div>
-        <span className="text-[10px] font-mono font-bold text-slate-500 bg-slate-50 px-2 py-0.5 rounded border border-slate-200/60">
+        <span className="text-[10.5px] font-mono font-medium text-[#0D0D0C]/70 bg-[#F4EFE6] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12">
           Total: {Math.round(totalVol).toLocaleString()} lots
         </span>
       </div>
 
       {/* Legend */}
-      <div className="px-4 py-2 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between text-[10px] font-semibold">
-        <span className="text-amber-900 flex items-center gap-1.5 font-mono">
-          <span className="w-2.5 h-2.5 rounded bg-amber-500 shadow-xs"></span> POC ({pocPrice ? pocPrice.toFixed(decimals) : '---'})
+      <div className="px-4 py-2 bg-[#F4EFE6] border-b border-[#0D0D0C]/12 flex items-center justify-between text-[11px] font-medium">
+        <span className="text-[#0D0D0C] flex items-center gap-1.5 font-mono">
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-[#E9C22E] border border-[#0D0D0C]/20"></span> POC ({pocPrice ? pocPrice.toFixed(decimals) : '---'})
         </span>
-        <span className="text-blue-800 flex items-center gap-1.5 font-mono">
-          <span className="w-2.5 h-2.5 rounded bg-blue-500 shadow-xs"></span> 70% Value Area
+        <span className="text-[#0D0D0C] flex items-center gap-1.5 font-mono">
+          <span className="w-2.5 h-2.5 rounded-[3px] bg-[#C564C4] border border-[#0D0D0C]/20"></span> 70% Value Area
         </span>
       </div>
 
@@ -63,44 +63,44 @@ export default function VolumeProfileHistogram({ symbol, orderFlowData, activeVP
           const isPOC = bin.is_poc;
           const inVA = bin.in_va;
 
-          let barColor = 'bg-slate-200';
-          let textColor = 'text-slate-600';
+          let barColor = 'bg-[#0D0D0C]/15';
+          let textColor = 'text-[#0D0D0C]/70';
           let borderColor = 'border-transparent';
 
           if (isPOC) {
-            barColor = 'bg-amber-500 text-white font-bold';
-            textColor = 'text-amber-900 font-black';
-            borderColor = 'border-amber-300 ring-1 ring-amber-300';
+            barColor = 'bg-[#0D0D0C] text-[#FBF6EF] font-bold';
+            textColor = 'text-[#0D0D0C] font-bold';
+            borderColor = 'border-[#0D0D0C]/35 ring-1 ring-[#0D0D0C]/20';
           } else if (inVA) {
-            barColor = 'bg-blue-300 text-blue-900';
-            textColor = 'text-blue-900 font-semibold';
+            barColor = 'bg-[#ECD6E2] text-[#0D0D0C]';
+            textColor = 'text-[#0D0D0C] font-medium';
           }
 
           return (
             <div
               key={idx}
-              className={`flex items-center text-[10px] font-mono rounded-lg px-2 py-1 border ${borderColor} hover:bg-slate-50 transition`}
+              className={`flex items-center text-[10px] font-mono rounded-[5px] px-2 py-1 border ${borderColor} hover:bg-[#F4EFE6] transition`}
             >
               {/* Price Label */}
-              <div className={`w-16 font-bold ${textColor}`}>
+              <div className={`w-16 font-semibold ${textColor}`}>
                 {bin.price?.toFixed(decimals)}
               </div>
 
               {/* Horizontal Volume Bar */}
-              <div className="flex-1 bg-slate-100 h-3.5 rounded-full overflow-hidden mx-2 relative">
+              <div className="flex-1 bg-[#0D0D0C]/8 h-3.5 rounded-[4px] overflow-hidden mx-2 relative">
                 <div
-                  className={`h-full rounded-full transition-all duration-300 ${barColor}`}
+                  className={`h-full rounded-[4px] transition-all duration-300 ${barColor}`}
                   style={{ width: `${widthPct}%` }}
                 ></div>
                 {isPOC && (
-                  <span className="absolute inset-0 flex items-center justify-center text-[8.5px] font-black text-amber-950 uppercase tracking-wider">
+                  <span className="absolute inset-0 flex items-center justify-center text-[8.5px] font-black text-[#FBF6EF] uppercase tracking-wider">
                     ★ POC NODE
                   </span>
                 )}
               </div>
 
               {/* Volume Figure */}
-              <div className="w-14 text-right text-slate-500 font-medium">
+              <div className="w-14 text-right text-[#0D0D0C]/56 font-medium">
                 {Math.round(bin.volume).toLocaleString()}
               </div>
             </div>

@@ -173,87 +173,87 @@ MANDATORY RISK RULES:
   };
 
   return (
-    <div className="bg-white border border-slate-200 rounded-2xl shadow-[0_2px_12px_rgba(0,0,0,0.03)] overflow-hidden flex flex-col h-full font-sans">
+    <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col h-full font-sans shadow-[0_2px_12px_rgba(13,13,12,0.04)]">
       {/* 1. Header Toolbar */}
-      <div className="px-4 sm:px-5 py-3 border-b border-slate-200/90 flex flex-wrap items-center justify-between gap-2 bg-white">
-        <div className="flex items-center gap-2">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
+      <div className="px-4 sm:px-5 py-3 border-b border-[#0D0D0C]/12 flex flex-wrap items-center justify-between gap-2 bg-[#FBF6EF]">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 rounded-full bg-[#3FB874] animate-pulse"></div>
           <div>
-            <h3 className="font-extrabold text-slate-900 text-sm tracking-tight flex items-center gap-1.5">
-              <Zap className="w-4 h-4 text-amber-500 fill-amber-500" />
+            <h3 className="font-semibold text-[#0D0D0C] text-sm sm:text-base tracking-tight flex items-center gap-1.5 font-headline">
+              <Zap className="w-4 h-4 text-[#0D0D0C] fill-[#E9C22E]" />
               MT5 Signals & Strategies
             </h3>
-            <span className="text-[11px] text-slate-500 font-medium hidden sm:inline">
+            <span className="text-[12px] text-[#0D0D0C]/56 font-normal hidden sm:inline">
               XAUUSD (Gold Spot) • Institutional Order Flow Engine
             </span>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <button
             onClick={() => setShowTester((v) => !v)}
-            className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 font-mono transition"
+            className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F4EFE6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 font-mono transition duration-300"
             title="Toggle Lifecycle Testing Bar"
           >
             {showTester ? 'Hide Test' : '⚡ Test Lifecycle'}
           </button>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 font-mono">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F4EFE6] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono">
             @tradingboyorderbot
           </span>
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 font-mono">
+          <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#DFE9D4] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono">
             🇮🇳 IST
           </span>
         </div>
       </div>
 
-      {/* Interactive Lifecycle Simulator Toolbar (Allows 1-Click Verification of SL, TP1, BE, TP2) */}
+      {/* Interactive Lifecycle Simulator Toolbar */}
       {showTester && (
-        <div className="p-2.5 bg-blue-50/90 border-b border-blue-200 flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono">
-          <span className="font-bold text-blue-900 text-[11px] flex items-center gap-1">
-            <Sparkles className="w-3.5 h-3.5 text-blue-600" />
-            <span>Interactive Lifecycle Simulator:</span>
+        <div className="p-2.5 bg-[#F4EFE6] border-b border-[#0D0D0C]/12 flex flex-wrap items-center justify-between gap-1.5 text-xs font-mono">
+          <span className="font-medium text-[#0D0D0C] text-[11px] flex items-center gap-1">
+            <Sparkles className="w-3.5 h-3.5 text-[#0D0D0C]" />
+            <span>Interactive Simulator:</span>
           </span>
           <div className="flex flex-wrap items-center gap-1">
             <button
               onClick={() => handleSimulate('PRE_ALERT')}
-              className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] shadow-xs transition"
+              className="px-2 py-1 rounded-[5px] bg-[#F4EBC6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
               title="Simulate 30-min advance heads-up pre-alert"
             >
               0. Pre-Alert (30m)
             </button>
             <button
               onClick={() => handleSimulate('ARM_TRADE')}
-              className="px-2 py-1 rounded bg-white hover:bg-slate-100 text-slate-800 font-bold border border-slate-300 text-[10px] transition"
+              className="px-2 py-1 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/20 text-[10px] transition duration-300"
             >
               1. Arm Trade
             </button>
             <button
               onClick={() => handleSimulate('TP1')}
-              className="px-2 py-1 rounded bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-[10px] shadow-xs transition"
+              className="px-2 py-1 rounded-[5px] bg-[#DFE9D4] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               2. Hit TP1 (+0.70% & BE)
             </button>
             <button
               onClick={() => handleSimulate('TP2')}
-              className="px-2 py-1 rounded bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] shadow-xs transition"
+              className="px-2 py-1 rounded-[5px] bg-[#DFE9D4] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               3. Hit TP2 (+1.15% Win)
             </button>
             <button
               onClick={() => handleSimulate('BE')}
-              className="px-2 py-1 rounded bg-amber-500 hover:bg-amber-600 text-white font-bold text-[10px] shadow-xs transition"
+              className="px-2 py-1 rounded-[5px] bg-[#F4EBC6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               4. BE Exit (+0.70% Kept)
             </button>
             <button
               onClick={() => handleSimulate('SL')}
-              className="px-2 py-1 rounded bg-rose-600 hover:bg-rose-700 text-white font-bold text-[10px] shadow-xs transition"
+              className="px-2 py-1 rounded-[5px] bg-[#F8DCC7] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
             >
               5. Hit SL (-0.50%)
             </button>
             <button
               onClick={() => handleSimulate('RESET')}
-              className="px-2 py-1 rounded bg-slate-200 hover:bg-slate-300 text-slate-700 font-bold text-[10px] transition"
+              className="px-2 py-1 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-[10px] border border-[#0D0D0C]/15 transition duration-300"
               title="Reset state to flat"
             >
               <RotateCcw className="w-3 h-3" />
@@ -264,46 +264,46 @@ MANDATORY RISK RULES:
 
       {/* Latest Lifecycle Event Notification Banner */}
       {latestEvent && (
-        <div className="px-4 py-2.5 bg-gradient-to-r from-blue-50 to-indigo-50 border-b border-blue-200/80 flex items-center justify-between gap-2 text-xs font-mono">
+        <div className="px-4 py-2.5 grad-peach border-b border-[#0D0D0C]/12 flex items-center justify-between gap-2 text-xs font-mono">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-blue-600 animate-pulse"></span>
+            <span className="w-2 h-2 rounded-full bg-[#0D0D0C] animate-pulse"></span>
             <div>
-              <span className="font-extrabold text-blue-950 block">{latestEvent.headline}</span>
+              <span className="font-semibold text-[#0D0D0C] block">{latestEvent.headline}</span>
               {latestEvent.subtext && (
-                <span className="text-[10px] text-blue-800 font-sans font-medium">
+                <span className="text-[10px] text-[#0D0D0C]/56 font-sans">
                   {latestEvent.subtext}
                 </span>
               )}
             </div>
           </div>
-          <span className="text-[10px] text-blue-600 font-bold shrink-0">{latestEvent.time}</span>
+          <span className="text-[10px] text-[#0D0D0C] font-medium shrink-0">{latestEvent.time}</span>
         </div>
       )}
 
       {/* 2. Top Navigation Tabs: Live Signal | Strategy | History */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5 px-2.5 sm:px-4 py-2 bg-slate-50 border-b border-slate-200 w-full">
-        <div className="flex flex-wrap items-center gap-1 sm:gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 px-3 sm:px-4 py-2 bg-[#F4EFE6] border-b border-[#0D0D0C]/12 w-full">
+        <div className="flex flex-wrap items-center gap-1.5">
           <button
             onClick={() => setActiveTab('live')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 ${
+            className={`px-3 py-1.5 rounded-[5px] text-xs transition duration-300 flex items-center gap-1.5 ${
               activeTab === 'live'
-                ? 'bg-blue-600 text-white shadow-sm font-extrabold'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                : 'bg-[#FBF6EF] text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
             }`}
           >
-            <Zap className={`w-3.5 h-3.5 ${activeTab === 'live' ? 'text-amber-300' : 'text-amber-500'}`} />
+            <Zap className={`w-3.5 h-3.5 ${activeTab === 'live' ? 'text-[#E9C22E]' : 'text-[#0D0D0C]'}`} />
             <span>Live Signal</span>
             {activeTrades.length > 0 && (
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+              <span className="w-2 h-2 rounded-full bg-[#3FB874] animate-ping"></span>
             )}
           </button>
 
           <button
             onClick={() => setActiveTab('strategy')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 ${
+            className={`px-3 py-1.5 rounded-[5px] text-xs transition duration-300 flex items-center gap-1.5 ${
               activeTab === 'strategy'
-                ? 'bg-blue-600 text-white shadow-sm font-extrabold'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                : 'bg-[#FBF6EF] text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
             }`}
           >
             <BarChart3 className="w-3.5 h-3.5" />
@@ -312,16 +312,16 @@ MANDATORY RISK RULES:
 
           <button
             onClick={() => setActiveTab('history')}
-            className={`px-2.5 sm:px-3 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1 sm:gap-1.5 ${
+            className={`px-3 py-1.5 rounded-[5px] text-xs transition duration-300 flex items-center gap-1.5 ${
               activeTab === 'history'
-                ? 'bg-blue-600 text-white shadow-sm font-extrabold'
-                : 'bg-white text-slate-600 hover:text-slate-900 border border-slate-200'
+                ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                : 'bg-[#FBF6EF] text-[#0D0D0C]/70 hover:text-[#0D0D0C] border border-[#0D0D0C]/15 font-medium'
             }`}
           >
             <span>History</span>
             <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-mono ${
-                activeTab === 'history' ? 'bg-blue-800 text-white' : 'bg-slate-200 text-slate-700'
+              className={`px-1.5 py-0.2 rounded-[5px] text-[10px] font-mono ${
+                activeTab === 'history' ? 'bg-[#FBF6EF] text-[#0D0D0C]' : 'bg-[#0D0D0C]/10 text-[#0D0D0C]'
               }`}
             >
               {recentTrades.length}
@@ -330,18 +330,18 @@ MANDATORY RISK RULES:
         </div>
 
         {/* Live Net Today P&L % Display */}
-        <div className="text-right text-xs font-mono font-bold hidden xs:block">
-          <span className="text-slate-400 text-[10px] font-sans">Today's P&L: </span>
-          <span className={todayPnl.startsWith('+') ? 'text-emerald-600 font-black' : 'text-rose-600 font-black'}>
+        <div className="text-right text-xs font-mono font-medium hidden xs:block">
+          <span className="text-[#0D0D0C]/56 text-[11px] font-sans">Today: </span>
+          <span className={todayPnl.startsWith('+') ? 'text-[#3FB874] font-bold' : 'text-[#F2772F] font-bold'}>
             {todayPnl}
           </span>
-          <span className="text-slate-400 text-[10px] ml-1">({tradesCount}/{maxTrades})</span>
+          <span className="text-[#0D0D0C]/42 text-[10px] ml-1">({tradesCount}/{maxTrades})</span>
         </div>
       </div>
 
       {/* 3. Tab Contents */}
 
-      {/* TAB 1: LIVE SIGNAL (Shows ONLY the active trade or clean flat status — NO blueprints here!) */}
+      {/* TAB 1: LIVE SIGNAL */}
       {activeTab === 'live' && (
         <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-3">
           {activeTrades.length > 0 ? (
@@ -353,33 +353,31 @@ MANDATORY RISK RULES:
               return (
                 <div
                   key={idx}
-                  className="p-4 sm:p-5 rounded-2xl border-2 border-emerald-500 bg-white shadow-md ring-2 ring-emerald-500/15"
+                  className="p-4 sm:p-5 rounded-[7px] border-2 border-[#0D0D0C] bg-[#FBF6EF] shadow-[0_2px_12px_rgba(13,13,12,0.05)]"
                 >
                   {/* Header: Side & Status */}
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 pb-3 border-b border-slate-100">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-3.5 pb-3 border-b border-[#0D0D0C]/12">
                     <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+                      <span className="w-2.5 h-2.5 rounded-full bg-[#3FB874] animate-ping"></span>
                       <span
-                        className={`text-xs font-black px-2.5 py-1 rounded-md text-white font-mono tracking-tight ${
-                          isBuy ? 'bg-emerald-600' : 'bg-rose-600'
-                        }`}
+                        className={`text-xs font-semibold px-2.5 py-1 rounded-[5px] text-[#FBF6EF] font-mono tracking-tight bg-[#0D0D0C]`}
                       >
                         ACTIVE SIGNAL: {at.side} XAUUSD
                       </span>
-                      <span className="text-xs font-bold text-slate-800 font-sans">
+                      <span className="text-xs font-semibold text-[#0D0D0C] font-headline">
                         {at.strategy || 'AMT 80% Value Area Rule'}
                       </span>
                     </div>
 
-                    <div className="text-[11px] font-mono font-bold">
+                    <div className="text-[11px] font-mono font-medium">
                       {isAtTP1 ? (
-                        <span className="px-2.5 py-1 rounded-md bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center gap-1">
-                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        <span className="px-2.5 py-1 rounded-[5px] bg-[#DFE9D4] text-[#0D0D0C] border border-[#0D0D0C]/15 flex items-center gap-1 font-semibold">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-[#3FB874]" />
                           <span>TP1 HIT • SL AT BREAKEVEN</span>
                         </span>
                       ) : (
-                        <span className="px-2.5 py-1 rounded-md bg-blue-100 text-blue-800 border border-blue-300 flex items-center gap-1">
-                          <Activity className="w-3.5 h-3.5 text-blue-600 animate-pulse" />
+                        <span className="px-2.5 py-1 rounded-[5px] bg-[#F4EBC6] text-[#0D0D0C] border border-[#0D0D0C]/15 flex items-center gap-1 font-semibold">
+                          <Activity className="w-3.5 h-3.5 text-[#0D0D0C] animate-pulse" />
                           <span>INITIAL POSITION RUNNING</span>
                         </span>
                       )}
@@ -388,50 +386,50 @@ MANDATORY RISK RULES:
 
                   {/* Mandatory MT5 Action Prompt */}
                   {isAtTP1 ? (
-                    <div className="mb-3.5 p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-950 text-xs font-mono">
-                      <div className="flex items-center gap-1.5 font-black text-emerald-900 mb-1">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                    <div className="mb-3.5 p-3 rounded-[5px] bg-[#DFE9D4]/70 border border-[#0D0D0C]/15 text-[#0D0D0C] text-xs font-mono">
+                      <div className="flex items-center gap-1.5 font-bold text-[#0D0D0C] mb-1">
+                        <CheckCircle2 className="w-4 h-4 text-[#3FB874]" />
                         <span>BREAKEVEN LOCK ACTIVE (100% RISK-FREE TRADE)</span>
                       </div>
-                      <p className="text-[11px] text-emerald-800 font-sans">
+                      <p className="text-[11.5px] text-[#0D0D0C]/75 font-sans">
                         👉 <b>ACTION IN MT5:</b> Order A banked at Target 1 (+0.70%). Modify <b>Order B</b> and drag its Stop Loss to <b>Breakeven ({at.entry})</b> now!
                       </p>
                     </div>
                   ) : (
-                    <div className="mb-3.5 p-3 rounded-xl bg-blue-50 border border-blue-200 text-blue-950 text-xs font-mono">
-                      <div className="flex items-center gap-1.5 font-black text-blue-900 mb-1">
-                        <Activity className="w-4 h-4 text-blue-600 animate-pulse" />
+                    <div className="mb-3.5 p-3 rounded-[5px] bg-[#F4EFE6] border border-[#0D0D0C]/15 text-[#0D0D0C] text-xs font-mono">
+                      <div className="flex items-center gap-1.5 font-bold text-[#0D0D0C] mb-1">
+                        <Activity className="w-4 h-4 text-[#0D0D0C] animate-pulse" />
                         <span>TWIN ORDERS ACTIVE IN MT5</span>
                       </div>
-                      <p className="text-[11px] text-blue-800 font-sans">
+                      <p className="text-[11.5px] text-[#0D0D0C]/75 font-sans">
                         👉 Place Twin Orders: <b>Order A (70% volume)</b> targeting {at.tp1} and <b>Order B (30% runner)</b> targeting {at.tp2}.
                       </p>
                     </div>
                   )}
 
                   {/* 3-Step Lifecycle Visual Progress Bar */}
-                  <div className="mb-3.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200 font-mono text-[11px]">
-                    <div className="flex items-center justify-between text-slate-500 mb-1.5 text-[10px] font-sans font-bold uppercase">
+                  <div className="mb-3.5 bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono text-[11px]">
+                    <div className="flex items-center justify-between text-[#0D0D0C]/56 mb-1.5 text-[10px] font-sans font-medium uppercase">
                       <span>Trade Progress Stepper</span>
                       <span>Lifecycle State</span>
                     </div>
                     <div className="grid grid-cols-3 gap-1.5 text-center">
-                      <div className="p-2 rounded-lg bg-emerald-50 border border-emerald-300 text-emerald-800 font-bold">
-                        <span className="block text-[9px] text-emerald-600">1. Entry Price</span>
+                      <div className="p-2 rounded-[5px] bg-[#DFE9D4] border border-[#0D0D0C]/15 text-[#0D0D0C] font-semibold">
+                        <span className="block text-[9px] text-[#0D0D0C]/56">1. Entry Price</span>
                         <span className="text-sm">{at.entry}</span>
                       </div>
                       <div
-                        className={`p-2 rounded-lg border font-bold ${
+                        className={`p-2 rounded-[5px] border font-semibold ${
                           isAtTP1
-                            ? 'bg-emerald-100 text-emerald-900 border-emerald-400 ring-1 ring-emerald-400'
-                            : 'bg-white text-slate-700 border-slate-200'
+                            ? 'bg-[#DFE9D4] text-[#0D0D0C] border-[#0D0D0C]/25 ring-1 ring-[#0D0D0C]/20'
+                            : 'bg-[#FBF6EF] text-[#0D0D0C] border-[#0D0D0C]/15'
                         }`}
                       >
-                        <span className="block text-[9px] text-slate-500">2. Target 1 (POC)</span>
+                        <span className="block text-[9px] text-[#0D0D0C]/56">2. Target 1 (POC)</span>
                         <span className="text-sm">{at.tp1}</span>
                       </div>
-                      <div className="p-2 rounded-lg bg-white border border-slate-200 text-slate-700 font-bold">
-                        <span className="block text-[9px] text-slate-500">3. Target 2 (Opp. VA)</span>
+                      <div className="p-2 rounded-[5px] bg-[#FBF6EF] border border-[#0D0D0C]/15 text-[#0D0D0C] font-semibold">
+                        <span className="block text-[9px] text-[#0D0D0C]/56">3. Target 2 (Opp. VA)</span>
                         <span className="text-sm">{at.tp2}</span>
                       </div>
                     </div>
@@ -439,15 +437,15 @@ MANDATORY RISK RULES:
 
                   {/* Twin Orders Real-Time Breakdown */}
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-mono mb-3.5">
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-[10px] text-slate-500 block font-sans">Order A (70% Banker):</span>
-                      <span className="font-extrabold text-slate-900 text-sm">
+                    <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                      <span className="text-[10px] text-[#0D0D0C]/56 block font-sans font-medium">Order A (70% Banker):</span>
+                      <span className="font-bold text-[#0D0D0C] text-sm">
                         {isAtTP1 ? '✅ Banked (+0.70%) at POC' : `Target: ${at.tp1}`}
                       </span>
                     </div>
-                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
-                      <span className="text-[10px] text-slate-500 block font-sans">Order B (30% Runner):</span>
-                      <span className="font-extrabold text-blue-700 text-sm">
+                    <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                      <span className="text-[10px] text-[#0D0D0C]/56 block font-sans font-medium">Order B (30% Runner):</span>
+                      <span className="font-bold text-[#0D0D0C] text-sm">
                         {isAtTP1 ? `Running to ${at.tp2} (SL @ Breakeven)` : `Target: ${at.tp2} (SL: ${at.sl})`}
                       </span>
                     </div>
@@ -456,11 +454,11 @@ MANDATORY RISK RULES:
                   {/* Copy Live Ticket Button */}
                   <button
                     onClick={() => handleCopyTicket(at, idx, 'LIVE SIGNAL')}
-                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl text-xs font-bold transition bg-blue-600 hover:bg-blue-700 text-white shadow-sm shadow-blue-500/20 active:scale-[0.99]"
+                    className="w-full flex items-center justify-center gap-2 py-2.5 px-4 rounded-[7px] text-xs font-semibold transition-all duration-300 bg-[#0D0D0C] text-[#FBF6EF] hover:bg-[#0D0D0C]/85 border border-[#0D0D0C] active:scale-[0.99]"
                   >
                     {copiedId === idx ? (
                       <>
-                        <Check className="w-4 h-4 text-emerald-300" />
+                        <Check className="w-4 h-4 text-[#3FB874]" />
                         <span>Copied Live Ticket to Clipboard!</span>
                       </>
                     ) : (
@@ -475,71 +473,71 @@ MANDATORY RISK RULES:
             })
           ) : preAlert && preAlert.active ? (
             /* 30-Minute Advance Pre-Entry Alert & Preparation Card */
-            <div className="bg-gradient-to-b from-amber-50/90 to-white border-2 border-amber-400 rounded-2xl p-5 sm:p-6 shadow-md ring-2 ring-amber-400/20 font-mono">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-amber-200 pb-3 mb-4">
+            <div className="grad-lemon border-2 border-[#0D0D0C] rounded-[7px] p-5 sm:p-6 shadow-[0_2px_12px_rgba(13,13,12,0.06)] font-mono">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[#0D0D0C]/15 pb-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-amber-500 animate-ping"></span>
-                  <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-300 font-extrabold text-xs uppercase tracking-wide">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#E9C22E] animate-ping"></span>
+                  <span className="px-2.5 py-0.5 rounded-[5px] bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 font-bold text-xs uppercase tracking-wide">
                     ⏳ 30-Min Advance Heads-Up
                   </span>
-                  <span className="text-xs font-bold text-slate-800">
+                  <span className="text-xs font-semibold text-[#0D0D0C] font-headline">
                     {preAlert.sym} ({preAlert.side})
                   </span>
                 </div>
-                <span className="text-[11px] font-bold text-amber-900 bg-amber-100 px-2.5 py-1 rounded-lg border border-amber-300/80">
+                <span className="text-[11px] font-semibold text-[#0D0D0C] bg-[#FBF6EF] px-2.5 py-1 rounded-[5px] border border-[#0D0D0C]/15">
                   {preAlert.est_time || preAlert.estTime || 'in ~28 mins'}
                 </span>
               </div>
 
               <div className="space-y-3.5">
                 <div>
-                  <h4 className="text-base font-black text-slate-900 flex items-center gap-2">
+                  <h4 className="text-base font-semibold text-[#0D0D0C] font-headline flex items-center gap-2">
                     <span>⚠️ Probable {preAlert.side === 'BUY' ? 'Bullish Reversal' : 'Bearish Rotation'} Entry Forming</span>
                   </h4>
-                  <p className="text-xs text-slate-600 font-sans mt-0.5">
+                  <p className="text-xs text-[#0D0D0C]/75 font-sans mt-0.5">
                     {preAlert.strategy} — Price is testing {preAlert.level_name || preAlert.levelName} (${Number(preAlert.key_level || preAlert.keyLevel || 4032).toFixed(2)}). Prepare your MT5 orders in advance!
                   </p>
                 </div>
 
                 {/* Metrics Grid */}
                 <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-200/80 shadow-2xs">
-                    <span className="text-[10px] text-slate-500 font-sans block">Current Price</span>
-                    <span className="font-extrabold text-slate-900">${Number(preAlert.current_price || preAlert.currentPrice || currentPrice).toFixed(2)}</span>
+                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                    <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Current Price</span>
+                    <span className="font-bold text-[#0D0D0C]">${Number(preAlert.current_price || preAlert.currentPrice || currentPrice).toFixed(2)}</span>
                   </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-200/80 shadow-2xs">
-                    <span className="text-[10px] text-slate-500 font-sans block">Watch Level</span>
-                    <span className="font-extrabold text-amber-700">${Number(preAlert.key_level || preAlert.keyLevel || 4032).toFixed(2)}</span>
+                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                    <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Watch Level</span>
+                    <span className="font-bold text-[#0D0D0C]">${Number(preAlert.key_level || preAlert.keyLevel || 4032).toFixed(2)}</span>
                   </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-200/80 shadow-2xs">
-                    <span className="text-[10px] text-slate-500 font-sans block">Order A (70% Banker)</span>
-                    <span className="font-extrabold text-blue-700">{preAlert.lots_a || preAlert.lotsA || 0.04} lots (TP1)</span>
+                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                    <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Order A (70% Banker)</span>
+                    <span className="font-bold text-[#0D0D0C]">{preAlert.lots_a || preAlert.lotsA || 0.04} lots (TP1)</span>
                   </div>
-                  <div className="bg-white p-2.5 rounded-xl border border-amber-200/80 shadow-2xs">
-                    <span className="text-[10px] text-slate-500 font-sans block">Order B (30% Runner)</span>
-                    <span className="font-extrabold text-indigo-700">{preAlert.lots_b || preAlert.lotsB || 0.03} lots (TP2)</span>
+                  <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                    <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Order B (30% Runner)</span>
+                    <span className="font-bold text-[#0D0D0C]">{preAlert.lots_b || preAlert.lotsB || 0.03} lots (TP2)</span>
                   </div>
                 </div>
 
                 {/* Preparation Steps Box */}
-                <div className="bg-amber-100/60 border border-amber-300/80 rounded-xl p-3 text-xs font-sans space-y-1.5 text-slate-800">
-                  <span className="font-bold font-mono text-[11px] text-amber-950 uppercase tracking-wide block">
+                <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[5px] p-3 text-xs font-sans space-y-1.5 text-[#0D0D0C]">
+                  <span className="font-bold font-mono text-[11px] text-[#0D0D0C] uppercase tracking-wide block">
                     📋 Advance Preparation Checklist (Do this now):
                   </span>
                   <div className="flex items-start gap-1.5">
-                    <span className="text-amber-800 font-bold font-mono">1.</span>
+                    <span className="text-[#0D0D0C] font-bold font-mono">1.</span>
                     <span><b>Free yourself:</b> Ensure 5–10 minutes of uninterrupted focus for the upcoming candle close.</span>
                   </div>
                   <div className="flex items-start gap-1.5">
-                    <span className="text-amber-800 font-bold font-mono">2.</span>
+                    <span className="text-[#0D0D0C] font-bold font-mono">2.</span>
                     <span><b>Open MT5:</b> Bring up <b>XAUUSD (Gold)</b> order execution window on phone or PC.</span>
                   </div>
                   <div className="flex items-start gap-1.5">
-                    <span className="text-amber-800 font-bold font-mono">3.</span>
+                    <span className="text-[#0D0D0C] font-bold font-mono">3.</span>
                     <span><b>Pre-fill Lot Sizes:</b> Pre-type Order A ({preAlert.lots_a || preAlert.lotsA || 0.04} lots) and Order B ({preAlert.lots_b || preAlert.lotsB || 0.03} lots).</span>
                   </div>
                   <div className="flex items-start gap-1.5">
-                    <span className="text-amber-800 font-bold font-mono">4.</span>
+                    <span className="text-[#0D0D0C] font-bold font-mono">4.</span>
                     <span><b>Stand By:</b> Official confirmed execution ticket will automatically arrive in Telegram & WebApp at candle close!</span>
                   </div>
                 </div>
@@ -548,62 +546,62 @@ MANDATORY RISK RULES:
                 <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
                   <button
                     onClick={() => handleSimulate('CLEAR_PRE_ALERT')}
-                    className="px-3 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
+                    className="px-3 py-1.5 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-medium text-xs border border-[#0D0D0C]/15 transition duration-300"
                   >
                     Dismiss Notice
                   </button>
                   <button
                     onClick={() => handleSimulate('ARM_TRADE')}
-                    className="px-3.5 py-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5"
+                    className="px-3.5 py-1.5 rounded-[5px] bg-[#0D0D0C] hover:bg-[#0D0D0C]/85 text-[#FBF6EF] font-semibold text-xs transition duration-300 flex items-center gap-1.5"
                   >
-                    <Zap className="w-3.5 h-3.5 text-amber-300" />
+                    <Zap className="w-3.5 h-3.5 text-[#E9C22E]" />
                     <span>Arm Trade Now</span>
                   </button>
                 </div>
               </div>
             </div>
           ) : (
-            /* Clean Minimalist Flat Status State (Zero clutter, pristine White Theme) */
-            <div className="bg-slate-50/70 border border-slate-200 rounded-2xl p-6 sm:p-8 text-center font-mono">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200 flex items-center justify-center mx-auto mb-3.5 shadow-2xs">
+            /* Clean Minimalist Flat Status State */
+            <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] p-6 sm:p-8 text-center font-mono">
+              <div className="w-12 h-12 rounded-[7px] bg-[#F4EFE6] text-[#0D0D0C] border border-[#0D0D0C]/15 flex items-center justify-center mx-auto mb-3.5 shadow-xs">
                 <Shield className="w-6 h-6" />
               </div>
-              <h4 className="text-base font-black text-slate-900 mb-1">
+              <h4 className="text-base sm:text-lg font-semibold text-[#0D0D0C] font-headline mb-1">
                 No Active Signal — Market 100% Flat
               </h4>
-              <p className="text-xs text-slate-600 font-sans max-w-md mx-auto mb-5 leading-relaxed">
+              <p className="text-xs text-[#0D0D0C]/56 font-sans max-w-md mx-auto mb-5 leading-relaxed">
                 The institutional engine is scanning Gold (XAUUSD) order flow clusters. A signal is triggered only when high-probability auction imbalance is verified.
               </p>
 
               {/* Status Metric Pills */}
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs max-w-lg mx-auto mb-4">
-                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 font-sans block">Daily Target</span>
-                  <span className="font-extrabold text-emerald-700">+2.0% - 3.0%</span>
+                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Daily Target</span>
+                  <span className="font-bold text-[#3FB874]">+2.0% - 3.0%</span>
                 </div>
-                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 font-sans block">Capital Guard</span>
-                  <span className="font-extrabold text-slate-800">Safe (-2.5%)</span>
+                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Capital Guard</span>
+                  <span className="font-bold text-[#0D0D0C]">Safe (-2.5%)</span>
                 </div>
-                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 font-sans block">Daily Pacing</span>
-                  <span className="font-extrabold text-blue-700">{tradesCount} / {maxTrades} Taken</span>
+                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Daily Pacing</span>
+                  <span className="font-bold text-[#0D0D0C]">{tradesCount} / {maxTrades} Taken</span>
                 </div>
-                <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                  <span className="text-[10px] text-slate-400 font-sans block">Scan Schedule</span>
-                  <span className="font-extrabold text-amber-700">:31 Hourly</span>
+                <div className="bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block font-medium">Scan Schedule</span>
+                  <span className="font-bold text-[#0D0D0C]">:31 Hourly</span>
                 </div>
               </div>
 
-              <div className="text-[11px] text-slate-500 font-sans">
-                Automatic Telegram alerts active at <span className="font-mono text-blue-600 font-bold">@tradingboyorderbot</span>
+              <div className="text-[12px] text-[#0D0D0C]/56 font-sans">
+                Automatic Telegram alerts active at <span className="font-mono text-[#0D0D0C] font-semibold underline decoration-[#0D0D0C]/30">@tradingboyorderbot</span>
               </div>
             </div>
           )}
         </div>
       )}
 
-      {/* TAB 2: STRATEGY (Shows the 3 strategy details, rules, win rates, and blueprints) */}
+      {/* TAB 2: STRATEGY */}
       {activeTab === 'strategy' && (
         <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-4">
           {/* Strategy Selector Segmented Buttons */}
@@ -614,58 +612,58 @@ MANDATORY RISK RULES:
                 <button
                   key={strat.id}
                   onClick={() => setActiveStrategyId(strat.id)}
-                  className={`text-left p-3 rounded-xl transition-all border text-xs ${
+                  className={`text-left p-3 rounded-[7px] transition-all duration-300 border text-xs ${
                     active
-                      ? 'bg-blue-50/80 text-blue-950 border-blue-500 shadow-sm ring-1 ring-blue-500/20 font-bold'
-                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50 hover:text-slate-900'
+                      ? 'bg-[#0D0D0C] text-[#FBF6EF] border-[#0D0D0C] font-semibold shadow-sm'
+                      : 'bg-[#FBF6EF] text-[#0D0D0C]/70 border-[#0D0D0C]/15 hover:bg-[#F4EFE6] hover:text-[#0D0D0C]'
                   }`}
                 >
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-black text-xs text-slate-900">
+                    <span className="font-semibold text-xs font-headline">
                       {strat.number}. {strat.name.split(' ')[0]}
                     </span>
                     <span
-                      className={`text-[9px] px-1.5 py-0.5 rounded font-mono font-bold ${
-                        active ? 'bg-blue-600 text-white' : 'bg-slate-100 text-slate-600'
+                      className={`text-[9px] px-1.5 py-0.5 rounded-[5px] font-mono font-bold ${
+                        active ? 'bg-[#FBF6EF] text-[#0D0D0C]' : 'bg-[#F4EFE6] text-[#0D0D0C]'
                       }`}
                     >
                       {strat.winRatePOC} Win
                     </span>
                   </div>
-                  <div className="text-[11px] text-slate-500 truncate">{strat.name}</div>
+                  <div className={`text-[11px] truncate ${active ? 'text-[#FBF6EF]/75' : 'text-[#0D0D0C]/56'}`}>{strat.name}</div>
                 </button>
               );
             })}
           </div>
 
           {/* Strategy Details Card */}
-          <div className="bg-slate-50/60 border border-slate-200 rounded-2xl p-4 sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-slate-200">
+          <div className="bg-[#F4EFE6] border border-[#0D0D0C]/15 rounded-[7px] p-4 sm:p-5">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-3 pb-2.5 border-b border-[#0D0D0C]/12">
               <div>
-                <span className="text-[10px] font-mono text-emerald-600 uppercase tracking-wider font-extrabold">
+                <span className="text-[10.5px] font-mono text-[#3FB874] uppercase tracking-wider font-bold">
                   Strategy {activeStrat.number} • {activeStrat.tag}
                 </span>
-                <h4 className="text-base font-black text-slate-900">{activeStrat.name}</h4>
+                <h4 className="text-base sm:text-lg font-semibold text-[#0D0D0C] font-headline">{activeStrat.name}</h4>
               </div>
               <div className="text-right">
-                <span className="text-[10px] font-mono text-slate-400 block font-sans">Avg Reward : Risk</span>
-                <span className="text-sm font-black text-amber-600 font-mono">{activeStrat.avgRR}</span>
+                <span className="text-[10px] font-mono text-[#0D0D0C]/56 block font-sans">Avg Reward : Risk</span>
+                <span className="text-sm font-bold text-[#0D0D0C] font-mono">{activeStrat.avgRR}</span>
               </div>
             </div>
 
-            <p className="text-xs text-slate-600 font-sans mb-4 leading-relaxed">
+            <p className="text-xs text-[#0D0D0C]/75 font-sans mb-4 leading-relaxed">
               {activeStrat.description}
             </p>
 
-            {/* 3 Quality-Control Confirmation Gates (85%+ Win Rate) */}
+            {/* 3 Quality-Control Confirmation Gates */}
             {activeStrat.gates && activeStrat.gates.length > 0 && (
-              <div className="mb-4 bg-emerald-50/80 border border-emerald-200 rounded-xl p-3">
-                <span className="text-[10px] font-extrabold uppercase text-emerald-800 tracking-wider block mb-2 font-mono">
+              <div className="mb-4 bg-[#DFE9D4]/70 border border-[#0D0D0C]/15 rounded-[7px] p-3">
+                <span className="text-[10.5px] font-bold uppercase text-[#0D0D0C] tracking-wider block mb-2 font-mono">
                   🛡️ 3 Quality-Control Gates for 85%+ Win Rate
                 </span>
                 <div className="space-y-1.5 text-[11px] font-mono">
                   {activeStrat.gates.map((g, gi) => (
-                    <div key={gi} className="flex items-center gap-2 text-slate-800 bg-white px-2.5 py-1.5 rounded-lg border border-emerald-200/70 shadow-2xs">
+                    <div key={gi} className="flex items-center gap-2 text-[#0D0D0C] bg-[#FBF6EF] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12">
                       <span>{g}</span>
                     </div>
                   ))}
@@ -675,90 +673,90 @@ MANDATORY RISK RULES:
 
             {/* Strategy KPIs */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs font-mono mb-4">
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-[9px] text-slate-400 block font-sans">Target 1 Win Rate</span>
-                <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRatePOC}</span>
-                <span className="text-[9px] text-slate-400 block truncate">Scale 70% Off</span>
+              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Target 1 Win Rate</span>
+                <span className="text-sm font-bold text-[#3FB874]">{activeStrat.winRatePOC}</span>
+                <span className="text-[9px] text-[#0D0D0C]/42 block truncate">Scale 70% Off</span>
               </div>
 
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-[9px] text-slate-400 block font-sans">Full Target Win</span>
-                <span className="text-sm font-extrabold text-emerald-600">{activeStrat.winRateFull}</span>
-                <span className="text-[9px] text-slate-400 block truncate">30% Runner</span>
+              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Full Target Win</span>
+                <span className="text-sm font-bold text-[#3FB874]">{activeStrat.winRateFull}</span>
+                <span className="text-[9px] text-[#0D0D0C]/42 block truncate">30% Runner</span>
               </div>
 
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-[9px] text-slate-400 block font-sans">Defined Stop Risk</span>
-                <span className="text-sm font-extrabold text-rose-600">{activeStrat.riskPips}</span>
-                <span className="text-[9px] text-slate-400 block truncate">Max 0.5% - 1.0%</span>
+              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Defined Stop Risk</span>
+                <span className="text-sm font-bold text-[#F2772F]">{activeStrat.riskPips}</span>
+                <span className="text-[9px] text-[#0D0D0C]/42 block truncate">Max 0.5% - 1.0%</span>
               </div>
 
-              <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-2xs">
-                <span className="text-[9px] text-slate-400 block font-sans">Footprint Confluence</span>
-                <span className="text-xs font-extrabold text-blue-700 truncate block">
+              <div className="bg-[#FBF6EF] p-2.5 rounded-[5px] border border-[#0D0D0C]/15">
+                <span className="text-[9px] text-[#0D0D0C]/56 block font-sans">Footprint Confluence</span>
+                <span className="text-xs font-bold text-[#0D0D0C] truncate block">
                   {activeStrat.footprintDelta}
                 </span>
-                <span className="text-[9px] text-slate-400 block truncate">Imbalance Shift</span>
+                <span className="text-[9px] text-[#0D0D0C]/42 block truncate">Imbalance Shift</span>
               </div>
             </div>
 
             {/* Theoretical & Execution Specs */}
-            <div className="bg-white p-3 rounded-xl border border-slate-200 text-xs font-mono space-y-1.5 mb-4">
-              <div className="flex items-center justify-between text-slate-700">
-                <span className="text-slate-400 font-sans">Context Timeframe:</span>
-                <span className="font-bold">{activeStrat.contextTf}</span>
+            <div className="bg-[#FBF6EF] p-3 rounded-[5px] border border-[#0D0D0C]/15 text-xs font-mono space-y-1.5 mb-4">
+              <div className="flex items-center justify-between text-[#0D0D0C]">
+                <span className="text-[#0D0D0C]/56 font-sans">Context Timeframe:</span>
+                <span className="font-semibold">{activeStrat.contextTf}</span>
               </div>
-              <div className="flex items-center justify-between text-slate-700">
-                <span className="text-slate-400 font-sans">Execution Timeframe:</span>
-                <span className="font-bold">{activeStrat.execTf}</span>
+              <div className="flex items-center justify-between text-[#0D0D0C]">
+                <span className="text-[#0D0D0C]/56 font-sans">Execution Timeframe:</span>
+                <span className="font-semibold">{activeStrat.execTf}</span>
               </div>
-              <div className="flex items-center justify-between text-slate-700">
-                <span className="text-slate-400 font-sans">Daily Frequency:</span>
-                <span className="font-bold">{activeStrat.dailyFreq}</span>
+              <div className="flex items-center justify-between text-[#0D0D0C]">
+                <span className="text-[#0D0D0C]/56 font-sans">Daily Frequency:</span>
+                <span className="font-semibold">{activeStrat.dailyFreq}</span>
               </div>
             </div>
 
             {/* Calculated Strategy Blueprint & Watchlist Levels */}
-            <div className="bg-white border-2 border-slate-200 rounded-xl p-3.5">
+            <div className="bg-[#FBF6EF] border border-[#0D0D0C]/15 rounded-[7px] p-3.5">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200 font-mono">
+                <span className="text-[10px] font-semibold uppercase px-2 py-0.5 rounded-[5px] bg-[#F4EBC6] text-[#0D0D0C] border border-[#0D0D0C]/15 font-mono">
                   Calculated Strategy Blueprint Levels
                 </span>
-                <span className="text-xs font-black text-slate-800 font-mono">
+                <span className="text-xs font-bold text-[#0D0D0C] font-mono">
                   {activeBlueprint.side} XAUUSD
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs mb-3 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 font-mono text-xs mb-3 bg-[#F4EFE6] p-2.5 rounded-[5px] border border-[#0D0D0C]/12">
                 <div>
-                  <span className="text-[10px] text-slate-400 font-sans block">Entry Price</span>
-                  <span className="font-extrabold text-slate-900 text-sm">{activeBlueprint.entry}</span>
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Entry Price</span>
+                  <span className="font-bold text-[#0D0D0C] text-sm">{activeBlueprint.entry}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 font-sans block">Stop Loss</span>
-                  <span className="font-extrabold text-rose-600 text-sm">{activeBlueprint.sl}</span>
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block">Stop Loss</span>
+                  <span className="font-bold text-[#F2772F] text-sm">{activeBlueprint.sl}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 font-sans block truncate">
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block truncate">
                     Target 1 ({activeStrat.winRatePOC})
                   </span>
-                  <span className="font-extrabold text-emerald-600 text-sm">{activeBlueprint.tp1}</span>
+                  <span className="font-bold text-[#3FB874] text-sm">{activeBlueprint.tp1}</span>
                 </div>
                 <div>
-                  <span className="text-[10px] text-slate-400 font-sans block truncate">
+                  <span className="text-[10px] text-[#0D0D0C]/56 font-sans block truncate">
                     Target 2 ({activeStrat.winRateFull})
                   </span>
-                  <span className="font-extrabold text-emerald-600 text-sm">{activeBlueprint.tp2}</span>
+                  <span className="font-bold text-[#3FB874] text-sm">{activeBlueprint.tp2}</span>
                 </div>
               </div>
 
               <button
                 onClick={() => handleCopyTicket(activeBlueprint, 'strat-bp', 'STRATEGY BLUEPRINT')}
-                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl text-xs font-bold transition bg-slate-100 hover:bg-slate-200 text-slate-800 border border-slate-200 active:scale-[0.99]"
+                className="w-full flex items-center justify-center gap-1.5 py-2 px-3 rounded-[5px] text-xs font-medium transition duration-300 bg-[#F4EFE6] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 active:scale-[0.99]"
               >
                 {copiedId === 'strat-bp' ? (
                   <>
-                    <Check className="w-3.5 h-3.5 text-emerald-600" />
+                    <Check className="w-3.5 h-3.5 text-[#3FB874]" />
                     <span>Copied Blueprint to Clipboard!</span>
                   </>
                 ) : (
@@ -773,16 +771,16 @@ MANDATORY RISK RULES:
         </div>
       )}
 
-      {/* TAB 3: HISTORY (Shows today's completed trades log) */}
+      {/* TAB 3: HISTORY */}
       {activeTab === 'history' && (
         <div className="p-3 sm:p-4 overflow-y-auto flex-1 space-y-3 font-sans">
           {/* History Header Toolbar */}
-          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+          <div className="flex items-center justify-between pb-2 border-b border-[#0D0D0C]/12">
             <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-slate-800 font-mono">
+              <span className="text-xs font-bold text-[#0D0D0C] font-mono">
                 COMPLETED TRADES LOG ({recentTrades.length})
               </span>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 font-mono font-bold border border-emerald-200">
+              <span className="text-[10px] px-2 py-0.5 rounded-[5px] bg-[#DFE9D4] text-[#0D0D0C] font-mono font-semibold border border-[#0D0D0C]/15">
                 P&L: {todayPnl}
               </span>
             </div>
@@ -793,7 +791,7 @@ MANDATORY RISK RULES:
                   clearTradeHistory();
                   if (onLifecycleChange) onLifecycleChange({ type: 'CLEAR_HISTORY' });
                 }}
-                className="text-[10px] font-bold px-2 py-1 rounded-lg bg-slate-100 hover:bg-rose-50 text-slate-600 hover:text-rose-600 border border-slate-200 hover:border-rose-200 transition flex items-center gap-1 font-mono"
+                className="text-[10px] font-medium px-2 py-1 rounded-[5px] bg-[#F4EFE6] hover:bg-[#F8DCC7] text-[#0D0D0C] border border-[#0D0D0C]/15 transition flex items-center gap-1 font-mono"
                 title="Clear completed trade logs"
               >
                 <Trash2 className="w-3 h-3" />
@@ -803,10 +801,10 @@ MANDATORY RISK RULES:
           </div>
 
           {recentTrades.length === 0 ? (
-            <div className="text-center py-12 text-slate-400 font-mono text-xs bg-slate-50/50 rounded-2xl border border-dashed border-slate-200">
-              <Shield className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-              <p className="font-bold text-slate-700 text-sm">No completed trades yet today.</p>
-              <p className="text-[11px] text-slate-500 mt-1">Trades will automatically record here when they hit Target 1, Target 2, Breakeven, or Stop Loss.</p>
+            <div className="text-center py-12 text-[#0D0D0C]/42 font-mono text-xs bg-[#F4EFE6]/50 rounded-[7px] border border-dashed border-[#0D0D0C]/15">
+              <Shield className="w-8 h-8 text-[#0D0D0C]/30 mx-auto mb-2" />
+              <p className="font-semibold text-[#0D0D0C] text-sm">No completed trades yet today.</p>
+              <p className="text-[11px] text-[#0D0D0C]/56 mt-1">Trades will automatically record here when they hit Target 1, Target 2, Breakeven, or Stop Loss.</p>
             </div>
           ) : (
             recentTrades.map((rt, idx) => {
@@ -823,54 +821,52 @@ MANDATORY RISK RULES:
               return (
                 <div
                   key={idx}
-                  className="bg-white border border-slate-200 hover:border-slate-300 rounded-xl p-3 sm:p-3.5 shadow-xs font-mono text-xs flex flex-wrap items-center justify-between gap-3 transition"
+                  className="bg-[#FBF6EF] border border-[#0D0D0C]/15 hover:border-[#0D0D0C]/35 rounded-[7px] p-3 sm:p-3.5 shadow-xs font-mono text-xs flex flex-wrap items-center justify-between gap-3 transition"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <span
-                        className={`text-[10px] font-black px-2 py-0.5 rounded text-white ${
-                          isBuy ? 'bg-emerald-600' : 'bg-rose-600'
-                        }`}
+                        className={`text-[10px] font-semibold px-2 py-0.5 rounded-[5px] text-[#FBF6EF] bg-[#0D0D0C]`}
                       >
                         {rt.side} {rt.sym || 'XAUUSD'}
                       </span>
-                      <span className="text-xs font-bold text-slate-800 font-sans">
+                      <span className="text-xs font-semibold text-[#0D0D0C] font-sans">
                         {rt.strategy || 'AMT 80% Value Area Rule'}
                       </span>
                     </div>
 
-                    <div className="text-[11px] text-slate-600 flex flex-wrap items-center gap-2">
-                      <span>Entry: <b className="text-slate-900">${entryVal}</b></span>
+                    <div className="text-[11px] text-[#0D0D0C]/75 flex flex-wrap items-center gap-2">
+                      <span>Entry: <b className="text-[#0D0D0C]">${entryVal}</b></span>
                       <span>•</span>
-                      <span>Exit: <b className="text-slate-900">${exitVal}</b></span>
+                      <span>Exit: <b className="text-[#0D0D0C]">${exitVal}</b></span>
                       <span>•</span>
-                      <span className="text-slate-400 text-[10px]">{timeVal}</span>
+                      <span className="text-[#0D0D0C]/42 text-[10px]">{timeVal}</span>
                     </div>
                   </div>
 
                   <div className="text-right shrink-0">
                     {isTP2 && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold border border-emerald-300">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#DFE9D4] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
                         🏆 Full Target Hit (+1.15%)
                       </span>
                     )}
                     {isTP1 && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-bold border border-emerald-300">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#DFE9D4] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
                         🎯 Target 1 Banked (+0.70%)
                       </span>
                     )}
                     {isBE && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-900 font-bold border border-amber-300">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#F4EBC6] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
                         ⚖️ Runner @ Breakeven (+0.70% Kept)
                       </span>
                     )}
                     {isLoss && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-800 font-bold border border-rose-300">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#F8DCC7] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
                         🛑 Hard SL Hit (-0.50%)
                       </span>
                     )}
                     {!isTP2 && !isTP1 && !isBE && !isLoss && (
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-700 font-bold border border-slate-300">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-[5px] bg-[#F4EFE6] text-[#0D0D0C] font-semibold border border-[#0D0D0C]/15">
                         Closed ({rt.total_gain_pct >= 0 ? '+' : ''}{rt.total_gain_pct || 0}%)
                       </span>
                     )}
@@ -883,14 +879,14 @@ MANDATORY RISK RULES:
       )}
 
       {/* 4. Footer Policy Note */}
-      <div className="p-3 bg-slate-50 border-t border-slate-200 text-[10px] text-slate-500 flex flex-wrap items-center justify-between gap-2 font-mono">
+      <div className="p-3 bg-[#F4EFE6] border-t border-[#0D0D0C]/12 text-[10.5px] text-[#0D0D0C]/56 flex flex-wrap items-center justify-between gap-2 font-mono">
         <span>Daily Target: +2.0% - 3.0% / Day</span>
         <span>•</span>
         <span>Capital Guard Limit: -2.5%</span>
         <span>•</span>
         <span>Max 3 Trades/Day</span>
         <span>•</span>
-        <span className="font-bold text-slate-700">TRADING BOY GOLD ONLY</span>
+        <span className="font-bold text-[#0D0D0C]">TRADING BOY GOLD ONLY</span>
       </div>
     </div>
   );

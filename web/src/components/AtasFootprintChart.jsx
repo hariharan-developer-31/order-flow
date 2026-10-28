@@ -617,40 +617,40 @@ export default function AtasFootprintChart({
   return (
     <div
       ref={containerRef}
-      className={`bg-white text-slate-900 border border-slate-200/90 rounded-2xl overflow-hidden flex flex-col transition-all shadow-[0_2px_12px_rgba(0,0,0,0.03)] ${
+      className={`bg-[#FBF6EF] text-[#0D0D0C] border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col transition-all shadow-[0_2px_12px_rgba(13,13,12,0.04)] font-sans ${
         isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : 'relative'
       }`}
     >
-      {/* 1. Footprint Header & Control Toolbar (Pure White Theme) */}
-      <div className="bg-white border-b border-slate-200/80 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
+      {/* 1. Footprint Header & Control Toolbar */}
+      <div className="bg-[#FBF6EF] border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
         {/* Left: Title & Live Pill */}
         <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1.5 font-black text-xs sm:text-sm tracking-tight text-slate-900">
-            <Flame className="w-4 h-4 text-emerald-600 fill-emerald-600 animate-pulse" />
+          <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm tracking-tight text-[#0D0D0C] font-headline">
+            <Flame className="w-4 h-4 text-[#E9C22E] fill-[#E9C22E] animate-pulse" />
             <span>XAUUSD (Gold Spot)</span>
           </div>
 
-          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 uppercase font-mono">
+          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-[5px] bg-[#F4EFE6] text-[#0D0D0C] border border-[#0D0D0C]/12 uppercase font-mono">
             {timeframe} Footprint
           </span>
 
-          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-            ATAS ORDER FLOW (<span className="text-emerald-800">50ms Live</span>)
+          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-medium text-[#0D0D0C] bg-[#DFE9D4] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#3FB874] animate-ping"></span>
+            ATAS ORDER FLOW (50ms Live)
           </span>
         </div>
 
-        {/* Center: Timeframe Switcher (White Theme) */}
+        {/* Center: Timeframe Switcher */}
         {onSelectTimeframe && (
-          <div className="flex items-center p-0.5 rounded-lg border border-slate-200 bg-slate-100 text-xs font-semibold">
+          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4EFE6] text-xs font-medium">
             {['5m', '15m', '1h', '4h'].map((tf) => (
               <button
                 key={tf}
                 onClick={() => onSelectTimeframe(tf)}
-                className={`px-2 py-0.5 rounded-md transition ${
+                className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                   timeframe.toLowerCase() === tf
-                    ? 'bg-blue-600 text-white font-bold shadow-xs'
-                    : 'text-slate-600 hover:text-slate-900'
+                    ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                    : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
                 }`}
               >
                 {tf.toUpperCase()}
@@ -662,13 +662,13 @@ export default function AtasFootprintChart({
         {/* Right: Display Mode, Zoom Controls, Reset */}
         <div className="flex items-center gap-1.5 sm:gap-2">
           {/* Display Mode: Bid x Ask vs Delta vs Volume */}
-          <div className="flex items-center p-0.5 rounded-lg border border-slate-200 bg-slate-100 text-[11px] font-semibold">
+          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4EFE6] text-[11px] font-medium">
             <button
               onClick={() => setDisplayMode('bid_ask')}
-              className={`px-2 py-0.5 rounded transition ${
+              className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                 displayMode === 'bid_ask'
-                  ? 'bg-blue-600 text-white font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
               title="Show Bid x Ask Volume"
             >
@@ -676,10 +676,10 @@ export default function AtasFootprintChart({
             </button>
             <button
               onClick={() => setDisplayMode('delta')}
-              className={`px-2 py-0.5 rounded transition ${
+              className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                 displayMode === 'delta'
-                  ? 'bg-blue-600 text-white font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
               title="Show Cluster Net Delta"
             >
@@ -687,10 +687,10 @@ export default function AtasFootprintChart({
             </button>
             <button
               onClick={() => setDisplayMode('volume')}
-              className={`px-2 py-0.5 rounded transition ${
+              className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
                 displayMode === 'volume'
-                  ? 'bg-blue-600 text-white font-bold shadow-xs'
-                  : 'text-slate-600 hover:text-slate-900'
+                  ? 'bg-[#0D0D0C] text-[#FBF6EF] font-semibold'
+                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
               }`}
               title="Show Total Volume"
             >
@@ -698,26 +698,26 @@ export default function AtasFootprintChart({
             </button>
           </div>
 
-          {/* Zoom Buttons with Dynamic Text Scaling */}
-          <div className="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+          {/* Zoom Buttons */}
+          <div className="flex items-center gap-0.5 bg-[#F4EFE6] p-0.5 rounded-[5px] border border-[#0D0D0C]/12">
             <button
               onClick={handleZoomIn}
-              className="w-7 h-7 flex items-center justify-center rounded text-slate-700 hover:bg-white hover:shadow-xs transition"
-              title="Zoom In (Enlarge Numbers & Details)"
+              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-[#FBF6EF] transition"
+              title="Zoom In"
             >
               <ZoomIn className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleZoomOut}
-              className="w-7 h-7 flex items-center justify-center rounded text-slate-700 hover:bg-white hover:shadow-xs transition"
+              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-[#FBF6EF] transition"
               title="Zoom Out"
             >
               <ZoomOut className="w-3.5 h-3.5" />
             </button>
             <button
               onClick={handleResetView}
-              className="px-1.5 h-7 flex items-center gap-1 rounded text-[10px] font-bold text-slate-700 hover:bg-white hover:shadow-xs transition"
-              title="Reset View & Snap to Live Candle"
+              className="px-1.5 h-7 flex items-center gap-1 rounded-[4px] text-[10px] font-semibold text-[#0D0D0C] hover:bg-[#FBF6EF] transition"
+              title="Reset View"
             >
               <RotateCcw className="w-3 h-3" />
               <span className="hidden sm:inline">Reset</span>
@@ -728,7 +728,7 @@ export default function AtasFootprintChart({
           {onToggleFullscreen && (
             <button
               onClick={onToggleFullscreen}
-              className="p-1.5 rounded-lg border border-slate-200 bg-slate-100 text-slate-700 hover:bg-slate-200 transition"
+              className="p-1.5 rounded-[5px] border border-[#0D0D0C]/15 bg-[#F4EFE6] text-[#0D0D0C] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] transition duration-300"
               title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Footprint'}
             >
               {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
@@ -737,28 +737,28 @@ export default function AtasFootprintChart({
         </div>
       </div>
 
-      {/* 2. Top Metric Ribbon: Quick Institutional Read (White Theme) */}
-      <div className="bg-slate-50 border-b border-slate-200 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono w-full">
+      {/* 2. Top Metric Ribbon */}
+      <div className="bg-[#F4EFE6] border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono w-full">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <span className="text-[11px] text-slate-500 font-sans">Active Candle:</span>
-          <span className={`font-bold ${latestDelta >= 0 ? 'text-emerald-600' : 'text-rose-600'}`}>
+          <span className="text-[11px] text-[#0D0D0C]/56 font-sans">Active Candle:</span>
+          <span className={`font-bold ${latestDelta >= 0 ? 'text-[#3FB874]' : 'text-[#F2772F]'}`}>
             Δ {latestDelta >= 0 ? `+${latestDelta}` : latestDelta}
           </span>
-          <span className="text-slate-300">|</span>
-          <span className="text-slate-600">Vol: <b>{latestVol} lots</b></span>
-          <span className="text-slate-300">|</span>
-          <span className="text-amber-700 font-bold">⭐ POC Active</span>
+          <span className="text-[#0D0D0C]/25">|</span>
+          <span className="text-[#0D0D0C]/75">Vol: <b className="text-[#0D0D0C]">{latestVol} lots</b></span>
+          <span className="text-[#0D0D0C]/25">|</span>
+          <span className="text-[#0D0D0C] font-semibold">⭐ POC Active</span>
         </div>
 
-        <div className="flex flex-wrap items-center gap-2 text-[10px] font-sans text-slate-500">
+        <div className="flex flex-wrap items-center gap-2 text-[10px] font-sans text-[#0D0D0C]/60">
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded bg-rose-500"></span> Bid (Sellers)
+            <span className="w-2 h-2 rounded-sm bg-[#F2772F]"></span> Bid (Sellers)
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded bg-emerald-500"></span> Ask (Buyers)
+            <span className="w-2 h-2 rounded-sm bg-[#3FB874]"></span> Ask (Buyers)
           </span>
           <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded bg-amber-500"></span> POC Magnet
+            <span className="w-2 h-2 rounded-sm bg-[#E9C22E]"></span> POC Magnet
           </span>
         </div>
       </div>
