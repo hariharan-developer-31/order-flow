@@ -44,12 +44,14 @@ if os.path.exists(_env_file):
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 LEARNING_CHANNEL_ID = os.getenv("LEARNING_CHANNEL_ID", "")
-TARGET_RISK_PER_TRADE_PCT = float(os.getenv("TARGET_RISK_PER_TRADE_PCT", "0.5"))   # 0.5% risk per trade
+ACCOUNT_BALANCE = float(os.getenv("ACCOUNT_BALANCE", "5000.0"))                 # $5,000 FundingPips Account
+TARGET_RISK_PER_TRADE_PCT = float(os.getenv("TARGET_RISK_PER_TRADE_PCT", "1.0"))   # 1.0% risk per trade ($50.00)
+TARGET_RISK_DOLLARS = (ACCOUNT_BALANCE * TARGET_RISK_PER_TRADE_PCT) / 100.0         # Exactly $50.00 / trade
+TARGET_RISK_PER_TRADE = TARGET_RISK_DOLLARS                                        # Lot sizing based on exact $50 risk
 MAX_DAILY_TRADES = int(os.getenv("MAX_DAILY_TRADES", "3"))                       # Hard cap: 3 trades/day
 DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "-2.5"))           # Capital Guard Safe Limit: -2.5%
 DAILY_PROFIT_TARGET_MIN_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MIN_PCT", "2.0")) # Daily Target: +2.0% - 3.0%
 DAILY_PROFIT_TARGET_MAX_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MAX_PCT", "3.0"))
-TARGET_RISK_PER_TRADE = TARGET_RISK_PER_TRADE_PCT
 DAILY_LOSS_LIMIT = DAILY_LOSS_LIMIT_PCT
 DAILY_PROFIT_TARGET = DAILY_PROFIT_TARGET_MAX_PCT
 PORT = int(os.getenv("PORT", "8080"))
@@ -1102,11 +1104,12 @@ def check_pre_entry_alert(is_manual_check: bool = False) -> Optional[str]:
             raw_lots = TARGET_RISK_PER_TRADE / (dist * 100.0) if dist > 0 else 0.08
             floored_lots = math.floor(raw_lots * 100.0) / 100.0
             total_lots = round(max(0.01, min(0.15, floored_lots)), 2)
-            half1 = math.ceil((total_lots / 2.0) * 100.0) / 100.0
-            half2 = round(total_lots - half1, 2)
-            if half2 < 0.01:
+            half1 = round(total_lots * 0.65, 2)
+            if half1 < 0.01 or total_lots <= 0.01:
                 half1 = total_lots
                 half2 = 0.0
+            else:
+                half2 = round(total_lots - half1, 2)
 
             side_emoji = "🟢 BUY" if pre_setup["side"] == "BUY" else "🔴 SELL"
             mins_rem = pre_setup["mins_remaining"]
@@ -1364,11 +1367,12 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                 micro_lots = max(1, int(math.floor(TARGET_RISK_PER_TRADE / risk_per_001))) if risk_per_001 > 0 else 1
                 total_lots = round(max(0.01, min(0.50, micro_lots * 0.01)), 2)
 
-            half1 = math.ceil((total_lots / 2.0) * 100.0) / 100.0
-            half2 = round(total_lots - half1, 2)
-            if half2 < 0.01:
+            half1 = round(total_lots * 0.65, 2)
+            if half1 < 0.01 or total_lots <= 0.01:
                 half1 = total_lots
                 half2 = 0.0
+            else:
+                half2 = round(total_lots - half1, 2)
 
             triggers.append({
                 "sym": sym,
