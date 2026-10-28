@@ -1,4 +1,4 @@
-const CACHE_NAME = 'tradingboy-pwa-v2';
+const CACHE_NAME = 'tradingboy-pwa-v3';
 const PRECACHE_ASSETS = [
   '/',
   '/index.html',

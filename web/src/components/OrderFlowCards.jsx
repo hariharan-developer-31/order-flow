@@ -27,7 +27,7 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
-      {/* 1. Point of Control Card - Pastel Lemon Cream (#F2ECDF to #F4EBC6) */}
+      {/* 1. Point of Control Card - Pure White */}
       <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
         
 

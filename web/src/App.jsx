@@ -426,7 +426,7 @@ export default function App() {
       </main>
 
       {/* 3. Footer Bar */}
-      <footer className="bg-[#FBF6EF] border-t border-[#0D0D0C]/12 mt-auto py-3.5 px-3 sm:px-6 text-xs text-[#0D0D0C]/56 mb-16 lg:mb-0 w-full overflow-x-hidden font-mono relative z-10">
+      <footer className="bg-white border-t border-[#0D0D0C]/10 mt-auto py-3.5 px-3 sm:px-6 text-xs text-[#0D0D0C]/56 mb-16 lg:mb-0 w-full overflow-x-hidden font-mono relative z-10">
         <div className="max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto flex flex-wrap items-center justify-between gap-2.5 sm:gap-3">
           <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
             <span className="flex items-center gap-1.5 font-bold text-[#0D0D0C]">
