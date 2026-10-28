@@ -98,6 +98,7 @@ def load_daily_state() -> Dict[str, Any]:
         "last_pre_alert_candle": None,
         "last_pre_alert_ts": 0.0,
         "learning_channel_id": LEARNING_CHANNEL_ID,
+        "subscribers": [],
         "triggered_candles": {},
     }
     if os.path.exists(STATE_FILE):
@@ -109,6 +110,8 @@ def load_daily_state() -> Dict[str, Any]:
                         saved["learning_channel_id"] = LEARNING_CHANNEL_ID
                     if "triggered_candles" not in saved:
                         saved["triggered_candles"] = {}
+                    if "subscribers" not in saved:
+                        saved["subscribers"] = []
                     if "pnl_pct" not in saved:
                         saved["pnl_pct"] = 0.0
                     if "recent_trades" not in saved:
@@ -192,6 +195,7 @@ def check_daily_reset() -> None:
         if daily_state["date"] != today_utc:
             open_trades = [t for t in daily_state.get("active_trades", []) if not t.get("closed", False)]
             l_chan = daily_state.get("learning_channel_id", LEARNING_CHANNEL_ID)
+            saved_subs = list(daily_state.get("subscribers", []))
             daily_state = {
                 "date": today_utc,
                 "trades_count": 0,
@@ -205,6 +209,7 @@ def check_daily_reset() -> None:
                 "active_trades": open_trades,
                 "latest_lifecycle_event": None,
                 "learning_channel_id": l_chan,
+                "subscribers": saved_subs,
                 "triggered_candles": {},
             }
             save_daily_state()
@@ -252,6 +257,28 @@ def send_telegram(text: str, target_chat: Optional[str] = None) -> bool:
             return False
     return False
 
+
+def broadcast_telegram(text: str) -> None:
+    """Broadcasts a trade or lifecycle alert to the primary chat and all authorized subscribers."""
+    send_telegram(text)
+    with state_lock:
+        extra_subs = [s for s in daily_state.get("subscribers", []) if str(s) != str(TELEGRAM_CHAT_ID)]
+    for sub_id in extra_subs:
+        try:
+            send_telegram(text, target_chat=str(sub_id))
+        except Exception:
+            pass
+
+def broadcast_telegram_photo(photo_url: str, caption: str) -> None:
+    """Broadcasts a chart snapshot image to the primary chat and all authorized subscribers."""
+    send_telegram_photo(photo_url, caption)
+    with state_lock:
+        extra_subs = [s for s in daily_state.get("subscribers", []) if str(s) != str(TELEGRAM_CHAT_ID)]
+    for sub_id in extra_subs:
+        try:
+            send_telegram_photo(photo_url, caption, target_chat=str(sub_id))
+        except Exception:
+            pass
 
 def send_telegram_photo(photo_url: str, caption: str, target_chat: Optional[str] = None) -> bool:
     """Sends photo with HTML caption directly to Telegram via URL, broadcasting to learning channel if configured."""
@@ -2787,7 +2814,7 @@ def breakeven_monitor() -> None:
                                 f"• <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
                                 f"🛡️ <i>Single position completed. Active Position Guard cleared.</i>"
                             )
-                        send_telegram(be_msg)
+                        broadcast_telegram(be_msg)
                         print(f"[TP1 HIT] {side} {sym} reached TP1 ({tp1}) at {live_p}. Sent Breakeven alert to Telegram.")
                         continue
 
@@ -2838,7 +2865,7 @@ def breakeven_monitor() -> None:
                             f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Daily Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n"
                             f"🛡️ <i>Symbol {sym} position closed. Active Position Guard cleared for next session!</i>"
                         )
-                        send_telegram(tp2_msg)
+                        broadcast_telegram(tp2_msg)
                         print(f"[TP2 HIT] {side} {sym} reached TP2 ({tp2}) at {live_p}. Total profit +{tot_gain:.2f}%.")
                         continue
 
@@ -2881,7 +2908,7 @@ def breakeven_monitor() -> None:
                             f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
                             f"🛡️ <i>Symbol {sym} position cleared. Active Position Guard unlocked for next session!</i>"
                         )
-                        send_telegram(be_exit_msg)
+                        broadcast_telegram(be_exit_msg)
                         print(f"[BE EXIT] {side} {sym} closed at breakeven {live_p}.")
                         continue
 
