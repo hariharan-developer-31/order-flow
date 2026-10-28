@@ -2691,26 +2691,23 @@ def breakeven_monitor() -> None:
                 if live_p <= 0:
                     continue
 
-                # Candle wick extreme detection to guarantee touches are NEVER missed
-                last_bar = bars_1h[-1] if (bars_1h and len(bars_1h) > 0) else {}
-                bar_high = float(last_bar.get("high", live_p))
-                bar_low = float(last_bar.get("low", live_p))
-
                 unit = "$" if sym == "XAUUSD" else "pips"
                 p_factor = 1.0 if sym == "XAUUSD" else 0.0001
                 now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST, %d %b %Y")
 
                 # STAGE 1: Fresh trade, monitoring for TP1 or initial SL
                 if not be_alerted:
-                    # Check initial Stop Loss hit (live price or candle wick)
-                    hit_sl = (side == "BUY" and (live_p <= sl or bar_low <= sl)) or (side == "SELL" and (live_p >= sl or bar_high >= sl))
+                    # Check initial Stop Loss hit strictly on LIVE TICK PRICE
+                    # CRITICAL BUG FIX: Never use 1H bar_high/bar_low wicks, as they include pre-entry price action!
+                    hit_sl = (side == "BUY" and live_p <= sl) or (side == "SELL" and live_p >= sl)
                     if hit_sl:
                         loss_pct = 0.50
+                        exit_sl_price = min(sl, live_p) if side == "BUY" else max(sl, live_p)
                         with state_lock:
                             trade["closed"] = True
                             trade["close_reason"] = "SL_HIT"
                             trade["stage"] = "SL_HIT"
-                            trade["exit_price"] = live_p
+                            trade["exit_price"] = exit_sl_price
                             trade["exit_time"] = dt.datetime.now(dt.timezone.utc).isoformat()
                             trade["exit_time_ist"] = now_ist_str
                             trade["order_a_status"] = "STOPPED OUT (-0.25%)"
@@ -2727,12 +2724,12 @@ def breakeven_monitor() -> None:
                                 "trade_id": trade.get("id"),
                                 "sym": sym,
                                 "side": side,
-                                "exit_price": live_p,
+                                "exit_price": exit_sl_price,
                                 "sl_price": sl,
                                 "stage": "SL_HIT",
                                 "pnl_pct": -loss_pct,
                                 "time_ist": now_ist_str,
-                                "headline": f"🛑 STOP LOSS HIT: {side} {sym} at {live_p:.{dec}f} (-{loss_pct:.2f}%)",
+                                "headline": f"🛑 STOP LOSS HIT: {side} {sym} at {exit_sl_price:.{dec}f} (-{loss_pct:.2f}%)",
                             }
                             save_daily_state()
 
@@ -2740,7 +2737,7 @@ def breakeven_monitor() -> None:
                         buffer_pct = sl_pnl - DAILY_LOSS_LIMIT_PCT
                         loss_msg = (
                             f"🛑 <b>TRADE HIT STOP LOSS: {side} {sym}</b>\n\n"
-                            f"• <b>Exit Price:</b> <code>{live_p:.{dec}f}</code> (SL: <code>{sl:.{dec}f}</code>)\n"
+                            f"• <b>Exit Price:</b> <code>{exit_sl_price:.{dec}f}</code> (SL: <code>{sl:.{dec}f}</code>)\n"
                             f"• <b>Loss:</b> -{loss_pct:.2f}% (-1.0R)\n"
                             f"• <b>Time:</b> <code>{now_ist_str}</code>\n"
                             f"• <b>Today's Net P&L:</b> <code>{sl_pnl:+.2f}%</code>\n"
@@ -2749,12 +2746,12 @@ def breakeven_monitor() -> None:
                         )
                         if daily_state["consecutive_losses"] >= 2:
                             loss_msg += "\n\n⚠️ <b>FREQTRADE STOPLOSS GUARD:</b> 2 consecutive losses. Global trading paused for 120 minutes."
-                        send_telegram(loss_msg)
+                        broadcast_telegram(loss_msg)
                         print(f"[SL HIT] {side} {sym} stopped out at {live_p}. Position closed.")
                         continue
 
-                    # Check TP1 hit (live price or candle wick)
-                    hit_tp1 = (side == "BUY" and (live_p >= tp1 or bar_high >= tp1)) or (side == "SELL" and (live_p <= tp1 or bar_low <= tp1))
+                    # Check TP1 hit strictly on LIVE TICK PRICE
+                    hit_tp1 = (side == "BUY" and live_p >= tp1) or (side == "SELL" and live_p <= tp1)
                     if hit_tp1:
                         diff_pips = abs(live_p - entry) / p_factor
                         gain_order_a = 0.70  # 70% scale out partial gain
@@ -2817,8 +2814,8 @@ def breakeven_monitor() -> None:
 
                 # STAGE 2: Order A was banked; Order B is running with SL at Breakeven
                 else:
-                    # Check TP2 hit (Opposite Value Area Full Rotation)
-                    hit_tp2 = (side == "BUY" and (live_p >= tp2 or bar_high >= tp2)) or (side == "SELL" and (live_p <= tp2 or bar_low <= tp2))
+                    # Check TP2 hit strictly on LIVE TICK PRICE
+                    hit_tp2 = (side == "BUY" and live_p >= tp2) or (side == "SELL" and live_p <= tp2)
                     if hit_tp2:
                         gain_order_b = 0.45  # 30% runner to opposite VA
                         tot_gain = round(gain_order_b + 0.70, 2)
@@ -2866,8 +2863,8 @@ def breakeven_monitor() -> None:
                         print(f"[TP2 HIT] {side} {sym} reached TP2 ({tp2}) at {live_p}. Total profit +{tot_gain:.2f}%.")
                         continue
 
-                    # Check Breakeven exit on Order B
-                    hit_be_exit = (side == "BUY" and (live_p <= entry or bar_low <= entry)) or (side == "SELL" and (live_p >= entry or bar_high >= entry))
+                    # Check Breakeven exit on Order B strictly on LIVE TICK PRICE
+                    hit_be_exit = (side == "BUY" and live_p <= entry) or (side == "SELL" and live_p >= entry)
                     if hit_be_exit:
                         with state_lock:
                             trade["closed"] = True
