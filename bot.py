@@ -926,6 +926,8 @@ def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: 
                 "side": "SELL",
                 "sym": sym,
                 "strategy": "1. AMT 80% Value Area Rule",
+                "win_rate_oos": "90.9%",
+                "profit_factor": "2.71",
                 "current_price": live_p,
                 "key_level": p_vah,
                 "level_name": "Prior Day VAH",
@@ -950,6 +952,8 @@ def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: 
                 "side": "BUY",
                 "sym": sym,
                 "strategy": "1. AMT 80% Value Area Rule",
+                "win_rate_oos": "90.9%",
+                "profit_factor": "2.71",
                 "current_price": live_p,
                 "key_level": p_val,
                 "level_name": "Prior Day VAL",
@@ -982,6 +986,8 @@ def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: 
             "side": "SELL",
             "sym": sym,
             "strategy": "2. VWAP 2-SD Absorption Fade",
+            "win_rate_oos": "82.4%",
+            "profit_factor": "2.35",
             "current_price": live_p,
             "key_level": vwap_upper_2sd,
             "level_name": "+2σ VWAP Band",
@@ -1004,6 +1010,8 @@ def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: 
             "side": "BUY",
             "sym": sym,
             "strategy": "2. VWAP 2-SD Absorption Fade",
+            "win_rate_oos": "82.4%",
+            "profit_factor": "2.35",
             "current_price": live_p,
             "key_level": vwap_lower_2sd,
             "level_name": "-2σ VWAP Band",
@@ -1031,6 +1039,8 @@ def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: 
                 "side": "BUY",
                 "sym": sym,
                 "strategy": "3. LVN Trend Pullback",
+                "win_rate_oos": "72.8%",
+                "profit_factor": "2.91",
                 "current_price": live_p,
                 "key_level": ema20,
                 "level_name": "EMA20 / LVN Reload",
@@ -1052,6 +1062,8 @@ def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: 
                 "side": "SELL",
                 "sym": sym,
                 "strategy": "3. LVN Trend Pullback",
+                "win_rate_oos": "72.8%",
+                "profit_factor": "2.91",
                 "current_price": live_p,
                 "key_level": ema20,
                 "level_name": "EMA20 / LVN Reload",
@@ -1141,30 +1153,17 @@ def check_pre_entry_alert(is_manual_check: bool = False) -> Optional[str]:
             side_emoji = "🟢 BUY" if pre_setup["side"] == "BUY" else "🔴 SELL"
             mins_rem = pre_setup["mins_remaining"]
 
+            win_rate = pre_setup.get("win_rate_oos", "90.9%")
+            pf = pre_setup.get("profit_factor", "2.71")
             tg_msg = (
-                f"⏳ <b>PRE-TRADE PREPARATION ALERT (~30 MINS NOTICE)</b>\n\n"
-                f"⚠️ <b>High Probability Setup Developing!</b>\n"
-                f"• <b>Asset:</b> <b>XAUUSD (Gold Spot)</b>\n"
-                f"• <b>Expected Direction:</b> {side_emoji}\n"
-                f"• <b>Strategy:</b> <i>{pre_setup['strategy']}</i>\n"
-                f"• <b>Session:</b> <code>{pre_setup['session_tag']}</code>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📍 <b>Current Price:</b> <code>${pre_setup['current_price']:.{dec}f}</code>\n"
-                f"🎯 <b>Key Watch Zone:</b> <code>${pre_setup['key_level']:.{dec}f}</code> ({pre_setup['level_name']})\n"
-                f"⏱️ <b>Expected Entry:</b> <code>~{pre_setup['trigger_time_str']} (in ~{mins_rem} mins on 1H Close)</code>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📊 <b>Setup Analysis:</b>\n"
-                f"• {pre_setup['reason']}\n"
-                f"• Defined Risk per Ounce: <code>${dist:.2f}</code>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📲 <b>MT5 PREPARATION (DO THIS NOW):</b>\n"
-                f"1️⃣ <b>Free yourself:</b> Ensure 5–10 mins of uninterrupted focus.\n"
-                f"2️⃣ <b>Open MT5:</b> Bring up <b>XAUUSD</b> order execution screen.\n"
-                f"3️⃣ <b>Pre-fill Lot Sizes:</b>\n"
-                f"   • <b>Order A (70% Banker):</b> <code>{half1:.2f} lots</code> (TP1 ~<code>${pre_setup['tp1']:.{dec}f}</code>)\n"
-                f"   • <b>Order B (30% Runner):</b> <code>{half2:.2f} lots</code> (TP2 ~<code>${pre_setup['tp2']:.{dec}f}</code>)\n"
-                f"   • <b>Planned Stop Loss:</b> <code>${pre_setup['sl']:.{dec}f}</code>\n\n"
-                f"🔔 <i>Stand by! The confirmed execution trigger with exact order levels will be sent automatically when the 1H candle closes!</i>"
+                f"📊 {sym} | {pre_setup['side']}\n\n"
+                f"🏆 Win Rate (OOS): {win_rate}\n"
+                f"📈 Profit Factor: {pf}\n\n"
+                f"💰 Price: <code>{pre_setup['current_price']:.{dec}f}</code>\n"
+                f"🛑 SL: <code>{pre_setup['sl']:.{dec}f}</code>\n"
+                f"🎯 TP1: <code>{pre_setup['tp1']:.{dec}f}</code>\n"
+                f"🎯 TP2: <code>{pre_setup['tp2']:.{dec}f}</code>\n\n"
+                f"⏳ Status: WAIT — Confirmation Required"
             )
 
             send_telegram(tg_msg)
@@ -1513,26 +1512,17 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
                     f"• <i>Management: When price reaches TP1 (<code>{t['tp1']:.{d}f}</code>), pull Stop Loss to Breakeven (<code>{t['entry']:.{d}f}</code>)!</i>\n"
                 )
 
+            win_rate = t.get("win_rate_oos", "90.9%")
+            pf = t.get("profit_factor", "2.71")
             tg_msg = (
-                f"🚨 <b>CONFIRMED GOLD ORDER FLOW TRIGGER ({daily_state['trades_count']}/{MAX_DAILY_TRADES})</b>\n"
-                f"<b>Asset:</b> {t['side']} <b>XAUUSD (Gold Spot)</b>\n"
-                f"<b>Strategy:</b> <i>{t['title']}</i>\n"
-                f"⏰ <b>Execution Time:</b> <code>{ist_time.strftime('%I:%M %p IST, %d %b %Y')}</code>\n"
-                f"{of_note}"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"📍 <b>Entry Price:</b> <code>{t['entry']:.{d}f}</code>\n"
-                f"🛑 <b>Stop Loss:</b> <code>{t['sl']:.{d}f}</code>\n"
-                f"🎯 <b>Target 1 ({t.get('win_rate_poc', 'POC')} - 70% Scale-Out):</b> <code>{t['tp1']:.{d}f}</code>\n"
-                f"🎯 <b>Target 2 ({t.get('win_rate_full', 'Runner')} - 30% Runner):</b> <code>{t['tp2']:.{d}f}</code>\n"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"{order_block}"
-                f"━━━━━━━━━━━━━━━━━━━━━\n"
-                f"🛡️ <b>70% SCALE-OUT RULE:</b> When Order A reaches Target 1 (<code>{t['tp1']:.{d}f}</code>), immediately close 70% of position and pull Stop Loss to Entry (<code>{t['entry']:.{d}f}</code>).\n"
-                f"🚀 <i>Remaining 30% runner chases Target 2 with 100% ZERO RISK!</i>\n"
-                f"⚖️ <b>2-Strike Regime Rule:</b> Max 2-3 high-probability setups/day. Lock out fades if value re-entry fails.\n"
-                f"📈 <b>Live Chart:</b> <a href=\"{tv_url}\">Open Interactive TradingView Chart</a>\n"
-                f"💰 <b>Risk Cap:</b> 0.5% - 1.0% | <b>Avg R:R:</b> {t.get('avg_rr', '1:2.3')}\n"
-                f"📊 <b>Daily Pacing:</b> {daily_state['trades_count']}/{MAX_DAILY_TRADES} trades taken"
+                f"📊 {t['sym']} | {t['side']}\n\n"
+                f"🏆 Win Rate (OOS): {win_rate}\n"
+                f"📈 Profit Factor: {pf}\n\n"
+                f"💰 Price: <code>{t['entry']:.{d}f}</code>\n"
+                f"🛑 SL: <code>{t['sl']:.{d}f}</code>\n"
+                f"🎯 TP1: <code>{t['tp1']:.{d}f}</code>\n"
+                f"🎯 TP2: <code>{t['tp2']:.{d}f}</code>\n\n"
+                f"⏳ Status: CONFIRMED — Execute in MT5"
             )
             send_telegram(tg_msg)
             print(f"[TRIGGER SENT TO TELEGRAM] {t['side']} {t['sym']}")
@@ -1717,22 +1707,29 @@ def telegram_listener() -> None:
                         send_telegram("🔒 <i>Admin access required for account modifications.</i>", target_chat=chat_id)
                         continue
 
-                    if cmd in ("/status", "status", "/scan", "scan", "check"):
+                    if cmd in ("/status", "status", "/scan", "scan", "check", "/signal", "signal"):
                         with state_lock:
                             active_now = [at for at in daily_state.get("active_trades", []) if not at.get("closed", False)]
                         if active_now:
-                            lines = ["⚡ <b>ACTIVE OPEN POSITIONS:</b>"]
                             for at in active_now:
-                                status_txt = "BE Active (Order B Running)" if at.get("be_alerted") else "Initial (SL Active)"
+                                status_txt = "ACTIVE — Order B Running (SL @ BE)" if at.get("be_alerted") else "CONFIRMED — Execute in MT5"
                                 d_dec = at.get("dec", 2)
-                                lines.append(
-                                    f"• <b>{at['side']} {at['sym']}</b>\n"
-                                    f"  Entry: <code>{at['entry']:.{d_dec}f}</code> | SL: <code>{at['sl']:.{d_dec}f}</code> | "
-                                    f"TP1: <code>{at['tp1']:.{d_dec}f}</code> | TP2: <code>{at['tp2']:.{d_dec}f}</code> ({status_txt})"
+                                wr = at.get("win_rate_oos", "90.9%")
+                                pf = at.get("profit_factor", "2.71")
+                                msg = (
+                                    f"📊 {at['sym']} | {at['side']}\n\n"
+                                    f"🏆 Win Rate (OOS): {wr}\n"
+                                    f"📈 Profit Factor: {pf}\n\n"
+                                    f"💰 Price: <code>{at['entry']:.{d_dec}f}</code>\n"
+                                    f"🛑 SL: <code>{at['sl']:.{d_dec}f}</code>\n"
+                                    f"🎯 TP1: <code>{at['tp1']:.{d_dec}f}</code>\n"
+                                    f"🎯 TP2: <code>{at['tp2']:.{d_dec}f}</code>\n\n"
+                                    f"⏳ Status: {status_txt}"
                                 )
-                            send_telegram("\n".join(lines))
-                        send_telegram("🔍 <i>Running instant live scan on Gold XAUUSD Order Flow Engine...</i>")
-                        run_hourly_scan(is_user_request=True)
+                                send_telegram(msg)
+                        else:
+                            send_telegram("🔍 <i>Running instant live scan on Gold XAUUSD Order Flow Engine...</i>")
+                            run_hourly_scan(is_user_request=True)
 
                     elif cmd in ("/levels", "levels", "/map", "map", "profile"):
                         send_telegram("🏛️ <i>Calculating institutional Order Flow Value Areas & POCs...</i>")

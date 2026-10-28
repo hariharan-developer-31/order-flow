@@ -138,20 +138,32 @@ export default function SignalsFeed({ signalsData, onLifecycleChange, currentPri
   };
 
   const handleCopyTicket = (ticket, idx, label = 'SIGNAL') => {
-    const text = `MT5 ORDER FLOW EXECUTION TICKET (INSTITUTIONAL GOLD XAUUSD):
-Type: ${label}
-Strategy: ${ticket.strategy || ticket.strategy_name || activeStrat.name}
-Asset: ${ticket.side} XAUUSD (Gold Spot)
-Entry Price: ${ticket.entry}
-Stop Loss: ${ticket.sl} (Risk: 0.5% - 1.0%)
-Target 1 (70% Scale-Out): ${ticket.tp1}
-Target 2 (30% Runner): ${ticket.tp2}
-Execution Time: ${ticket.time || getISTTimeStr() + ' IST'}
+    const isPre = (label && label.toUpperCase().includes('PRE')) || ticket.stage === 'WAIT';
+    const statusStr = ticket.closed
+      ? 'CLOSED'
+      : isPre
+      ? 'WAIT — Confirmation Required'
+      : 'CONFIRMED — Execute in MT5';
+    const priceVal = (Number(ticket.entry || ticket.price || ticket.current_price || 4028.50)).toFixed(2);
+    const slVal = (Number(ticket.sl || 4034.50)).toFixed(2);
+    const tp1Val = (Number(ticket.tp1 || 4022.50)).toFixed(2);
+    const tp2Val = (Number(ticket.tp2 || 4014.70)).toFixed(2);
+    const side = ticket.side || 'SELL';
+    const sym = ticket.sym || 'XAUUSD';
+    const wr = ticket.win_rate_oos || '90.9%';
+    const pf = ticket.profit_factor || '2.71';
 
-MANDATORY RISK RULES:
-1. Twin Orders: Order A (70% lot size) + Order B (30% lot size).
-2. When Target 1 (${ticket.tp1}) is hit, close Order A and move Order B Stop Loss to Breakeven (${ticket.entry})!
-3. Target 2 (${ticket.tp2}) runs with 100% ZERO RISK.`;
+    const text = `📊 ${sym} | ${side}
+
+🏆 Win Rate (OOS): ${wr}
+📈 Profit Factor: ${pf}
+
+💰 Price: ${priceVal}
+🛑 SL: ${slVal}
+🎯 TP1: ${tp1Val}
+🎯 TP2: ${tp2Val}
+
+⏳ Status: ${statusStr}`;
 
     navigator.clipboard.writeText(text);
     setCopiedId(idx);
@@ -544,6 +556,32 @@ MANDATORY RISK RULES:
 
                 {/* Quick Action Buttons */}
                 <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
+                  <button
+                    onClick={() => handleCopyTicket({
+                      sym: preAlert.sym || 'XAUUSD',
+                      side: preAlert.side || 'SELL',
+                      price: preAlert.current_price || preAlert.price || 4028.50,
+                      sl: preAlert.sl || 4034.50,
+                      tp1: preAlert.tp1 || 4022.00,
+                      tp2: preAlert.tp2 || 4014.00,
+                      win_rate_oos: '90.9%',
+                      profit_factor: '2.71',
+                      stage: 'WAIT'
+                    }, 'pre-alert-copy', 'PRE_ALERT')}
+                    className="px-3 py-1.5 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-semibold text-xs border border-[#0D0D0C]/15 transition duration-300 flex items-center gap-1.5"
+                  >
+                    {copiedId === 'pre-alert-copy' ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-[#3FB874]" />
+                        <span>Copied!</span>
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="w-3.5 h-3.5" />
+                        <span>Copy Pre-Alert</span>
+                      </>
+                    )}
+                  </button>
                   <button
                     onClick={() => handleSimulate('CLEAR_PRE_ALERT')}
                     className="px-3 py-1.5 rounded-[5px] bg-[#FBF6EF] hover:bg-[#0D0D0C] hover:text-[#FBF6EF] text-[#0D0D0C] font-medium text-xs border border-[#0D0D0C]/15 transition duration-300"

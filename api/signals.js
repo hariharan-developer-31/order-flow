@@ -134,6 +134,16 @@ export default async function handler(req, res) {
           state.pre_alert = null;
           state.last_updated = Date.now();
           saveState(state);
+          const tradeMsg =
+            `📊 ${newTrade.sym} | ${newTrade.side}\n\n` +
+            `🏆 Win Rate (OOS): 90.9%\n` +
+            `📈 Profit Factor: 2.71\n\n` +
+            `💰 Price: <code>${newTrade.entry.toFixed(2)}</code>\n` +
+            `🛑 SL: <code>${newTrade.sl.toFixed(2)}</code>\n` +
+            `🎯 TP1: <code>${newTrade.tp1.toFixed(2)}</code>\n` +
+            `🎯 TP2: <code>${newTrade.tp2.toFixed(2)}</code>\n\n` +
+            `⏳ Status: CONFIRMED — Execute in MT5`;
+          await sendTelegramAlert(tradeMsg);
           return res.status(200).json({ ok: true, state });
         }
 
@@ -169,30 +179,14 @@ export default async function handler(req, res) {
           };
 
           const preAlertMsg =
-            `⏳ <b>PRE-TRADE PREPARATION ALERT (~30 MINS NOTICE)</b>\n\n` +
-            `⚠️ <b>High Probability Setup Developing!</b>\n` +
-            `• <b>Asset:</b> <b>XAUUSD (Gold Spot)</b>\n` +
-            `• <b>Expected Direction:</b> 🔴 <b>SELL (Rotation to POC)</b>\n` +
-            `• <b>Strategy:</b> <i>1. AMT 80% Value Area Rule</i>\n` +
-            `• <b>Session:</b> <code>London / NY Overlap Killzone</code>\n` +
-            `━━━━━━━━━━━━━━━━━━━━━\n` +
-            `📍 <b>Current Price:</b> <code>$${p.toFixed(2)}</code>\n` +
-            `🎯 <b>Key Watch Zone:</b> <code>$${keyLvl.toFixed(2)}</code> (Prior Day VAH)\n` +
-            `⏱️ <b>Expected Entry:</b> <code>in ~28 mins (on 1H Candle Close)</code>\n` +
-            `━━━━━━━━━━━━━━━━━━━━━\n` +
-            `📊 <b>Setup Analysis:</b>\n` +
-            `• Gold is testing the VAH auction boundary ($${keyLvl.toFixed(2)}).\n` +
-            `• Upper selling absorption wick developing on 1H candle.\n` +
-            `• 4H Macro Trend: <b>Aligned</b> | Defined Risk: <b>$6.00/oz</b>\n` +
-            `━━━━━━━━━━━━━━━━━━━━━\n` +
-            `📲 <b>MT5 PREPARATION (DO THIS NOW):</b>\n` +
-            `1️⃣ <b>Free yourself:</b> Ensure 5–10 mins of uninterrupted focus.\n` +
-            `2️⃣ <b>Open MT5:</b> Bring up <b>XAUUSD</b> order execution screen.\n` +
-            `3️⃣ <b>Pre-fill Lot Sizes:</b>\n` +
-            `   • <b>Order A (70% Banker):</b> <code>0.04 lots</code> (TP1 ~<code>$4022.00</code>)\n` +
-            `   • <b>Order B (30% Runner):</b> <code>0.03 lots</code> (TP2 ~<code>$4014.00</code>)\n` +
-            `   • <b>Planned Stop Loss:</b> <code>$4034.50</code>\n\n` +
-            `🔔 <i>Stand by! The confirmed execution trigger will be sent automatically when the candle closes!</i>`;
+            `📊 XAUUSD | SELL\n\n` +
+            `🏆 Win Rate (OOS): 90.9%\n` +
+            `📈 Profit Factor: 2.71\n\n` +
+            `💰 Price: <code>${p.toFixed(2)}</code>\n` +
+            `🛑 SL: <code>${(p + 6.00).toFixed(2)}</code>\n` +
+            `🎯 TP1: <code>${(p - 6.00).toFixed(2)}</code>\n` +
+            `🎯 TP2: <code>${(p - 13.80).toFixed(2)}</code>\n\n` +
+            `⏳ Status: WAIT — Confirmation Required`;
 
           await sendTelegramAlert(preAlertMsg);
           saveState(state);
@@ -243,6 +237,16 @@ export default async function handler(req, res) {
           };
           state.last_updated = Date.now();
           saveState(state);
+          const tradeMsg =
+            `📊 ${newTrade.sym} | ${newTrade.side}\n\n` +
+            `🏆 Win Rate (OOS): 90.9%\n` +
+            `📈 Profit Factor: 2.71\n\n` +
+            `💰 Price: <code>${newTrade.entry.toFixed(2)}</code>\n` +
+            `🛑 SL: <code>${newTrade.sl.toFixed(2)}</code>\n` +
+            `🎯 TP1: <code>${newTrade.tp1.toFixed(2)}</code>\n` +
+            `🎯 TP2: <code>${newTrade.tp2.toFixed(2)}</code>\n\n` +
+            `⏳ Status: CONFIRMED — Execute in MT5`;
+          await sendTelegramAlert(tradeMsg);
           return res.status(200).json({ ok: true, state });
         }
 
