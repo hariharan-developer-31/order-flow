@@ -48,7 +48,9 @@ ACCOUNT_BALANCE = float(os.getenv("ACCOUNT_BALANCE", "5000.0"))                 
 TARGET_RISK_PER_TRADE_PCT = float(os.getenv("TARGET_RISK_PER_TRADE_PCT", "1.0"))   # 1.0% risk per trade ($50.00)
 TARGET_RISK_DOLLARS = (ACCOUNT_BALANCE * TARGET_RISK_PER_TRADE_PCT) / 100.0         # Exactly $50.00 / trade
 TARGET_RISK_PER_TRADE = TARGET_RISK_DOLLARS                                        # Lot sizing based on exact $50 risk
-MAX_DAILY_TRADES = int(os.getenv("MAX_DAILY_TRADES", "3"))                       # Hard cap: 3 trades/day
+MAX_DAILY_TRADES = int(os.getenv("MAX_DAILY_TRADES", "999"))                     # Uncapped: all high-probability setups
+TRADING_HOURS_START_IST = 6.0                                                     # 6:00 AM IST (Indian Standard Time)
+TRADING_HOURS_END_IST = 23.0                                                      # 11:00 PM IST (Indian Standard Time)
 DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "-2.5"))           # Capital Guard Safe Limit: -2.5%
 DAILY_PROFIT_TARGET_MIN_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MIN_PCT", "2.0")) # Daily Target: +2.0% - 3.0%
 DAILY_PROFIT_TARGET_MAX_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MAX_PCT", "3.0"))
@@ -708,12 +710,17 @@ def evaluate_confluence(bars: List[Dict[str, Any]], idx: int, dec: int, sym: str
     # Failed auction outside Value Area rotating back to POC and opposite VA
     # -------------------------------------------------------------
     if p_vah and p_val and p_poc:
-        # Gate 1: Institutional Killzone Timing (London 13:00-17:30 IST / NY 17:30-22:00 IST)
+        # Gate 1: Institutional Session Timing (Active Trading Window: 6:00 AM - 11:00 PM IST)
         ist_dt = b["time"] + dt.timedelta(hours=5, minutes=30)
         ist_time_dec = ist_dt.hour + ist_dt.minute / 60.0
-        is_london = 13.0 <= ist_time_dec < 17.5
-        is_ny = 17.5 <= ist_time_dec <= 22.0
-        session_tag = "London Open Killzone" if is_london else ("NY Session Overlap" if is_ny else "Asian Pre-Market")
+        if 6.0 <= ist_time_dec < 13.0:
+            session_tag = "Asian / London Pre-Market"
+        elif 13.0 <= ist_time_dec < 17.5:
+            session_tag = "London Open Killzone"
+        elif 17.5 <= ist_time_dec <= 23.0:
+            session_tag = "NY Session Overlap"
+        else:
+            session_tag = "Overnight Session"
 
         # Gate 3: 4H Higher Timeframe Alignment (EMA200 on 1H = 4H EMA50)
         ema200 = b.get("ema200") or close
@@ -904,11 +911,16 @@ def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: 
     trigger_dt = ist_time + dt.timedelta(minutes=mins_remaining)
     trigger_time_str = trigger_dt.strftime("%I:%M %p IST")
 
-    # Session / Killzone calculation
+    # Session Timing (Active Trading Window: 6:00 AM - 11:00 PM IST)
     ist_dec = ist_time.hour + ist_time.minute / 60.0
-    is_london = 13.0 <= ist_dec < 17.5
-    is_ny = 17.5 <= ist_dec <= 22.0
-    session_tag = "London Open Killzone" if is_london else ("NY Session Overlap" if is_ny else "Asian Pre-Market")
+    if 6.0 <= ist_dec < 13.0:
+        session_tag = "Asian / London Pre-Market"
+    elif 13.0 <= ist_dec < 17.5:
+        session_tag = "London Open Killzone"
+    elif 17.5 <= ist_dec <= 23.0:
+        session_tag = "NY Session Overlap"
+    else:
+        session_tag = "Overnight Session"
 
     p_vah = of_data.get("pVAH")
     p_val = of_data.get("pVAL")
@@ -1084,25 +1096,22 @@ def check_pre_entry_alert(is_manual_check: bool = False) -> Optional[str]:
     """Scans for developing setups ~30 mins before 1H candle close and reminds trader on Telegram."""
     global daily_state
 
-    # Guard checks
-    active_now = [at for at in daily_state.get("active_trades", []) if not at.get("closed", False)]
-    if active_now and not is_manual_check:
-        print("[PRE-ALERT] Active position already running. Skipping pre-alert.")
-        return None
+    # Time and circuit breaker checks
+    now_utc = dt.datetime.now(dt.timezone.utc)
+    ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
+    ist_hour_dec = ist_time.hour + ist_time.minute / 60.0
 
-    if daily_state.get("trades_count", 0) >= MAX_DAILY_TRADES and not is_manual_check:
+    # Active Trading Hours Filter: 6:00 AM to 11:00 PM IST
+    if not (TRADING_HOURS_START_IST <= ist_hour_dec <= TRADING_HOURS_END_IST) and not is_manual_check:
         return None
 
     pnl_pct = daily_state.get("pnl_pct", 0.0)
     if (pnl_pct <= DAILY_LOSS_LIMIT_PCT or pnl_pct >= DAILY_PROFIT_TARGET_MIN_PCT) and not is_manual_check:
         return None
 
-    now_utc = dt.datetime.now(dt.timezone.utc)
-    ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
-
-    # For automatic background scheduler: verify we are in the ~30 minute window
+    # For automatic background scheduler: verify we are in the mid-candle developing window (~20-48 mins)
     if not is_manual_check:
-        if not (20 <= now_utc.minute <= 42):
+        if not (20 <= now_utc.minute <= 48):
             return None
 
     for sym, dec, y_sym, pip_val, is_gold in INSTRUMENTS:
@@ -1263,7 +1272,14 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
 
     now_utc = dt.datetime.now(dt.timezone.utc)
     ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
+    ist_hour_dec = ist_time.hour + ist_time.minute / 60.0
     print(f"[{ist_time.strftime('%I:%M %p IST')} / {now_utc.strftime('%H:%M UTC')}] Scanning Gold XAUUSD Order Flow Engine...")
+
+    # Active Trading Hours Filter: 6:00 AM to 11:00 PM IST (Indian Standard Time)
+    if not (TRADING_HOURS_START_IST <= ist_hour_dec <= TRADING_HOURS_END_IST) and not is_user_request:
+        msg = f"🌙 <b>OVERNIGHT STAND-DOWN ({ist_time.strftime('%I:%M %p IST')})</b>\nBot gives signals strictly between <b>6:00 AM – 11:00 PM IST</b> to preserve capital during low-liquidity overnight spreads. Resuming scan at 6:00 AM IST."
+        print(f"[TIME GATE] {ist_time.strftime('%I:%M %p IST')} is outside active trading window (6:00 AM - 11:00 PM IST). Standing aside.")
+        return msg
 
     pnl_pct = daily_state.get("pnl_pct", 0.0)
 
@@ -1276,12 +1292,6 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
 
     if pnl_pct >= DAILY_PROFIT_TARGET_MIN_PCT:
         msg = f"🎯 <b>DAILY PROFIT TARGET REACHED</b>\nDaily Profit: <code>+{pnl_pct:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%). Target locked! Standing aside until tomorrow."
-        if is_user_request:
-            send_telegram(msg)
-        return msg
-
-    if daily_state["trades_count"] >= MAX_DAILY_TRADES:
-        msg = f"🔒 <b>DAILY TRADE CAP REACHED</b>\nTrades taken today: <code>{daily_state['trades_count']}/{MAX_DAILY_TRADES}</code> (Max 3 Trades/Day). No more entries allowed today."
         if is_user_request:
             send_telegram(msg)
         return msg
@@ -1332,17 +1342,11 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
             sp_str = f"${spread_val:.2f}" if is_gold else f"{spread_val/0.0001:.1f}p"
             price_lines.append(f"• <b>{sym}</b>: <code>{live_tick:.{dec}f}</code> ({state_label} | Spread: {sp_str})")
 
-            # Feature 2: Pair-specific Cooldown
-            pair_cd = daily_state.get("pair_cooldowns", {}).get(sym, 0.0)
-            if time.time() < pair_cd:
-                rem = round((pair_cd - time.time()) / 60.0, 1)
-                print(f"[COOLDOWN VETO] {sym} is in cooldown for {rem:.0f} more mins.")
-                continue
-
-            # Feature 2b: Active Position Guard (Never enter the same pair twice while a trade is open)
-            active_symbols = [at.get("sym") for at in daily_state.get("active_trades", []) if not at.get("closed", False)]
-            if sym in active_symbols:
-                print(f"[ACTIVE POSITION VETO] {sym}: A position is already open and running. Skipping duplicate entry.")
+            # Deduplication: Never re-alert on the exact same closed candle
+            bar_ts = bars[closed_idx]["ts"]
+            last_alerted = daily_state.setdefault("triggered_candles", {}).get(sym)
+            if last_alerted == bar_ts and bar_ts is not None:
+                print(f"[SKIP DUPLICATE] {sym} candle {bar_ts} already alerted. Suppressing re-trigger.")
                 continue
 
             # Feature 1 (NautilusTrader/Lean): Spread Guard check
@@ -1423,9 +1427,6 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
         latest_status_summary = f"TRIGGERED {len(triggers)} trade(s) at {ist_time.strftime('%I:%M %p IST')}"
         for t in triggers:
             with state_lock:
-                if daily_state["trades_count"] >= MAX_DAILY_TRADES:
-                    print(f"[SKIP] Daily cap reached ({MAX_DAILY_TRADES}). Suppressing {t['sym']} trigger.")
-                    break
 
                 # Deduplication: Never re-alert or increment trade count on the same candle twice
                 bar_ts = t.get("bar_ts")
@@ -1568,7 +1569,7 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
             + f"\n\n🛡️ <b>Status:</b> [100% FLAT]\n"
             + f"<i>No Gold order flow setup confirmed on this closed candle.</i>\n\n"
             + f"📈 <b>Order Flow Edge:</b> <code>+0.45R / trade</code> | PF 1.46 (Win Rate: 76%-82%)\n"
-            + f"📊 <b>Today's Trades:</b> <code>{daily_state['trades_count']}/{MAX_DAILY_TRADES}</code> (Max 3 Trades/Day)\n"
+            + f"📊 <b>Today's Trades:</b> <code>{daily_state['trades_count']}</code> (Uncapped High-Probability)\n"
             + f"💵 <b>Today's P&L:</b> <code>{pnl_symbol}{pnl_pct:.2f}%</code> (Daily Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n"
             + f"🛡️ <b>Capital Guard:</b> {guard_status} (Daily Limit: {DAILY_LOSS_LIMIT_PCT:.1f}%)"
         )
@@ -1692,9 +1693,9 @@ def telegram_listener() -> None:
                             "• <b>be</b>: Record a breakeven trade (+0.35% banked)\n"
                             "• <b>reset</b>: Reset today's counter to 0/3\n\n"
                             "📋 <b>Your Trading Rules:</b>\n"
-                            "• Asset: <b>XAUUSD (Gold Spot Exclusively)</b>\n"
+                            "• Asset: <b>XAUUSD (Gold Spot Exclusively)</b>\n• Active Hours: <b>6:00 AM – 11:00 PM IST</b>\n"
                             "• Risk per Trade: <b>0.5% - 1.0%</b>\n"
-                            "• Max Trades/Day: <b>3 (Hard Cap)</b>\n"
+                            "• Max Trades/Day: <b>Uncapped (All High-Probability Setups)</b>\n"
                             "• Daily Target: <b>+2.0% - 3.0% / Day</b>\n"
                             "• Capital Guard: <b>Safe (Daily Limit: -2.5%)</b>\n\n"
                             "⚡ Scans automatically at <b>:31 past every hour</b> (24/7 on cloud)."
@@ -2123,46 +2124,81 @@ def keep_alive_ping() -> None:
 
 
 def background_scheduler() -> None:
-    """Runs 24/7 in the cloud, triggering scan at minute :01 UTC (:31 IST) of every hour."""
+    """Runs 24/7 in the cloud. During active trading hours (6:00 AM to 11:00 PM IST),
+    continuously monitors closed 1H candles and developing setups, ensuring NO high-probability trade is ever missed."""
     global last_scanned_hour
-    print("[SCHEDULER] 24/7 Cloud Background Scheduler Started.")
+    last_scanned_candle_ts = None
+    last_pre_alert_check_ts = 0.0
+
+    print("[SCHEDULER] 24/7 Cloud Background Scheduler Started (Active Hours: 6:00 AM - 11:00 PM IST | Uncapped High-Probability Setups).")
 
     # Send startup message to Telegram
     send_telegram(
         "🚀 <b>24/7 CLOUD TRADING BOT IS ONLINE</b>\n\n"
-        "Your automated trading engine is now running 24/7 on the cloud!\n\n"
+        "Your automated trading engine is now running with updated settings!\n\n"
         "• <b>Account:</b> TRADING BOY ACCOUNT\n"
         "• <b>Watchlist:</b> XAUUSD (Gold Spot Exclusively)\n"
+        "• <b>Active Hours:</b> <b>6:00 AM – 11:00 PM IST</b> (Indian Time)\n"
+        "• <b>Max Trades/Day:</b> <b>Uncapped</b> (All High-Probability Setups)\n"
         "• <b>Risk Per Trade:</b> 0.5% - 1.0%\n"
         "• <b>Daily Target:</b> +2.0% - 3.0% / Day\n"
         "• <b>Capital Guard:</b> Safe Limit (-2.5% Daily Drawdown Limit)\n"
-        "• <b>Max Trades/Day:</b> 3 (Hard Cap)\n"
         "• <b>Order Flow Engine:</b> Active (Volume Profile, POC & 70% Value Area)\n"
         "• <b>Interactive Control:</b> Send <b>status</b> or <b>levels</b> anytime!\n"
         "• <b>Cloud Status:</b> 100% Online & Self-Kept Awake 24/7."
     )
 
-    # Initial scan on startup
+    # Initial scan on startup if within trading hours
     try:
-        run_hourly_scan()
+        now_utc = dt.datetime.now(dt.timezone.utc)
+        ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
+        ist_dec = ist_time.hour + ist_time.minute / 60.0
+        if TRADING_HOURS_START_IST <= ist_dec <= TRADING_HOURS_END_IST:
+            run_hourly_scan()
     except Exception as e:
         print(f"[STARTUP SCAN WARNING] Initial scan error: {e}. Scheduler will run on next candle close.")
 
     while True:
         try:
-            now = dt.datetime.now(dt.timezone.utc)
-            # Candle closes at :00 UTC (:30 IST). We scan at :01 or :02 UTC (:31-:32 IST).
-            if now.minute in (1, 2) and now.hour != last_scanned_hour:
-                last_scanned_hour = now.hour
-                run_hourly_scan()
+            now_utc = dt.datetime.now(dt.timezone.utc)
+            ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
+            ist_dec = ist_time.hour + ist_time.minute / 60.0
 
-            # 30-Minute Pre-Alert Check (~30 mins before candle close at :00 UTC / :30 IST)
-            if now.minute in (28, 29, 30, 31, 32) and now.hour != getattr(background_scheduler, "last_pre_alert_hour", -1):
-                background_scheduler.last_pre_alert_hour = now.hour
-                check_pre_entry_alert(is_manual_check=False)
+            # Active Trading Window: 6:00 AM to 11:00 PM IST
+            if TRADING_HOURS_START_IST <= ist_dec <= TRADING_HOURS_END_IST:
+                # 1. Real-time Closed Candle Detector (checks every 30s)
+                try:
+                    bars, live_tick = fetch_1h_bars("GC=F", 2)
+                    if len(bars) >= 60:
+                        closed_idx = len(bars) - 2 if (now_utc - bars[-1]["time"]).total_seconds() < 3570 else len(bars) - 1
+                        latest_bar_ts = bars[closed_idx]["ts"]
+
+                        # Initialize on first check so we don't duplicate on boot if already scanned
+                        if last_scanned_candle_ts is None:
+                            last_scanned_candle_ts = latest_bar_ts
+
+                        # When a newly closed 1H candle arrives from Yahoo Finance
+                        if latest_bar_ts != last_scanned_candle_ts:
+                            print(f"[SCHEDULER] New completed 1H candle detected (ts={latest_bar_ts}) at {ist_time.strftime('%I:%M %p IST')}. Evaluating confluences...")
+                            last_scanned_candle_ts = latest_bar_ts
+                            run_hourly_scan()
+                except Exception as bar_err:
+                    print(f"[SCHEDULER CANDLE CHECK WARNING] {bar_err}")
+
+                # 2. Pre-Alert Scanner (~30 minutes before 1H candle close)
+                # Evaluates every 3 minutes between minute 20 and 48 of the hour
+                if (20 <= now_utc.minute <= 48) and (time.time() - last_pre_alert_check_ts > 180):
+                    last_pre_alert_check_ts = time.time()
+                    check_pre_entry_alert(is_manual_check=False)
+
+            else:
+                # Outside active trading window (11:00 PM - 6:00 AM IST) - preserve capital & sleep
+                pass
+
         except Exception as e:
             print(f"[SCHEDULER ERROR] {e}")
-        time.sleep(20)
+
+        time.sleep(30)
 
 
 def compute_footprint_bars(bars: List[Dict[str, Any]], dec: int, is_gold: bool, limit: int = 15, tf: str = "1h") -> List[Dict[str, Any]]:

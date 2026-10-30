@@ -1,13 +1,19 @@
 {
-  "date": "",
+  "date": "2026-10-30",
   "trades_count": 0,
+  "pnl_pct": 0.0,
   "pnl": 0.0,
   "trades_list": [],
+  "recent_trades": [],
   "consecutive_losses": 0,
   "last_loss_ts": 0.0,
   "pair_cooldowns": {},
-  "learning_channel_id": "",
-  "triggered_candles": {},
   "active_trades": [],
-  "pnl_pct": 0.0
+  "latest_lifecycle_event": null,
+  "pre_alert": null,
+  "last_pre_alert_candle": null,
+  "last_pre_alert_ts": 0.0,
+  "learning_channel_id": "",
+  "subscribers": [],
+  "triggered_candles": {}
 }

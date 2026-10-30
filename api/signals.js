@@ -16,7 +16,7 @@ function loadState() {
   const defaultState = {
     date: today,
     trades_count: 0,
-    max_trades: 3,
+    max_trades: 99,
     pnl: 0.0,
     pnl_pct: 0.0,
     today_pnl: '+0.00%',
@@ -114,7 +114,7 @@ export default async function handler(req, res) {
           state = {
             date: today,
             trades_count: 0,
-            max_trades: 3,
+            max_trades: 99,
             pnl: 0.0,
             pnl_pct: 0.0,
             today_pnl: '+0.00%',
