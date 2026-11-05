@@ -5,15 +5,12 @@ import CandleChart from './components/CandleChart';
 import { calculateDynamicVolumeProfile } from './utils/volumeProfile';
 import FootprintChart from './components/FootprintChart';
 import VolumeProfileHistogram from './components/VolumeProfileHistogram';
-import SignalsFeed from './components/SignalsFeed';
 import SettingsModal from './components/SettingsModal';
 import BottomNav from './components/BottomNav';
 import {
   getLiveCandleBars,
   getLiveOrderFlow,
   getLiveFootprintClusters,
-  getLiveExecutionSignals,
-  evaluateTradeLifecycle,
   getCachedBars,
   subscribeLiveMarketTicks,
 } from './services/liveMarketService';
@@ -21,7 +18,6 @@ import {
   getFallbackBars,
   getFallbackOrderFlow,
   getFallbackFootprint,
-  getFallbackSignals,
 } from './data/mockData';
 
 const SYMBOLS = ['XAUUSD'];
@@ -29,7 +25,7 @@ const SYMBOLS = ['XAUUSD'];
 export default function App() {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');
   const [timeframe, setTimeframe] = useState('1h'); // '5m' | '15m' | '1h' | '4h'
-  const [activeView, setActiveView] = useState('candles'); // 'candles' | 'footprint' | 'volume-profile' | 'signals' | 'all'
+  const [activeView, setActiveView] = useState('candles'); // 'candles' | 'footprint' | 'volume-profile' | 'all'
 
   // Smart API URL resolution: handles localStorage, Vercel env variable, or localhost
   const [apiUrl, setApiUrl] = useState(() => {
@@ -38,20 +34,24 @@ export default function App() {
     const envUrl = import.meta.env?.VITE_API_URL;
     if (envUrl) return envUrl.trim().replace(/\/+$/, '');
     const host = window.location.hostname;
-    if (host === 'localhost' || host === '127.0.0.1' || host === '0.0.0.0' || !host) {
-      return 'http://localhost:8080';
-    }
+    if (host === 'localhost' || host === '127.0.0.1') return 'http://localhost:8080';
     return '';
   });
 
-  // Pre-seed state with high-fidelity realistic data immediately so chart & candles NEVER show blank
-  const [orderFlowData, setOrderFlowData] = useState(() => getFallbackOrderFlow('XAUUSD'));
-  const [barsData, setBarsData] = useState(() => getFallbackBars('XAUUSD', 120, '1h'));
-  const [footprintData, setFootprintData] = useState(() => getFallbackFootprint('XAUUSD', 12, '1h'));
-  const [signalsData, setSignalsData] = useState(() => getFallbackSignals());
+  // Zero-flash fallback initialization: Instant cache retrieval or realistic mocks
+  const [barsData, setBarsData] = useState(() => {
+    const cached = getCachedBars('XAUUSD', '1h');
+    return cached && cached.length > 0 ? cached : getFallbackBars('XAUUSD', '1h');
+  });
+
   const [currentPrice, setCurrentPrice] = useState(() => {
-    const initBars = getFallbackBars('XAUUSD', 1, '1h');
-    return initBars[0]?.close || 4028.5;
+    return barsData && barsData.length > 0 ? barsData[barsData.length - 1].close : 4034.40;
+  });
+
+  const [orderFlowData, setOrderFlowData] = useState(() => getFallbackOrderFlow());
+  const [footprintData, setFootprintData] = useState(() => {
+    const initBars = getCachedBars('XAUUSD', '1h') || getFallbackBars('XAUUSD', '1h');
+    return getLiveFootprintClusters(initBars, 'XAUUSD', '1h');
   });
 
   const [isConnected, setIsConnected] = useState(true);
@@ -59,83 +59,43 @@ export default function App() {
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
-  const prevSignalsCountRef = useRef(0);
-
-  // Play audio chime for new signal
-  const playAlertSound = useCallback(() => {
-    if (!soundEnabled) return;
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(587.33, ctx.currentTime);
-      osc.frequency.setValueAtTime(880, ctx.currentTime + 0.1);
-      gain.gain.setValueAtTime(0.25, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start();
-      osc.stop(ctx.currentTime + 0.5);
-    } catch (e) {
-      console.warn('AudioContext error:', e);
-    }
-  }, [soundEnabled]);
-
   // Handle symbol change smoothly with instant Cache + Live Feed sync
-  const handleSelectSymbol = async (sym) => {
-    setActiveSymbol(sym);
-
-    // Instant (0ms) in-memory cache check so chart never delays
-    const cached = getCachedBars(sym, timeframe);
-    if (cached && cached.bars && cached.bars.length > 0) {
-      setBarsData(cached.bars);
-      setCurrentPrice(cached.livePrice);
-    }
-
-    try {
-      const live = await getLiveCandleBars(sym, timeframe, 120, apiUrl);
-      if (live && live.bars && live.bars.length > 0) {
-        setBarsData(live.bars);
-        setCurrentPrice(live.livePrice);
-
-        const fp = getLiveFootprintClusters(live.bars, sym, timeframe);
-        if (fp && fp.length > 0) setFootprintData(fp);
-
-        const of = await getLiveOrderFlow(SYMBOLS, { [sym]: live.bars }, { [sym]: live.livePrice });
-        if (of && of.length > 0) setOrderFlowData(of);
+  const handleSelectSymbol = useCallback((sym) => {
+    if (sym !== activeSymbol) {
+      setActiveSymbol(sym);
+      const cached = getCachedBars(sym, timeframe);
+      if (cached && cached.length > 0) {
+        setBarsData(cached);
+        setCurrentPrice(cached[cached.length - 1].close);
+        setFootprintData(getLiveFootprintClusters(cached, sym, timeframe));
+      } else {
+        const fb = getFallbackBars(sym, timeframe);
+        setBarsData(fb);
+        setCurrentPrice(fb[fb.length - 1].close);
+        setFootprintData(getLiveFootprintClusters(fb, sym, timeframe));
       }
-    } catch (e) {
-      console.warn('Live symbol fetch:', e);
     }
-  };
+  }, [activeSymbol, timeframe]);
 
-  // Handle timeframe change smoothly with instant Cache + Live Feed sync
-  const handleSelectTimeframe = async (newTf) => {
-    setTimeframe(newTf);
-
-    // Instant (0ms) in-memory cache check so chart never delays
-    const cached = getCachedBars(activeSymbol, newTf);
-    if (cached && cached.bars && cached.bars.length > 0) {
-      setBarsData(cached.bars);
-      setCurrentPrice(cached.livePrice);
-    }
-
-    try {
-      const live = await getLiveCandleBars(activeSymbol, newTf, 120, apiUrl);
-      if (live && live.bars && live.bars.length > 0) {
-        setBarsData(live.bars);
-        setCurrentPrice(live.livePrice);
-
-        const fp = getLiveFootprintClusters(live.bars, activeSymbol, newTf);
-        if (fp && fp.length > 0) setFootprintData(fp);
+  // Handle timeframe change with instant Cache + Live Feed sync
+  const handleSelectTimeframe = useCallback((tf) => {
+    if (tf !== timeframe) {
+      setTimeframe(tf);
+      const cached = getCachedBars(activeSymbol, tf);
+      if (cached && cached.length > 0) {
+        setBarsData(cached);
+        setCurrentPrice(cached[cached.length - 1].close);
+        setFootprintData(getLiveFootprintClusters(cached, activeSymbol, tf));
+      } else {
+        const fb = getFallbackBars(activeSymbol, tf);
+        setBarsData(fb);
+        setCurrentPrice(fb[fb.length - 1].close);
+        setFootprintData(getLiveFootprintClusters(fb, activeSymbol, tf));
       }
-    } catch (e) {
-      console.warn('Live timeframe fetch:', e);
     }
-  };
+  }, [activeSymbol, timeframe]);
 
-  // 24/7 Live Feed background sync - runs continuously on Mobile, Vercel, and Desktop
+  // Unified background market fetcher: pulls Yahoo/MT5 real-time quotes without freezing UI
   const fetchAllData = useCallback(async () => {
     try {
       const live = await getLiveCandleBars(activeSymbol, timeframe, 120, apiUrl);
@@ -148,9 +108,6 @@ export default function App() {
 
         const of = await getLiveOrderFlow(SYMBOLS, { [activeSymbol]: live.bars }, { [activeSymbol]: live.livePrice });
         if (of && of.length > 0) setOrderFlowData(of);
-
-        const sigs = await getLiveExecutionSignals(activeSymbol, live.livePrice, apiUrl);
-        setSignalsData(sigs);
       }
     } catch (err) {
       console.warn('[LIVE_API] Auto-reconnecting live stream:', err);
@@ -162,13 +119,6 @@ export default function App() {
     const unsub = subscribeLiveMarketTicks(activeSymbol, timeframe, (update) => {
       if (update.livePrice != null) {
         setCurrentPrice(update.livePrice);
-
-        // Immediate tick lifecycle evaluator: triggers sound and UI updates when SL, TP1, TP2, or BE is reached
-        const lifecycleEvent = evaluateTradeLifecycle(update.livePrice);
-        if (lifecycleEvent) {
-          playAlertSound();
-          getLiveExecutionSignals(activeSymbol, update.livePrice, apiUrl).then(setSignalsData);
-        }
       }
 
       if (update.lastBar) {
@@ -184,43 +134,46 @@ export default function App() {
               close: tick.close,
               high: Math.max(last.high, tick.high),
               low: Math.min(last.low, tick.low),
-              volume: tick.volume || last.volume,
-              buyVol: tick.buyVol || last.buyVol,
-              sellVol: tick.sellVol || last.sellVol,
+              volume: (last.volume || 100) + (tick.volume || 1),
             };
             return [...prev.slice(0, -1), updated];
           } else if (tick.time > last.time) {
-            // Brand new candle bar opened!
+            // New bar appended
             return [...prev.slice(1), tick];
           }
           return prev;
         });
-      } else if (update.tickerOnly && update.livePrice != null) {
-        const curP = update.livePrice;
-        setBarsData((prev) => {
+
+        // Live footprint tick stream
+        setFootprintData((prev) => {
           if (!prev || prev.length === 0) return prev;
-          const last = prev[prev.length - 1];
-          const updated = {
-            ...last,
-            close: curP,
-            high: Math.max(last.high, curP),
-            low: Math.min(last.low, curP),
-          };
-          return [...prev.slice(0, -1), updated];
+          const lastFp = prev[prev.length - 1];
+          if (tick.time === lastFp.time) {
+            const updatedClusters = [...lastFp.clusters];
+            const pStep = activeSymbol === 'XAUUSD' ? (timeframe === '5m' ? 0.25 : 1.0) : 0.0002;
+            const targetPrice = Math.round(tick.close / pStep) * pStep;
+            const cIdx = updatedClusters.findIndex((c) => Math.abs(c.price - targetPrice) < pStep / 2);
+
+            const isAsk = tick.close >= (lastFp.close || tick.close);
+            if (cIdx >= 0) {
+              const cur = updatedClusters[cIdx];
+              updatedClusters[cIdx] = {
+                ...cur,
+                ask: isAsk ? cur.ask + 1 : cur.ask,
+                bid: !isAsk ? cur.bid + 1 : cur.bid,
+                delta: cur.delta + (isAsk ? 1 : -1),
+                total: cur.total + 1,
+              };
+            }
+            return [...prev.slice(0, -1), { ...lastFp, close: tick.close, clusters: updatedClusters }];
+          }
+          return prev;
         });
       }
     });
 
     return () => unsub();
-  }, [activeSymbol, timeframe, apiUrl, playAlertSound]);
-
-  const handleLifecycleChange = useCallback(async (event) => {
-    if (event) {
-      playAlertSound();
-    }
-    const sigs = await getLiveExecutionSignals(activeSymbol, currentPrice, apiUrl);
-    setSignalsData(sigs);
-  }, [activeSymbol, currentPrice, apiUrl, playAlertSound]);
+  }, [activeSymbol, timeframe, apiUrl]);
 
   // Initial fetch and fast auto-refresh every 3 seconds
   useEffect(() => {
@@ -272,12 +225,10 @@ export default function App() {
         onOpenSettings={() => setIsSettingsOpen(true)}
         activeView={activeView}
         onChangeView={setActiveView}
-        signalsData={signalsData}
       />
 
-      {/* 2. Main Terminal Content (Mobile to 4K Responsive Grid) */}
-      <main className="flex-1 max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] w-full mx-auto px-2.5 sm:px-4 md:px-6 3xl:px-10 py-3 sm:py-6 space-y-4 sm:space-y-6 pb-24 lg:pb-8 overflow-x-hidden relative z-10">
-        
+      {/* 2. Main Content Canvas */}
+      <main className="flex-1 max-w-full 2xl:max-w-[2100px] 3xl:max-w-[3200px] 4k:max-w-[3600px] mx-auto px-2.5 sm:px-6 3xl:px-10 py-3 sm:py-5 w-full space-y-4 sm:space-y-6">
         {/* Editorial Hero Banner (Inter Tight ~172px Reference Scale & Balanced Groups) */}
         <section className="pt-2 pb-1 sm:pt-4 sm:pb-3 border-b border-[#0D0D0C]/10 mb-2 animate-fade-rise">
           <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-4">
@@ -307,25 +258,14 @@ export default function App() {
                 <span className="text-xl sm:text-2xl font-semibold text-[#0D0D0C] font-headline">-2.5% Safe</span>
               </div>
               <div className="bg-[#F8F9FA] border border-[#0D0D0C]/12 rounded-[7px] p-3 sm:p-3.5 min-w-[130px] shadow-[0_1px_3px_rgba(0,0,0,0.02)]">
-                <span className="text-[11px] text-[#0D0D0C]/56 block font-sans font-medium">Pacing</span>
-                <span className="text-xl sm:text-2xl font-semibold text-[#0D0D0C] font-headline">{signalsData?.trades_count ?? 0} / 3 Max</span>
+                <span className="text-[11px] text-[#0D0D0C]/56 block font-sans font-medium">Risk Model</span>
+                <span className="text-xl sm:text-2xl font-semibold text-[#0D0D0C] font-headline">Twin Order</span>
               </div>
             </div>
           </div>
         </section>
 
-        {/* VIEW 1: Dedicated MT5 Signals & Strategies View */}
-        {activeView === 'signals' && (
-          <div className="w-full max-w-5xl mx-auto">
-            <SignalsFeed
-              signalsData={signalsData}
-              onLifecycleChange={handleLifecycleChange}
-              currentPrice={currentPrice}
-            />
-          </div>
-        )}
-
-        {/* VIEW 2: Dedicated Footprint Clusters Chart View */}
+        {/* VIEW 1: Dedicated Footprint Clusters Chart View */}
         {activeView === 'footprint' && (
           <div className="w-full">
             <FootprintChart
@@ -340,7 +280,7 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 3: Dedicated Volume Profile Depth Histogram View */}
+        {/* VIEW 2: Dedicated Order Flow Depth / Histogram View */}
         {activeView === 'volume-profile' && (
           <div className="w-full max-w-5xl mx-auto">
             <VolumeProfileHistogram
@@ -352,7 +292,7 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 4: Chart & Order Flow Overview View */}
+        {/* VIEW 3: Standard Candlestick + Micro Volume Profile View */}
         {activeView === 'candles' && (
           <div className="space-y-4 sm:space-y-6">
             <OrderFlowCards
@@ -360,7 +300,6 @@ export default function App() {
               orderFlowData={orderFlowData}
               livePrice={currentPrice}
               activeVP={activeVP}
-              signalsData={signalsData}
             />
             <CandleChart
               symbol={activeSymbol}
@@ -375,7 +314,7 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 5: Combined Multi-Column View (Full Desktop Terminal) */}
+        {/* VIEW 4: Combined Multi-Column View (Full Desktop Terminal) */}
         {activeView === 'all' && (
           <div className="space-y-4 sm:space-y-6">
             <OrderFlowCards
@@ -383,10 +322,9 @@ export default function App() {
               orderFlowData={orderFlowData}
               livePrice={currentPrice}
               activeVP={activeVP}
-              signalsData={signalsData}
             />
             <div className="grid grid-cols-1 xl:grid-cols-12 3xl:grid-cols-12 gap-4 sm:gap-6 items-start">
-              <div className="xl:col-span-8 3xl:col-span-8 space-y-4 sm:space-y-6">
+              <div className="xl:col-span-8 3xl:col-span-8">
                 <CandleChart
                   symbol={activeSymbol}
                   barsData={barsData}
@@ -397,22 +335,8 @@ export default function App() {
                   onSelectTimeframe={handleSelectTimeframe}
                   decimals={decimals}
                 />
-                <FootprintChart
-                  symbol={activeSymbol}
-                  footprintData={footprintData}
-                  currentPrice={currentPrice}
-                  timeframe={timeframe}
-                  onSelectTimeframe={handleSelectTimeframe}
-                  decimals={decimals}
-                  barsData={barsData}
-                />
               </div>
-              <div className="xl:col-span-4 3xl:col-span-4 space-y-4 sm:space-y-6">
-                <SignalsFeed
-                  signalsData={signalsData}
-                  onLifecycleChange={handleLifecycleChange}
-                  currentPrice={currentPrice}
-                />
+              <div className="xl:col-span-4 3xl:col-span-4">
                 <VolumeProfileHistogram
                   symbol={activeSymbol}
                   orderFlowData={orderFlowData}
@@ -420,6 +344,17 @@ export default function App() {
                   decimals={decimals}
                 />
               </div>
+            </div>
+            <div className="w-full">
+              <FootprintChart
+                symbol={activeSymbol}
+                footprintData={footprintData}
+                currentPrice={currentPrice}
+                timeframe={timeframe}
+                onSelectTimeframe={handleSelectTimeframe}
+                decimals={decimals}
+                barsData={barsData}
+              />
             </div>
           </div>
         )}
@@ -431,24 +366,22 @@ export default function App() {
           <div className="flex flex-wrap items-center gap-2 text-[11px] sm:text-xs">
             <span className="flex items-center gap-1.5 font-bold text-[#0D0D0C]">
               <span className="w-2 h-2 rounded-full bg-[#3FB874] animate-pulse"></span>
-              TRADING BOY AI ENGINE
+              TRADING BOY ORDER FLOW TERMINAL
             </span>
             <span className="text-[#0D0D0C]/25 hidden sm:inline">|</span>
             <span className="hidden sm:inline">Target: +2.0% - 3.0%</span>
             <span className="text-[#0D0D0C]/25 hidden sm:inline">|</span>
             <span className="hidden sm:inline">Capital Guard: -2.5%</span>
             <span className="text-[#0D0D0C]/25 hidden sm:inline">|</span>
-            <span className="hidden sm:inline">Max 3 Trades/Day</span>
-            <span className="text-[#0D0D0C]/25 hidden sm:inline">|</span>
             <span className="text-[#3FB874] font-bold">
-              LIVE ENGINE SYNCED
+              LIVE AUCTION FEED ACTIVE
             </span>
           </div>
 
           <div className="flex flex-wrap items-center gap-2 text-[#0D0D0C]/42 text-[10px] sm:text-xs">
-            <span>Hourly :31 Scans</span>
+            <span>Volume Profile & Footprint Engine</span>
             <span>•</span>
-            <span>Synced with @tradingboyorderbot</span>
+            <span>XAUUSD Spot</span>
           </div>
         </div>
       </footer>
@@ -458,7 +391,6 @@ export default function App() {
         activeView={activeView}
         onChangeView={setActiveView}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        signalsCount={signalsData?.trades_count || 0}
       />
 
       {/* Settings Modal */}

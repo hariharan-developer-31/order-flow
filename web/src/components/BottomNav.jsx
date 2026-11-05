@@ -3,7 +3,7 @@ import {
   TrendingUp,
   Flame,
   BarChart3,
-  Zap,
+  Layers,
   Settings,
   Download,
 } from 'lucide-react';
@@ -12,7 +12,6 @@ export default function BottomNav({
   activeView,
   onChangeView,
   onOpenSettings,
-  signalsCount = 0,
 }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -75,15 +74,14 @@ export default function BottomNav({
       isActive: activeView === 'volume-profile',
     },
     {
-      id: 'signals',
-      label: 'MT5 Signals',
-      icon: Zap,
+      id: 'all',
+      label: 'Combined',
+      icon: Layers,
       action: () => {
-        onChangeView('signals');
+        onChangeView('all');
         window.scrollTo({ top: 0, behavior: 'smooth' });
       },
-      badge: signalsCount > 0 ? signalsCount : null,
-      isActive: activeView === 'signals',
+      isActive: activeView === 'all',
     },
     {
       id: 'settings',

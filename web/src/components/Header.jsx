@@ -11,7 +11,6 @@ import {
   AlertCircle,
   Clock,
   Flame,
-  Zap,
 } from 'lucide-react';
 
 export default function Header({
@@ -28,7 +27,6 @@ export default function Header({
   onOpenSettings,
   activeView,
   onChangeView,
-  signalsData,
 }) {
   const currentOF = orderFlowData?.find((o) => o.symbol === activeSymbol);
 
@@ -149,16 +147,7 @@ export default function Header({
               )}
             </div>
 
-            {/* Live Today's Net P&L % Badge */}
-            {signalsData?.today_pnl && (
-              <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-[7px] bg-white border border-[#0D0D0C]/15 text-xs font-mono font-medium">
-                <span className="text-[11px] text-[#0D0D0C]/56 font-sans">Today:</span>
-                <span className={signalsData.today_pnl.startsWith('+') ? 'text-[#3FB874] font-bold' : 'text-[#F2772F] font-bold'}>
-                  {signalsData.today_pnl}
-                </span>
-                <span className="text-[11px] text-[#0D0D0C]/42 font-sans">({signalsData.trades_count ?? 0}/3)</span>
-              </div>
-            )}
+
 
             {/* View Switcher: Chart & VP vs Footprint vs VP Depth vs Signals vs Combined */}
             <div className="hidden lg:flex items-center bg-[#F4F4F5] p-1 rounded-[7px] border border-[#0D0D0C]/12 text-[14px] font-sans font-medium">
@@ -192,16 +181,7 @@ export default function Header({
               >
                 VP Depth
               </button>
-              <button
-                onClick={() => onChangeView('signals')}
-                className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${
-                  activeView === 'signals'
-                    ? 'bg-[#0D0D0C] text-white font-semibold'
-                    : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C] hover:bg-[#0D0D0C]/5'
-                }`}
-              >
-                MT5 Signals
-              </button>
+
               <button
                 onClick={() => onChangeView('all')}
                 className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${

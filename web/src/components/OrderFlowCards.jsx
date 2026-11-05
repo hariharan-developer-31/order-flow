@@ -1,12 +1,9 @@
 import React from 'react';
 import { Target, Layers, Flame, Shield } from 'lucide-react';
 
-export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP, signalsData }) {
+export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const dec = symbol === 'XAUUSD' ? 2 : 5;
-
-  const todayPnl = signalsData?.today_pnl || '+0.00%';
-  const tradesCount = signalsData?.trades_count ?? 0;
 
   // Synchronized directly with the chart auction so the above data box and chart match 100% perfectly
   const poc = activeVP?.pocPrice ?? of?.pPOC ?? 0;
@@ -160,14 +157,14 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
 
           <div className="flex items-center justify-between text-xs font-mono font-medium mt-2 gap-2 relative z-10">
             <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1">
-              <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Today's Net P&L</span>
-              <span className={`text-base font-bold font-headline ${todayPnl.startsWith('+') ? 'text-[#3FB874]' : 'text-[#F2772F]'}`}>
-                {todayPnl}
+              <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Risk Per Trade</span>
+              <span className="text-base font-bold font-headline text-[#0D0D0C]">
+                0.5% - 1.0%
               </span>
             </div>
             <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1 text-right">
-              <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Trades Pacing</span>
-              <span className="text-[#0D0D0C] text-base font-bold font-headline">{tradesCount} / 3 Max</span>
+              <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Daily Target</span>
+              <span className="text-[#3FB874] text-base font-bold font-headline">+2.0% - 3.0%</span>
             </div>
           </div>
         </div>
