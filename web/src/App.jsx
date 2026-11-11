@@ -3,8 +3,10 @@ import Header from './components/Header';
 import OrderFlowCards from './components/OrderFlowCards';
 import CandleChart from './components/CandleChart';
 import { calculateDynamicVolumeProfile } from './utils/volumeProfile';
+import { calculateDailyStandardDeviation } from './utils/standardDeviation';
 import FootprintChart from './components/FootprintChart';
 import VolumeProfileHistogram from './components/VolumeProfileHistogram';
+import StandardDeviationMatrix from './components/StandardDeviationMatrix';
 import SettingsModal from './components/SettingsModal';
 import BottomNav from './components/BottomNav';
 import {
@@ -206,6 +208,11 @@ export default function App() {
     return calculateDynamicVolumeProfile(barsData, 55);
   }, [barsData]);
 
+  // Calculate institutional Daily Standard Deviation & Trailing 24H VWAP Bands
+  const dailySD = useMemo(() => {
+    return calculateDailyStandardDeviation(barsData, currentPrice, activeSymbol);
+  }, [barsData, currentPrice, activeSymbol]);
+
   return (
     <div className="min-h-screen bg-white text-[#0D0D0C] flex flex-col font-sans selection:bg-[#0D0D0C] selection:text-white w-full max-w-full overflow-x-hidden relative">
       {/* Clean Pure White Canvas */}
@@ -280,15 +287,34 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 2: Dedicated Order Flow Depth / Histogram View */}
+        {/* VIEW 2: Dedicated Order Flow Depth & Standard Deviation Matrix View */}
         {activeView === 'volume-profile' && (
-          <div className="w-full max-w-5xl mx-auto">
-            <VolumeProfileHistogram
+          <div className="w-full max-w-6xl mx-auto space-y-4 sm:space-y-6">
+            <OrderFlowCards
               symbol={activeSymbol}
               orderFlowData={orderFlowData}
+              livePrice={currentPrice}
               activeVP={activeVP}
-              decimals={decimals}
+              dailySD={dailySD}
             />
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+              <div className="lg:col-span-5">
+                <VolumeProfileHistogram
+                  symbol={activeSymbol}
+                  orderFlowData={orderFlowData}
+                  activeVP={activeVP}
+                  decimals={decimals}
+                />
+              </div>
+              <div className="lg:col-span-7">
+                <StandardDeviationMatrix
+                  dailySD={dailySD}
+                  currentPrice={currentPrice}
+                  symbol={activeSymbol}
+                  decimals={decimals}
+                />
+              </div>
+            </div>
           </div>
         )}
 
@@ -300,6 +326,7 @@ export default function App() {
               orderFlowData={orderFlowData}
               livePrice={currentPrice}
               activeVP={activeVP}
+              dailySD={dailySD}
             />
             <CandleChart
               symbol={activeSymbol}
@@ -307,8 +334,15 @@ export default function App() {
               footprintData={footprintData}
               orderFlowData={orderFlowData}
               activeVP={activeVP}
+              dailySD={dailySD}
               timeframe={timeframe}
               onSelectTimeframe={handleSelectTimeframe}
+              decimals={decimals}
+            />
+            <StandardDeviationMatrix
+              dailySD={dailySD}
+              currentPrice={currentPrice}
+              symbol={activeSymbol}
               decimals={decimals}
             />
           </div>
@@ -322,6 +356,7 @@ export default function App() {
               orderFlowData={orderFlowData}
               livePrice={currentPrice}
               activeVP={activeVP}
+              dailySD={dailySD}
             />
             <div className="grid grid-cols-1 xl:grid-cols-12 3xl:grid-cols-12 gap-4 sm:gap-6 items-start">
               <div className="xl:col-span-8 3xl:col-span-8">
@@ -331,6 +366,7 @@ export default function App() {
                   footprintData={footprintData}
                   orderFlowData={orderFlowData}
                   activeVP={activeVP}
+                  dailySD={dailySD}
                   timeframe={timeframe}
                   onSelectTimeframe={handleSelectTimeframe}
                   decimals={decimals}
@@ -344,6 +380,14 @@ export default function App() {
                   decimals={decimals}
                 />
               </div>
+            </div>
+            <div className="w-full">
+              <StandardDeviationMatrix
+                dailySD={dailySD}
+                currentPrice={currentPrice}
+                symbol={activeSymbol}
+                decimals={decimals}
+              />
             </div>
             <div className="w-full">
               <FootprintChart

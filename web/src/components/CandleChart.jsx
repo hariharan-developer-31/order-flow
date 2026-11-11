@@ -18,9 +18,11 @@ import {
   ArrowUp,
   ArrowDown,
   Clock,
+  Activity,
 } from 'lucide-react';
 
 import { calculateDynamicVolumeProfile } from '../utils/volumeProfile';
+import { calculateDailyStandardDeviation } from '../utils/standardDeviation';
 import AtasFootprintChart from './AtasFootprintChart';
 
 function toDate(time) {
@@ -100,6 +102,7 @@ export default function CandleChart({
   footprintData,
   orderFlowData,
   activeVP,
+  dailySD,
   timeframe = '1h',
   onSelectTimeframe,
   decimals = 2,
@@ -114,6 +117,7 @@ export default function CandleChart({
   // States
   const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint'
   const [showInChartProfile, setShowInChartProfile] = useState(true);
+  const [showSdLevels, setShowSdLevels] = useState(true);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoverData, setHoverData] = useState(null);
 
@@ -505,9 +509,9 @@ export default function CandleChart({
     }
   }, [barsData, chartView, timeframe, symbol, renderInChartProfile]);
 
-  // 5. Render Subtle Prior Day Extremes (PDH / PDL only) to prevent right-axis crowding
+  // 5. Render Subtle Prior Day Extremes (PDH / PDL) & Daily Standard Deviation Bands
   useEffect(() => {
-    if (!candleSeriesRef.current || !of || chartView !== 'candles') return;
+    if (!candleSeriesRef.current || chartView !== 'candles') return;
 
     priceLinesRef.current.forEach((line) => {
       try {
@@ -517,7 +521,7 @@ export default function CandleChart({
     priceLinesRef.current = [];
 
     // Prior Day High (PDH)
-    if (of.pHigh) {
+    if (of?.pHigh) {
       try {
         const line = candleSeriesRef.current.createPriceLine({
           price: of.pHigh,
@@ -532,7 +536,7 @@ export default function CandleChart({
     }
 
     // Prior Day Low (PDL)
-    if (of.pLow) {
+    if (of?.pLow) {
       try {
         const line = candleSeriesRef.current.createPriceLine({
           price: of.pLow,
@@ -545,7 +549,39 @@ export default function CandleChart({
         priceLinesRef.current.push(line);
       } catch (e) {}
     }
-  }, [of, decimals, chartView]);
+
+    // Daily Standard Deviation Bands (±3σ, ±2σ, ±1σ, VWAP)
+    if (showSdLevels) {
+      const sdData = dailySD || calculateDailyStandardDeviation(barsData, barsData?.[barsData.length - 1]?.close, symbol);
+      if (sdData && sdData.vwap) {
+        const sdConfigs = [
+          { price: sdData.sd3Upper, title: '+3σ', color: '#F2772F', lineStyle: 2, lineWidth: 1 },
+          { price: sdData.sd2Upper, title: '+2σ', color: '#E9C22E', lineStyle: 2, lineWidth: 1 },
+          { price: sdData.sd1Upper, title: '+1σ', color: '#C564C4', lineStyle: 2, lineWidth: 1 },
+          { price: sdData.vwap,     title: 'VWAP', color: '#0D0D0C', lineStyle: 0, lineWidth: 1.5 },
+          { price: sdData.sd1Lower, title: '-1σ', color: '#3FB874', lineStyle: 2, lineWidth: 1 },
+          { price: sdData.sd2Lower, title: '-2σ', color: '#3FB874', lineStyle: 2, lineWidth: 1 },
+          { price: sdData.sd3Lower, title: '-3σ', color: '#F2772F', lineStyle: 2, lineWidth: 1 },
+        ];
+
+        sdConfigs.forEach((cfg) => {
+          if (cfg.price && !isNaN(cfg.price)) {
+            try {
+              const line = candleSeriesRef.current.createPriceLine({
+                price: cfg.price,
+                color: cfg.color,
+                lineWidth: cfg.lineWidth,
+                lineStyle: cfg.lineStyle,
+                axisLabelVisible: true,
+                title: cfg.title,
+              });
+              priceLinesRef.current.push(line);
+            } catch (e) {}
+          }
+        });
+      }
+    }
+  }, [of, dailySD, showSdLevels, barsData, symbol, decimals, chartView]);
 
   useEffect(() => {
     renderInChartProfile();
@@ -734,6 +770,23 @@ export default function CandleChart({
               <BarChart3 className="w-3.5 h-3.5 text-[#0D0D0C]" />
               <span>Left-Corner VP</span>
               {showInChartProfile ? <Eye className="w-3 h-3 text-[#0D0D0C]" /> : <EyeOff className="w-3 h-3" />}
+            </button>
+          )}
+
+          {/* Daily Standard Deviation Levels Toggle Button */}
+          {chartView === 'candles' && (
+            <button
+              onClick={() => setShowSdLevels((v) => !v)}
+              className={`px-2.5 py-1 rounded-[5px] text-xs font-medium border flex items-center gap-1.5 transition duration-300 ${
+                showSdLevels
+                  ? 'bg-[#F4F4F5] text-[#0D0D0C] border-[#0D0D0C]/25 font-semibold'
+                  : 'bg-white text-[#0D0D0C]/56 border-[#0D0D0C]/15 hover:text-[#0D0D0C]'
+              }`}
+              title="Toggle Daily Standard Deviation Levels (±1σ, ±2σ, ±3σ, VWAP)"
+            >
+              <Activity className="w-3.5 h-3.5 text-[#0D0D0C]" />
+              <span>Daily SD</span>
+              {showSdLevels ? <Eye className="w-3 h-3 text-[#0D0D0C]" /> : <EyeOff className="w-3 h-3" />}
             </button>
           )}
 

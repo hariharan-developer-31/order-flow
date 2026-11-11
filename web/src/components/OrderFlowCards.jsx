@@ -1,7 +1,7 @@
 import React from 'react';
-import { Target, Layers, Flame, Shield } from 'lucide-react';
+import { Target, Layers, Flame, Shield, Activity } from 'lucide-react';
 
-export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP }) {
+export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP, dailySD }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const dec = symbol === 'XAUUSD' ? 2 : 5;
 
@@ -23,11 +23,9 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4.5">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4.5 font-sans">
       {/* 1. Point of Control Card - Pure White */}
       <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        
-
         <div>
           <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
             <span className="text-[15px] sm:text-[16.5px] font-medium text-[#0D0D0C] tracking-tight flex items-center gap-1.5 font-headline">
@@ -56,10 +54,8 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
         </p>
       </div>
 
-      {/* 2. Value Area Range - Pastel Rose Lilac (#F0E4E6 to #ECD6E2) */}
+      {/* 2. Value Area Range - 70% Volume Area */}
       <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        
-
         <div>
           <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
             <span className="text-[15px] sm:text-[16.5px] font-medium text-[#0D0D0C] tracking-tight flex items-center gap-1.5 font-headline">
@@ -99,10 +95,8 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
         </div>
       </div>
 
-      {/* 3. Prior Day Liquidity Range - Pastel Peach Apricot (#F8DCC7 to #F9CBA9) */}
+      {/* 3. Prior Day Liquidity Range (PDH / PDL) */}
       <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        
-
         <div>
           <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
             <span className="text-[15px] sm:text-[16.5px] font-medium text-[#0D0D0C] tracking-tight flex items-center gap-1.5 font-headline">
@@ -138,41 +132,80 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
         </p>
       </div>
 
-      {/* 4. Capital Guard & Daily Pacing Card - Pastel Sage Mint (#E9EBE0 to #DFE9D4) */}
-      <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
-        
-
-        <div>
-          <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
-            <span className="text-[15px] sm:text-[16.5px] font-medium text-[#0D0D0C] tracking-tight flex items-center gap-1.5 font-headline">
-              <span className="w-5 h-5 rounded-[5px] bg-[#3FB874]/25 border border-[#0D0D0C]/12 flex items-center justify-center shrink-0 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]">
-                <Shield className="w-3.5 h-3.5 text-[#0D0D0C]" />
+      {/* 4. Daily Standard Deviation (σ) & Expected Move Card */}
+      {dailySD && dailySD.stdDev ? (
+        <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+              <span className="text-[15px] sm:text-[16.5px] font-medium text-[#0D0D0C] tracking-tight flex items-center gap-1.5 font-headline">
+                <span className="w-5 h-5 rounded-[5px] bg-[#3FB874]/25 border border-[#0D0D0C]/12 flex items-center justify-center shrink-0 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]">
+                  <Activity className="w-3.5 h-3.5 text-[#0D0D0C]" />
+                </span>
+                Daily Std Dev (σ)
               </span>
-              Capital Guard & Risk
-            </span>
-            <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
-              Safe: -2.5%
-            </span>
-          </div>
-
-          <div className="flex items-center justify-between text-xs font-mono font-medium mt-2 gap-2 relative z-10">
-            <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1">
-              <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Risk Per Trade</span>
-              <span className="text-base font-bold font-headline text-[#0D0D0C]">
-                0.5% - 1.0%
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
+                Z: {dailySD.zScore >= 0 ? `+${dailySD.zScore.toFixed(2)}` : dailySD.zScore.toFixed(2)}σ
               </span>
             </div>
-            <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1 text-right">
-              <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Daily Target</span>
-              <span className="text-[#3FB874] text-base font-bold font-headline">+2.0% - 3.0%</span>
+
+            <div className="flex items-baseline justify-between font-mono mt-2 relative z-10">
+              <div>
+                <span className="text-[10px] text-[#0D0D0C]/56 block font-sans font-medium">-1.0σ Expected</span>
+                <span className="text-base sm:text-lg font-semibold text-[#0D0D0C]">
+                  {dailySD.sd1Lower ? dailySD.sd1Lower.toFixed(dec) : '---'}
+                </span>
+              </div>
+              <div className="text-center px-1">
+                <span className="text-[10px] text-[#0D0D0C]/56 block font-sans font-medium">Daily σ Move</span>
+                <span className="text-sm font-bold text-[#0D0D0C] bg-[#F8F9FA] px-1.5 py-0.5 rounded border border-[#0D0D0C]/10 inline-block">
+                  ±${dailySD.stdDev ? dailySD.stdDev.toFixed(dec) : '0.00'}
+                </span>
+              </div>
+              <div className="text-right">
+                <span className="text-[10px] text-[#0D0D0C]/56 block font-sans font-medium">+1.0σ Expected</span>
+                <span className="text-base sm:text-lg font-semibold text-[#0D0D0C]">
+                  {dailySD.sd1Upper ? dailySD.sd1Upper.toFixed(dec) : '---'}
+                </span>
+              </div>
             </div>
           </div>
+
+          <p className="text-[12.5px] text-[#0D0D0C]/56 mt-3 font-sans relative z-10 truncate">
+            {dailySD.regime} • 68.2% normal range.
+          </p>
         </div>
+      ) : (
+        <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-2 relative z-10">
+              <span className="text-[15px] sm:text-[16.5px] font-medium text-[#0D0D0C] tracking-tight flex items-center gap-1.5 font-headline">
+                <span className="w-5 h-5 rounded-[5px] bg-[#3FB874]/25 border border-[#0D0D0C]/12 flex items-center justify-center shrink-0 shadow-[inset_0_1px_1px_rgba(255,255,255,0.6)]">
+                  <Shield className="w-3.5 h-3.5 text-[#0D0D0C]" />
+                </span>
+                Capital Guard & Risk
+              </span>
+              <span className="text-[10px] font-medium px-2 py-0.5 rounded-[5px] bg-[#F8F9FA] text-[#0D0D0C] border border-[#0D0D0C]/12 font-mono shrink-0">
+                Safe: -2.5%
+              </span>
+            </div>
 
-        <p className="text-[12.5px] text-[#0D0D0C]/56 mt-3 font-sans relative z-10">
-          Target: +2.0% - 3.0% • 70% scale-out moves SL to Breakeven.
-        </p>
-      </div>
+            <div className="flex items-center justify-between text-xs font-mono font-medium mt-2 gap-2 relative z-10">
+              <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1">
+                <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Risk Per Trade</span>
+                <span className="text-base font-bold font-headline text-[#0D0D0C]">0.5% - 1.0%</span>
+              </div>
+              <div className="bg-[#F8F9FA] px-2.5 py-1.5 rounded-[5px] border border-[#0D0D0C]/12 flex-1 text-right">
+                <span className="text-[#0D0D0C]/56 text-[10px] block font-sans font-medium">Daily Target</span>
+                <span className="text-[#3FB874] text-base font-bold font-headline">+2.0% - 3.0%</span>
+              </div>
+            </div>
+          </div>
+
+          <p className="text-[12.5px] text-[#0D0D0C]/56 mt-3 font-sans relative z-10">
+            Target: +2.0% - 3.0% • 70% scale-out moves SL to Breakeven.
+          </p>
+        </div>
+      )}
     </div>
   );
 }
