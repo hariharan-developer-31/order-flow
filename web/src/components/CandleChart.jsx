@@ -103,6 +103,8 @@ export default function CandleChart({
   orderFlowData,
   activeVP,
   dailySD,
+  showStandardDeviation,
+  onToggleStandardDeviation,
   timeframe = '1h',
   onSelectTimeframe,
   decimals = 2,
@@ -117,7 +119,7 @@ export default function CandleChart({
   // States
   const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint'
   const [showInChartProfile, setShowInChartProfile] = useState(true);
-  const [showSdLevels, setShowSdLevels] = useState(true);
+  const [showSdLevels, setShowSdLevels] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [hoverData, setHoverData] = useState(null);
 
@@ -141,6 +143,13 @@ export default function CandleChart({
     if (w < 640) return 420;  // Mobile
     return 540;               // Tablet & Laptop
   }, [isFullscreen]);
+
+  // Sync SD state with global prop
+  useEffect(() => {
+    if (showStandardDeviation !== undefined) {
+      setShowSdLevels(Boolean(showStandardDeviation));
+    }
+  }, [showStandardDeviation]);
 
   // 1. Live Candle Countdown Timer (Second-by-Second Countdown)
   useEffect(() => {
@@ -773,20 +782,24 @@ export default function CandleChart({
             </button>
           )}
 
-          {/* Daily Standard Deviation Levels Toggle Button */}
+          {/* Daily Standard Deviation Levels Toggle Button (Default OFF) */}
           {chartView === 'candles' && (
             <button
-              onClick={() => setShowSdLevels((v) => !v)}
-              className={`px-2.5 py-1 rounded-[5px] text-xs font-medium border flex items-center gap-1.5 transition duration-300 ${
+              onClick={() => {
+                const nextVal = !showSdLevels;
+                setShowSdLevels(nextVal);
+                if (onToggleStandardDeviation) onToggleStandardDeviation(nextVal);
+              }}
+              className={`px-2.5 py-1 rounded-[5px] text-xs font-medium border flex items-center gap-1.5 transition duration-300 cursor-pointer ${
                 showSdLevels
-                  ? 'bg-[#F4F4F5] text-[#0D0D0C] border-[#0D0D0C]/25 font-semibold'
-                  : 'bg-white text-[#0D0D0C]/56 border-[#0D0D0C]/15 hover:text-[#0D0D0C]'
+                  ? 'bg-[#0D0D0C] text-white border-[#0D0D0C] font-semibold shadow-xs'
+                  : 'bg-white text-[#0D0D0C]/60 border-[#0D0D0C]/15 hover:text-[#0D0D0C]'
               }`}
               title="Toggle Daily Standard Deviation Levels (±1σ, ±2σ, ±3σ, VWAP)"
             >
-              <Activity className="w-3.5 h-3.5 text-[#0D0D0C]" />
-              <span>Daily SD</span>
-              {showSdLevels ? <Eye className="w-3 h-3 text-[#0D0D0C]" /> : <EyeOff className="w-3 h-3" />}
+              <Activity className={`w-3.5 h-3.5 ${showSdLevels ? 'text-[#3FB874]' : 'text-[#0D0D0C]'}`} />
+              <span>Daily SD: {showSdLevels ? 'ON' : 'OFF'}</span>
+              {showSdLevels ? <Eye className="w-3 h-3 text-[#3FB874]" /> : <EyeOff className="w-3 h-3" />}
             </button>
           )}
 

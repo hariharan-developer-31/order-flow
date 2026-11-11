@@ -5,14 +5,15 @@ import {
   BarChart3,
   Layers,
   Shield,
-  Settings,
+  Activity,
   Download,
 } from 'lucide-react';
 
 export default function BottomNav({
   activeView,
   onChangeView,
-  onOpenSettings,
+  showStandardDeviation = false,
+  onToggleStandardDeviation,
 }) {
   const [deferredPrompt, setDeferredPrompt] = useState(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -95,11 +96,11 @@ export default function BottomNav({
       isActive: activeView === 'all',
     },
     {
-      id: 'settings',
-      label: 'API Settings',
-      icon: Settings,
-      action: onOpenSettings,
-      isActive: false,
+      id: 'toggle-sd',
+      label: showStandardDeviation ? 'SD: ON' : 'SD: OFF',
+      icon: Activity,
+      action: onToggleStandardDeviation,
+      isActive: showStandardDeviation,
     },
   ];
 

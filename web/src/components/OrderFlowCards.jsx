@@ -1,7 +1,7 @@
 import React from 'react';
 import { Target, Layers, Flame, Shield, Activity } from 'lucide-react';
 
-export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP, dailySD }) {
+export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activeVP, dailySD, showStandardDeviation = false }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
   const dec = symbol === 'XAUUSD' ? 2 : 5;
 
@@ -132,8 +132,8 @@ export default function OrderFlowCards({ symbol, orderFlowData, livePrice, activ
         </p>
       </div>
 
-      {/* 4. Daily Standard Deviation (σ) & Expected Move Card */}
-      {dailySD && dailySD.stdDev ? (
+      {/* 4. Daily Standard Deviation (σ) & Expected Move Card (Active when SD is ON) */}
+      {showStandardDeviation && dailySD && dailySD.stdDev ? (
         <div className="bg-white border border-[#0D0D0C]/12 shadow-[0_1px_4px_rgba(0,0,0,0.03)] rounded-[7px] p-4 sm:p-5 relative overflow-hidden transition-all duration-500 hover:border-[#0D0D0C]/35 group flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2 mb-2 relative z-10">

@@ -60,6 +60,7 @@ export default function App() {
   const [isConnected, setIsConnected] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [soundEnabled, setSoundEnabled] = useState(true);
+  const [showStandardDeviation, setShowStandardDeviation] = useState(false); // Default OFF per user instruction
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
 
   // Handle symbol change smoothly with instant Cache + Live Feed sync
@@ -230,7 +231,8 @@ export default function App() {
         onRefresh={fetchAllData}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled((v) => !v)}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        showStandardDeviation={showStandardDeviation}
+        onToggleStandardDeviation={() => setShowStandardDeviation((v) => !v)}
         activeView={activeView}
         onChangeView={setActiveView}
       />
@@ -288,7 +290,7 @@ export default function App() {
           </div>
         )}
 
-        {/* VIEW 2: Dedicated Order Flow Depth & Standard Deviation Matrix View */}
+        {/* VIEW 2: Dedicated Order Flow Depth View */}
         {activeView === 'volume-profile' && (
           <div className="w-full max-w-6xl mx-auto space-y-4 sm:space-y-6">
             <OrderFlowCards
@@ -297,9 +299,10 @@ export default function App() {
               livePrice={currentPrice}
               activeVP={activeVP}
               dailySD={dailySD}
+              showStandardDeviation={showStandardDeviation}
             />
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
-              <div className="lg:col-span-5">
+              <div className={showStandardDeviation ? "lg:col-span-5" : "lg:col-span-12"}>
                 <VolumeProfileHistogram
                   symbol={activeSymbol}
                   orderFlowData={orderFlowData}
@@ -307,14 +310,16 @@ export default function App() {
                   decimals={decimals}
                 />
               </div>
-              <div className="lg:col-span-7">
-                <StandardDeviationMatrix
-                  dailySD={dailySD}
-                  currentPrice={currentPrice}
-                  symbol={activeSymbol}
-                  decimals={decimals}
-                />
-              </div>
+              {showStandardDeviation && (
+                <div className="lg:col-span-7">
+                  <StandardDeviationMatrix
+                    dailySD={dailySD}
+                    currentPrice={currentPrice}
+                    symbol={activeSymbol}
+                    decimals={decimals}
+                  />
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -328,6 +333,7 @@ export default function App() {
               livePrice={currentPrice}
               activeVP={activeVP}
               dailySD={dailySD}
+              showStandardDeviation={showStandardDeviation}
             />
             <CandleChart
               symbol={activeSymbol}
@@ -336,16 +342,20 @@ export default function App() {
               orderFlowData={orderFlowData}
               activeVP={activeVP}
               dailySD={dailySD}
+              showStandardDeviation={showStandardDeviation}
+              onToggleStandardDeviation={() => setShowStandardDeviation((v) => !v)}
               timeframe={timeframe}
               onSelectTimeframe={handleSelectTimeframe}
               decimals={decimals}
             />
-            <StandardDeviationMatrix
-              dailySD={dailySD}
-              currentPrice={currentPrice}
-              symbol={activeSymbol}
-              decimals={decimals}
-            />
+            {showStandardDeviation && (
+              <StandardDeviationMatrix
+                dailySD={dailySD}
+                currentPrice={currentPrice}
+                symbol={activeSymbol}
+                decimals={decimals}
+              />
+            )}
           </div>
         )}
 
@@ -372,6 +382,7 @@ export default function App() {
               livePrice={currentPrice}
               activeVP={activeVP}
               dailySD={dailySD}
+              showStandardDeviation={showStandardDeviation}
             />
             <div className="grid grid-cols-1 xl:grid-cols-12 3xl:grid-cols-12 gap-4 sm:gap-6 items-start">
               <div className="xl:col-span-8 3xl:col-span-8">
@@ -382,6 +393,8 @@ export default function App() {
                   orderFlowData={orderFlowData}
                   activeVP={activeVP}
                   dailySD={dailySD}
+                  showStandardDeviation={showStandardDeviation}
+                  onToggleStandardDeviation={() => setShowStandardDeviation((v) => !v)}
                   timeframe={timeframe}
                   onSelectTimeframe={handleSelectTimeframe}
                   decimals={decimals}
@@ -396,14 +409,16 @@ export default function App() {
                 />
               </div>
             </div>
-            <div className="w-full">
-              <StandardDeviationMatrix
-                dailySD={dailySD}
-                currentPrice={currentPrice}
-                symbol={activeSymbol}
-                decimals={decimals}
-              />
-            </div>
+            {showStandardDeviation && (
+              <div className="w-full">
+                <StandardDeviationMatrix
+                  dailySD={dailySD}
+                  currentPrice={currentPrice}
+                  symbol={activeSymbol}
+                  decimals={decimals}
+                />
+              </div>
+            )}
             <div className="w-full">
               <FootprintChart
                 symbol={activeSymbol}
@@ -449,7 +464,8 @@ export default function App() {
       <BottomNav
         activeView={activeView}
         onChangeView={setActiveView}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        showStandardDeviation={showStandardDeviation}
+        onToggleStandardDeviation={() => setShowStandardDeviation((v) => !v)}
       />
 
       {/* Settings Modal */}

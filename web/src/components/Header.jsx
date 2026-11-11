@@ -4,7 +4,6 @@ import {
   Volume2,
   VolumeX,
   RefreshCw,
-  Settings,
   TrendingUp,
   Layers,
   CheckCircle2,
@@ -25,7 +24,8 @@ export default function Header({
   onRefresh,
   soundEnabled,
   onToggleSound,
-  onOpenSettings,
+  showStandardDeviation = false,
+  onToggleStandardDeviation,
   activeView,
   onChangeView,
 }) {
@@ -224,19 +224,28 @@ export default function Header({
                 onClick={onRefresh}
                 disabled={isLoading}
                 title="Refresh Live Data"
-                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] transition-all duration-300 disabled:opacity-40"
+                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] transition-all duration-300 disabled:opacity-40 cursor-pointer"
               >
                 <RefreshCw
                   className={`w-4 h-4 ${isLoading ? 'animate-spin' : ''}`}
                 />
               </button>
 
+              {/* Standard Deviation Enable/Disable Button (Default: OFF) */}
               <button
-                onClick={onOpenSettings}
-                title="Configure Backend API URL"
-                className="w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-[7px] border border-[#0D0D0C]/15 bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] transition-all duration-300"
+                onClick={onToggleStandardDeviation}
+                title={showStandardDeviation ? 'Standard Deviation: ON (Click to Disable)' : 'Standard Deviation: OFF (Click to Enable)'}
+                className={`h-8 sm:h-9 px-2.5 sm:px-3 flex items-center gap-1.5 rounded-[7px] border text-xs font-mono font-medium transition-all duration-300 cursor-pointer ${
+                  showStandardDeviation
+                    ? 'bg-[#0D0D0C] text-white border-[#0D0D0C] shadow-xs'
+                    : 'bg-white text-[#0D0D0C]/60 border-[#0D0D0C]/15 hover:text-[#0D0D0C] hover:border-[#0D0D0C]/35'
+                }`}
               >
-                <Settings className="w-4 h-4" />
+                <Activity className={`w-3.5 h-3.5 ${showStandardDeviation ? 'text-[#3FB874]' : ''}`} />
+                <span className="hidden sm:inline">Daily SD:</span>
+                <span className={`font-bold ${showStandardDeviation ? 'text-white' : 'text-[#0D0D0C]/60'}`}>
+                  {showStandardDeviation ? 'ON' : 'OFF'}
+                </span>
               </button>
             </div>
 
