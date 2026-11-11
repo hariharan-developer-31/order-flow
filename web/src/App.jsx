@@ -7,6 +7,7 @@ import { calculateDailyStandardDeviation } from './utils/standardDeviation';
 import FootprintChart from './components/FootprintChart';
 import VolumeProfileHistogram from './components/VolumeProfileHistogram';
 import StandardDeviationMatrix from './components/StandardDeviationMatrix';
+import UOTSignalTerminal from './components/UOTSignalTerminal';
 import SettingsModal from './components/SettingsModal';
 import BottomNav from './components/BottomNav';
 import {
@@ -344,6 +345,20 @@ export default function App() {
               currentPrice={currentPrice}
               symbol={activeSymbol}
               decimals={decimals}
+            />
+          </div>
+        )}
+
+        {/* VIEW 5: UOT Institutional Trading Analysis Engine */}
+        {activeView === 'uot-signals' && (
+          <div className="w-full max-w-6xl mx-auto">
+            <UOTSignalTerminal
+              barsData={barsData}
+              currentPrice={currentPrice}
+              symbol={activeSymbol}
+              decimals={decimals}
+              onRefresh={fetchAllData}
+              isLoading={isLoading}
             />
           </div>
         )}

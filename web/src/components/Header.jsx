@@ -11,6 +11,7 @@ import {
   AlertCircle,
   Clock,
   Flame,
+  Shield,
 } from 'lucide-react';
 
 export default function Header({
@@ -182,6 +183,17 @@ export default function Header({
                 VP Depth
               </button>
 
+              <button
+                onClick={() => onChangeView('uot-signals')}
+                className={`px-3 py-1 rounded-[5px] transition-all duration-300 flex items-center gap-1.5 ${
+                  activeView === 'uot-signals'
+                    ? 'bg-[#0D0D0C] text-white font-semibold'
+                    : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C] hover:bg-[#0D0D0C]/5'
+                }`}
+              >
+                <Shield className="w-3.5 h-3.5" />
+                <span>UOT Signals</span>
+              </button>
               <button
                 onClick={() => onChangeView('all')}
                 className={`px-3 py-1 rounded-[5px] transition-all duration-300 ${

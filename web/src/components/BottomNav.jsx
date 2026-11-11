@@ -4,6 +4,7 @@ import {
   Flame,
   BarChart3,
   Layers,
+  Shield,
   Settings,
   Download,
 } from 'lucide-react';
@@ -72,6 +73,16 @@ export default function BottomNav({
         window.scrollTo({ top: 0, behavior: 'smooth' });
       },
       isActive: activeView === 'volume-profile',
+    },
+    {
+      id: 'uot-signals',
+      label: 'UOT Signals',
+      icon: Shield,
+      action: () => {
+        onChangeView('uot-signals');
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+      },
+      isActive: activeView === 'uot-signals',
     },
     {
       id: 'all',

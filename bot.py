@@ -23,6 +23,7 @@ import time
 import urllib.parse
 import urllib.request
 from typing import Any, Dict, List, Optional, Tuple
+from uot_engine import run_uot_analysis_engine, format_telegram_trade_analysis
 
 # Auto-load .env file if present
 _env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
@@ -1267,13 +1268,18 @@ def generate_order_flow_map() -> str:
 
 
 def run_hourly_scan(is_user_request: bool = False) -> str:
+    """
+    PROJECT: UOT-INSPIRED INSTITUTIONAL TRADING ANALYSIS ENGINE
+    Executes multi-timeframe analysis (1D, 4H, 1H, 15M, 5M) across all 18 modules.
+    Sends exact Module 16 Telegram output with copyable price tags.
+    """
     global latest_status_summary, last_prices, daily_state
     check_daily_reset()
 
     now_utc = dt.datetime.now(dt.timezone.utc)
     ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
     ist_hour_dec = ist_time.hour + ist_time.minute / 60.0
-    print(f"[{ist_time.strftime('%I:%M %p IST')} / {now_utc.strftime('%H:%M UTC')}] Scanning Gold XAUUSD Order Flow Engine...")
+    print(f"[{ist_time.strftime('%I:%M %p IST')} / {now_utc.strftime('%H:%M UTC')}] Running UOT Institutional Analysis Engine for Gold XAUUSD...")
 
     # Active Trading Hours Filter: 6:00 AM to 11:00 PM IST (Indian Standard Time)
     if not (TRADING_HOURS_START_IST <= ist_hour_dec <= TRADING_HOURS_END_IST) and not is_user_request:
@@ -1296,287 +1302,76 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
             send_telegram(msg)
         return msg
 
-    # Pre-trade forward risk check: Ensure next risk cannot breach -2.5% Capital Guard
-    remaining_budget = pnl_pct - DAILY_LOSS_LIMIT_PCT
-    if remaining_budget < TARGET_RISK_PER_TRADE_PCT:
-        msg = (
-            f"🛑 <b>CAPITAL GUARD RISK BUFFER EXHAUSTED</b>\n"
-            f"Today's P&L: <code>{pnl_pct:+.2f}%</code> | Buffer to Limit: <code>{remaining_budget:.2f}%</code>.\n"
-            f"Next trade requires {TARGET_RISK_PER_TRADE_PCT:.1f}% risk. Trading halted to guarantee -2.5% limit is NEVER breached."
-        )
-        if is_user_request:
-            send_telegram(msg)
-        return msg
+    # Run the UOT 18-Module Analysis Engine
+    try:
+        analysis = run_uot_analysis_engine("XAUUSD")
+    except Exception as e:
+        print(f"[UOT ENGINE ERROR] {e}")
+        return f"Error running UOT engine: {e}"
 
-    # Feature 2 (Freqtrade StoplossGuard): 2 consecutive losses trigger a 120-minute trading freeze
-    if daily_state.get("consecutive_losses", 0) >= 2:
-        last_loss_ts = daily_state.get("last_loss_ts", 0.0)
-        elapsed_mins = (time.time() - last_loss_ts) / 60.0
-        if elapsed_mins < 120.0:
-            rem = round(120.0 - elapsed_mins, 1)
-            msg = f"🛡️ <b>FREQTRADE STOPLOSS GUARD ACTIVE</b>\n2 consecutive losses logged today. Cooling off for <code>{rem:.0f}</code> more minutes to prevent whipsaw."
-            if is_user_request:
-                send_telegram(msg)
-            return msg
+    last_prices["XAUUSD"] = analysis.get("current_price", 4031.60)
+    tg_msg = format_telegram_trade_analysis(analysis)
+    decision = analysis.get("trade_decision", "NO TRADE")
 
-    tv = fetch_tradingview_consensus()
-    triggers = []
-    price_lines = []
+    if decision in ("BUY", "SELL"):
+        latest_status_summary = f"CONFIRMED {decision} setup at {ist_time.strftime('%I:%M %p IST')} (Score: {analysis.get('setup_score')}/100)"
+        d = analysis.get("decimals", 2)
+        cur_p = analysis.get("current_price")
 
-    for sym, dec, y_sym, pip_val, is_gold in INSTRUMENTS:
-        try:
-            bars, live_tick = fetch_1h_bars(y_sym, dec)
-            if len(bars) < 60:
-                continue
-            enrich_bars(bars)
-            closed_idx = len(bars) - 2 if (now_utc - bars[-1]["time"]).total_seconds() < 3570 else len(bars) - 1
-            last_prices[sym] = live_tick
+        with state_lock:
+            # Deduplicate by approximate price candle level
+            bar_key = f"{decision}_{round(cur_p, 1)}"
+            last_alerted = daily_state.setdefault("triggered_candles", {}).get("XAUUSD")
+            if last_alerted == bar_key and not is_user_request:
+                print(f"[SKIP DUPLICATE] XAUUSD {bar_key} already alerted. Suppressing re-trigger.")
+                return tg_msg
 
-            # Order Flow profile
-            of_data = compute_order_flow_profile(bars, dec, is_gold)
-            state_label = of_data.get("state", "NEUTRAL").split(" ")[0]
+            daily_state["triggered_candles"]["XAUUSD"] = bar_key
+            daily_state["trades_count"] += 1
+            daily_state["trades_list"].append(f"{decision} XAUUSD")
 
-            tv_sym = tv.get(sym, {})
-            spread_ok = tv_sym.get("spread_ok", True)
-            spread_val = tv_sym.get("spread", 0.0)
-            sp_str = f"${spread_val:.2f}" if is_gold else f"{spread_val/0.0001:.1f}p"
-            price_lines.append(f"• <b>{sym}</b>: <code>{live_tick:.{dec}f}</code> ({state_label} | Spread: {sp_str})")
+            trade_id = f"TB-UOT-{int(time.time())}"
+            trade_record = {
+                "id": trade_id,
+                "sym": "XAUUSD",
+                "side": decision,
+                "strategy": "UOT-Inspired Institutional Engine",
+                "entry": analysis.get("entry", cur_p),
+                "sl": analysis.get("sl"),
+                "tp1": analysis.get("tp1"),
+                "tp2": analysis.get("tp2"),
+                "tp3": analysis.get("tp3"),
+                "dec": d,
+                "lots": analysis.get("lot_size", 0.01),
+                "stage": "OPEN",
+                "closed": False,
+                "open_time": dt.datetime.now(dt.timezone.utc).isoformat(),
+                "open_time_ist": ist_time.strftime("%I:%M %p IST, %d %b %Y"),
+                "setup_score": analysis.get("setup_score", 0),
+            }
+            daily_state.setdefault("active_trades", []).append(trade_record)
+            save_daily_state()
 
-            # Deduplication: Never re-alert on the exact same closed candle
-            bar_ts = bars[closed_idx]["ts"]
-            last_alerted = daily_state.setdefault("triggered_candles", {}).get(sym)
-            if last_alerted == bar_ts and bar_ts is not None:
-                print(f"[SKIP DUPLICATE] {sym} candle {bar_ts} already alerted. Suppressing re-trigger.")
-                continue
+        # Send to primary telegram channel
+        send_telegram(tg_msg)
+        print(f"[UOT TRIGGER SENT TO TELEGRAM] {decision} XAUUSD (Score: {analysis.get('setup_score')}/100)")
 
-            # Feature 1 (NautilusTrader/Lean): Spread Guard check
-            if not spread_ok:
-                print(f"[SPREAD GUARD VETO] {sym}: Spread ({spread_val}) exceeds limit. Trade blocked.")
-                continue
-
-            sig = evaluate_confluence(bars, closed_idx, dec, sym, of_data)
-            if not sig:
-                continue
-
-            # Multi-timeframe filter (only active if TradingView returned valid consensus data)
-            tv_sym = tv.get(sym, {})
-            is_rev = sig.get("is_reversal", False)
-            if tv_sym and ("rec_1h" in tv_sym):
-                if not is_rev:
-                    # Breakouts require aligned trend momentum
-                    if sig["side"] == "BUY" and (tv_sym.get("rec_1h", 0) < 0.1 or tv_sym.get("rec_4h", 0) < 0.0):
-                        continue
-                    if sig["side"] == "SELL" and (tv_sym.get("rec_1h", 0) > -0.1 or tv_sym.get("rec_4h", 0) > 0.0):
-                        continue
-                else:
-                    # Reversals: only veto if 4H is in extreme counter-momentum unless wick is >= 50%
-                    if sig["side"] == "BUY" and tv_sym.get("rec_4h", 0) < -0.6 and not ("5D" in sig.get("title", "")):
-                        continue
-                    if sig["side"] == "SELL" and tv_sym.get("rec_4h", 0) > 0.6 and not ("5D" in sig.get("title", "")):
-                        continue
-
-            entry = sig["entry"]
-            sl = sig["sl"]
-            dist = abs(entry - sl)
-            if dist <= 0.00001:
-                print(f"[REJECT] {sym}: Stop loss distance is 0.0 (entry == sl)")
-                continue
-
-            tp1 = round(entry + 1.00 * dist if sig["side"] == "BUY" else entry - 1.00 * dist, dec)
-            tp2 = round(entry + 2.00 * dist if sig["side"] == "BUY" else entry - 2.00 * dist, dec)
-
-            # Sizing for $45 risk with FundingPips $5,000 challenge margin safeguards
-            if sym == "XAUUSD":
-                raw_lots = TARGET_RISK_PER_TRADE / (dist * 100.0)
-                floored_lots = math.floor(raw_lots * 100.0) / 100.0
-                total_lots = round(max(0.01, min(0.15, floored_lots)), 2)
-            else:
-                pip_size = 0.0001
-                sl_pips = dist / pip_size
-                risk_per_001 = sl_pips * (pip_val * 0.01)
-                micro_lots = max(1, int(math.floor(TARGET_RISK_PER_TRADE / risk_per_001))) if risk_per_001 > 0 else 1
-                total_lots = round(max(0.01, min(0.50, micro_lots * 0.01)), 2)
-
-            half1 = round(total_lots * 0.65, 2)
-            if half1 < 0.01 or total_lots <= 0.01:
-                half1 = total_lots
-                half2 = 0.0
-            else:
-                half2 = round(total_lots - half1, 2)
-
-            triggers.append({
-                "sym": sym,
-                "dec": dec,
-                "side": sig["side"],
-                "title": sig["title"],
-                "entry": entry,
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "lots": total_lots,
-                "half1": half1,
-                "half2": half2,
-                "of": of_data,
-                "bar_ts": bars[closed_idx]["ts"],
-            })
-        except Exception as e:
-            print(f"Error scanning {sym}: {e}")
-
-    summary_text = ""
-    if triggers:
-        latest_status_summary = f"TRIGGERED {len(triggers)} trade(s) at {ist_time.strftime('%I:%M %p IST')}"
-        for t in triggers:
-            with state_lock:
-
-                # Deduplication: Never re-alert or increment trade count on the same candle twice
-                bar_ts = t.get("bar_ts")
-                last_alerted = daily_state.setdefault("triggered_candles", {}).get(t["sym"])
-                if last_alerted == bar_ts and bar_ts is not None:
-                    print(f"[SKIP DUPLICATE] {t['sym']} candle {bar_ts} already alerted. Suppressing re-trigger.")
-                    continue
-
-                daily_state["triggered_candles"][t["sym"]] = bar_ts
-                daily_state["trades_count"] += 1
-                daily_state["trades_list"].append(f"{t['side']} {t['sym']}")
-                daily_state["pre_alert"] = None
-                trade_id = f"TB-XAUUSD-{int(time.time())}"
-                trade_record = {
-                    "id": trade_id,
-                    "sym": t["sym"],
-                    "side": t["side"],
-                    "strategy": t.get("title", "1. AMT 80% Value Area Rule"),
-                    "entry": t["entry"],
-                    "tp1": t["tp1"],
-                    "tp2": t["tp2"],
-                    "sl": t["sl"],
-                    "dec": t["dec"],
-                    "lots": t["lots"],
-                    "half1": t["half1"],
-                    "half2": t["half2"],
-                    "stage": "OPEN",
-                    "order_a_status": "RUNNING (Targeting TP1)",
-                    "order_b_status": "RUNNING (Targeting TP2)",
-                    "order_b_sl": t["sl"],
-                    "be_alerted": False,
-                    "closed": False,
-                    "close_reason": None,
-                    "open_time": dt.datetime.now(dt.timezone.utc).isoformat(),
-                    "open_time_ist": ist_time.strftime("%I:%M %p IST, %d %b %Y"),
-                    "bar_ts": bar_ts,
-                    "telegram_alerted": True,
-                    "source": "BOT_TRIGGER",
-                }
-                daily_state.setdefault("active_trades", []).append(trade_record)
-                daily_state["latest_lifecycle_event"] = {
-                    "type": "NEW_TRADE",
-                    "trade_id": trade_id,
-                    "sym": t["sym"],
-                    "side": t["side"],
-                    "entry": t["entry"],
-                    "tp1": t["tp1"],
-                    "tp2": t["tp2"],
-                    "sl": t["sl"],
-                    "stage": "OPEN",
-                    "time_ist": ist_time.strftime("%I:%M %p IST"),
-                    "headline": f"🚨 NEW TRIGGER: {t['side']} {t['sym']} at {t['entry']:.{t['dec']}f}",
-                }
-                save_daily_state()
-
-            d = t["dec"]
-            stats = HISTORICAL_STATS.get(t["sym"], {"win_rate": 80.0, "pf": 1.5})
-            of = t.get("of", {})
-            of_note = ""
-            if of:
-                of_note = f"\n🏛️ <b>Order Flow:</b> {of.get('state')} | POC: <code>{of.get('pPOC')}</code>\n"
-
-            tv_sym_code = "OANDA:XAUUSD" if t["sym"] == "XAUUSD" else f"FX:{t['sym']}"
-            tv_url = f"https://www.tradingview.com/chart/?symbol={tv_sym_code}&interval=60"
-
-            if t["half2"] >= 0.01:
-                order_block = (
-                    f"📲 <b>MT5 TWIN ORDER EXECUTION:</b>\n\n"
-                    f"1️⃣ <b>Order A (1:1 Banker):</b> {t['side']} {t['sym']}\n"
-                    f"   • Volume: <b>{t['half1']:.2f} lots</b>\n"
-                    f"   • Stop Loss: <code>{t['sl']:.{d}f}</code>\n"
-                    f"   • Take Profit (TP1 - 1:1R): <code>{t['tp1']:.{d}f}</code>\n\n"
-                    f"2️⃣ <b>Order B (1:2 High-Win Target):</b> {t['side']} {t['sym']}\n"
-                    f"   • Volume: <b>{t['half2']:.2f} lots</b>\n"
-                    f"   • Stop Loss: <code>{t['sl']:.{d}f}</code>\n"
-                    f"   • Take Profit (TP2 - 1:2R): <code>{t['tp2']:.{d}f}</code>\n"
-                )
-            else:
-                order_block = (
-                    f"📲 <b>MT5 SINGLE ORDER EXECUTION (0.01 Min Lot):</b>\n\n"
-                    f"• <b>Volume:</b> <b>{t['half1']:.2f} lots</b>\n"
-                    f"• <b>Stop Loss:</b> <code>{t['sl']:.{d}f}</code>\n"
-                    f"• <b>Take Profit (TP2):</b> <code>{t['tp2']:.{d}f}</code> (1:2R Target)\n"
-                    f"• <i>Management: When price reaches TP1 (<code>{t['tp1']:.{d}f}</code>), pull Stop Loss to Breakeven (<code>{t['entry']:.{d}f}</code>)!</i>\n"
-                )
-
-            win_rate = t.get("win_rate_oos", "90.9%")
-            pf = t.get("profit_factor", "2.71")
-            tg_msg = (
-                f"📊 {t['sym']} | {t['side']}\n\n"
-                f"🏆 Win Rate (OOS): {win_rate}\n"
-                f"📈 Profit Factor: {pf}\n\n"
-                f"💰 Price: <code>{t['entry']:.{d}f}</code>\n"
-                f"🛑 SL: <code>{t['sl']:.{d}f}</code>\n"
-                f"🎯 TP1: <code>{t['tp1']:.{d}f}</code>\n"
-                f"🎯 TP2: <code>{t['tp2']:.{d}f}</code>\n\n"
-                f"⏳ Status: CONFIRMED — Execute in MT5"
-            )
-            send_telegram(tg_msg)
-            print(f"[TRIGGER SENT TO TELEGRAM] {t['side']} {t['sym']}")
-
-            # Broadcast to all active subscribers
-            with state_lock:
-                extra_subs = [s for s in daily_state.get("subscribers", []) if str(s) != str(TELEGRAM_CHAT_ID)]
-            for sub_id in extra_subs:
-                try:
-                    send_telegram(tg_msg, target_chat=str(sub_id))
-                except Exception as e:
-                    print(f"[SUB BROADCAST ERROR] {e}")
-
-            # Send visual chart snapshot directly to Telegram
+        # Broadcast to all active subscribers
+        with state_lock:
+            extra_subs = [s for s in daily_state.get("subscribers", []) if str(s) != str(TELEGRAM_CHAT_ID)]
+        for sub_id in extra_subs:
             try:
-                chart_img = generate_chart_url(t["sym"], bars, t["entry"], t["sl"], t["tp1"], t["tp2"])
-                chart_caption = (
-                    f"📊 <b>{t['sym']} Order Flow Chart Snapshot</b>\n"
-                    f"• Strategy: <b>{t['title']}</b>\n"
-                    f"• Entry: <code>{t['entry']:.{d}f}</code> | SL: <code>{t['sl']:.{d}f}</code>\n"
-                    f"• Target 1: <code>{t['tp1']:.{d}f}</code> | Target 2: <code>{t['tp2']:.{d}f}</code>\n"
-                    f"• Time: <b>{ist_time.strftime('%I:%M %p IST')}</b>\n\n"
-                    f"📈 <a href=\"{tv_url}\">Open Live Chart on TradingView</a>"
-                )
-                send_telegram_photo(chart_img, chart_caption)
-                for sub_id in extra_subs:
-                    try:
-                        send_telegram_photo(chart_img, chart_caption, target_chat=str(sub_id))
-                    except Exception as e:
-                        print(f"[SUB PHOTO BROADCAST ERROR] {e}")
+                send_telegram(tg_msg, target_chat=str(sub_id))
             except Exception as e:
-                print(f"[CHART PHOTO ERROR] {e}")
-        summary_text = f"🚨 {len(triggers)} A+ Gold Order Flow Trade Triggered! Check your MT5."
-    else:
-        latest_status_summary = f"FLAT at {ist_time.strftime('%I:%M %p IST')}. Gold XAUUSD consolidating. Capital safe."
-        print(f"[SCAN COMPLETE] {latest_status_summary}")
-        pnl_pct = daily_state.get("pnl_pct", 0.0)
-        pnl_symbol = "+" if pnl_pct >= 0 else ""
-        guard_status = "Safe" if pnl_pct > -2.0 else ("Warning" if pnl_pct > -2.5 else "Triggered")
-        summary_text = (
-            f"📊 <b>LIVE SCAN STATUS ({ist_time.strftime('%I:%M %p IST')}):</b>\n\n"
-            + "\n".join(price_lines)
-            + f"\n\n🛡️ <b>Status:</b> [100% FLAT]\n"
-            + f"<i>No Gold order flow setup confirmed on this closed candle.</i>\n\n"
-            + f"📈 <b>Order Flow Edge:</b> <code>+0.45R / trade</code> | PF 1.46 (Win Rate: 76%-82%)\n"
-            + f"📊 <b>Today's Trades:</b> <code>{daily_state['trades_count']}</code> (Uncapped High-Probability)\n"
-            + f"💵 <b>Today's P&L:</b> <code>{pnl_symbol}{pnl_pct:.2f}%</code> (Daily Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n"
-            + f"🛡️ <b>Capital Guard:</b> {guard_status} (Daily Limit: {DAILY_LOSS_LIMIT_PCT:.1f}%)"
-        )
-        if is_user_request:
-            send_telegram(summary_text)
+                print(f"[SUB BROADCAST ERROR] {e}")
 
-    return summary_text
+    else:
+        latest_status_summary = f"{decision} at {ist_time.strftime('%I:%M %p IST')} (Score: {analysis.get('setup_score')}/100)"
+        print(f"[UOT SCAN] {latest_status_summary}")
+        if is_user_request:
+            send_telegram(tg_msg)
+
+    return tg_msg
 
 
 def telegram_listener() -> None:
@@ -1708,29 +1503,9 @@ def telegram_listener() -> None:
                         send_telegram("🔒 <i>Admin access required for account modifications.</i>", target_chat=chat_id)
                         continue
 
-                    if cmd in ("/status", "status", "/scan", "scan", "check", "/signal", "signal"):
-                        with state_lock:
-                            active_now = [at for at in daily_state.get("active_trades", []) if not at.get("closed", False)]
-                        if active_now:
-                            for at in active_now:
-                                status_txt = "ACTIVE — Order B Running (SL @ BE)" if at.get("be_alerted") else "CONFIRMED — Execute in MT5"
-                                d_dec = at.get("dec", 2)
-                                wr = at.get("win_rate_oos", "90.9%")
-                                pf = at.get("profit_factor", "2.71")
-                                msg = (
-                                    f"📊 {at['sym']} | {at['side']}\n\n"
-                                    f"🏆 Win Rate (OOS): {wr}\n"
-                                    f"📈 Profit Factor: {pf}\n\n"
-                                    f"💰 Price: <code>{at['entry']:.{d_dec}f}</code>\n"
-                                    f"🛑 SL: <code>{at['sl']:.{d_dec}f}</code>\n"
-                                    f"🎯 TP1: <code>{at['tp1']:.{d_dec}f}</code>\n"
-                                    f"🎯 TP2: <code>{at['tp2']:.{d_dec}f}</code>\n\n"
-                                    f"⏳ Status: {status_txt}"
-                                )
-                                send_telegram(msg)
-                        else:
-                            send_telegram("🔍 <i>Running instant live scan on Gold XAUUSD Order Flow Engine...</i>")
-                            run_hourly_scan(is_user_request=True)
+                    if cmd in ("/status", "status", "/scan", "scan", "check", "/signal", "signal", "/uot", "uot"):
+                        send_telegram("🏛️ <i>Running UOT-Inspired Institutional Trading Analysis Engine for XAUUSD...</i>")
+                        run_hourly_scan(is_user_request=True)
 
                     elif cmd in ("/levels", "levels", "/map", "map", "profile"):
                         send_telegram("🏛️ <i>Calculating institutional Order Flow Value Areas & POCs...</i>")
@@ -2577,6 +2352,16 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
                 self.wfile.write(json.dumps(out_payload).encode("utf-8"))
             except Exception as e:
                 self._set_cors_headers(500)
+                self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
+            return
+
+        # 7. UOT Institutional Trading Analysis Engine API
+        if path in ("/api/uot-analysis", "/api/uot"):
+            self._set_cors_headers(200)
+            try:
+                analysis = run_uot_analysis_engine("XAUUSD")
+                self.wfile.write(json.dumps(analysis).encode("utf-8"))
+            except Exception as e:
                 self.wfile.write(json.dumps({"error": str(e)}).encode("utf-8"))
             return
 
