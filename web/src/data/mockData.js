@@ -31,6 +31,10 @@ const TF_MAP = {
  * Each timeframe features its own distinct market wave dynamics and microstructure.
  */
 export function getFallbackBars(symbol = 'XAUUSD', count = 100, timeframe = '1h') {
+  if (typeof count === 'string') {
+    timeframe = count;
+    count = 100;
+  }
   const spec = BASE_SPECS[symbol] || BASE_SPECS.XAUUSD;
   const tfKey = (timeframe || '1h').toLowerCase();
   const tf = TF_MAP[tfKey] || TF_MAP['1h'];

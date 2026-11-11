@@ -51,13 +51,19 @@ export default function App() {
       const cached = getCachedBars(activeSymbol, tf);
       if (cached && cached.length > 0) {
         setBarsData(cached);
-        setCurrentPrice(cached[cached.length - 1].close);
+        if (cached[cached.length - 1]?.close != null) {
+          setCurrentPrice(cached[cached.length - 1].close);
+        }
         setFootprintData(getLiveFootprintClusters(cached, activeSymbol, tf));
       } else {
-        const fb = getFallbackBars(activeSymbol, tf);
-        setBarsData(fb);
-        setCurrentPrice(fb[fb.length - 1].close);
-        setFootprintData(getLiveFootprintClusters(fb, activeSymbol, tf));
+        const fb = getFallbackBars(activeSymbol, 100, tf);
+        if (fb && fb.length > 0) {
+          setBarsData(fb);
+          if (fb[fb.length - 1]?.close != null) {
+            setCurrentPrice(fb[fb.length - 1].close);
+          }
+          setFootprintData(getLiveFootprintClusters(fb, activeSymbol, tf));
+        }
       }
     }
   }, [activeSymbol, timeframe]);

@@ -115,6 +115,9 @@ export default function CandleChart({
   const candleSeriesRef = useRef(null);
   const priceLinesRef = useRef([]);
   const profileCanvasRef = useRef(null);
+  const prevSymbolTfRef = useRef('');
+  const prevBarsLengthRef = useRef(0);
+  const prevLastBarTimeRef = useRef(0);
 
   // States
   const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint'
@@ -136,13 +139,144 @@ export default function CandleChart({
   const symbolDisplay = symbol === 'XAUUSD' ? 'XAUUSD (OANDA)' : symbol;
 
   const getResponsiveHeight = useCallback(() => {
-    if (isFullscreen) return Math.max(380, window.innerHeight - 110);
+    if (isFullscreen) {
+      return Math.max(380, (typeof window !== 'undefined' ? window.innerHeight : 900) - 65);
+    }
     const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
     if (w >= 2560) return 740; // 4K / Ultrawide
-    if (w >= 1920) return 620; // 1080p Full HD
-    if (w < 640) return 420;  // Mobile
-    return 540;               // Tablet & Laptop
+    if (w >= 1920) return 640; // 1080p Full HD
+    if (w < 640) return 440;  // Mobile
+    return 560;               // Tablet & Laptop
   }, [isFullscreen]);
+
+  // 3. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER in Green & Red
+  const renderInChartProfile = useCallback(() => {
+    if (!profileCanvasRef.current || !candleSeriesRef.current || !chartContainerRef.current || !showInChartProfile) {
+      if (profileCanvasRef.current) {
+        const ctx = profileCanvasRef.current.getContext('2d');
+        ctx.clearRect(0, 0, profileCanvasRef.current.width, profileCanvasRef.current.height);
+      }
+      return;
+    }
+
+    const canvas = profileCanvasRef.current;
+    const width = chartContainerRef.current.clientWidth;
+    const height = chartContainerRef.current.clientHeight;
+
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, width, height);
+
+    if (!barsData || barsData.length === 0) return;
+
+    // Use activeVP if provided, otherwise compute from barsData
+    const vp = activeVP || calculateDynamicVolumeProfile(barsData, 55);
+    if (!vp) return;
+
+    // Anchor at LEFT SIDE CORNER (starting at x = 14)
+    const startX = 14;
+    const maxBarWidth = Math.min(230, width * 0.28);
+
+    // A. Draw Horizontal Volume Bars (Two-Tone Green & Red Candlestick Colors)
+    vp.bins.forEach((bin) => {
+      const y = candleSeriesRef.current.priceToCoordinate(bin.price);
+      if (y == null || y < -10 || y > height + 10) return;
+
+      const yTop = candleSeriesRef.current.priceToCoordinate(bin.high);
+      const yBtm = candleSeriesRef.current.priceToCoordinate(bin.low);
+      const barH = Math.max(3, Math.abs((yBtm || 0) - (yTop || 0)));
+
+      const totalW = (bin.totalVol / vp.maxVol) * maxBarWidth;
+      const buyW = (bin.buyVol / bin.totalVol) * totalW;
+      const sellW = Math.max(0, totalW - buyW);
+
+      if (bin.inVA) {
+        // Value Area (70% Volume Rule) - High Contrast Vivid Green & Red (Candlestick Colors)
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)'; // Up / Buy Vol (Green)
+        ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
+
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.85)'; // Down / Sell Vol (Red)
+        ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
+      } else {
+        // Outside Value Area (Tails / Rejection) - Translucent Soft Green & Red
+        ctx.fillStyle = 'rgba(16, 185, 129, 0.28)'; // Soft Green
+        ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
+
+        ctx.fillStyle = 'rgba(239, 68, 68, 0.28)'; // Soft Red
+        ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
+      }
+
+      // Highlight POC Bar with crisp outline
+      if (bin.isPOC) {
+        ctx.strokeStyle = '#ef4444';
+        ctx.lineWidth = 1.2;
+        ctx.strokeRect(startX, y - barH / 2, totalW, barH - 0.7);
+      }
+    });
+
+    // B. Draw Prominent Red POC Line across the chart
+    const yPOC = candleSeriesRef.current.priceToCoordinate(vp.pocPrice);
+    if (yPOC != null && yPOC >= 0 && yPOC <= height) {
+      // Solid Red Line across chart
+      ctx.beginPath();
+      ctx.strokeStyle = '#ef4444';
+      ctx.lineWidth = 1.6;
+      ctx.moveTo(startX, yPOC);
+      ctx.lineTo(width - 65, yPOC);
+      ctx.stroke();
+
+      // Red POC Tag at left corner
+      ctx.fillStyle = '#ef4444';
+      ctx.fillRect(startX, yPOC - 8, 74, 16);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 9px monospace';
+      ctx.fillText(`POC ${vp.pocPrice.toFixed(decimals)}`, startX + 4, yPOC + 3.5);
+    }
+
+    // C. Draw VAH Boundary Line across chart
+    const yVAH = candleSeriesRef.current.priceToCoordinate(vp.vahPrice);
+    if (yVAH != null && yVAH >= 0 && yVAH <= height) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([5, 4]);
+      ctx.moveTo(startX, yVAH);
+      ctx.lineTo(width - 65, yVAH);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // VAH Tag at left corner
+      ctx.fillStyle = '#2563eb';
+      ctx.fillRect(startX, yVAH - 7, 68, 14);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8.5px monospace';
+      ctx.fillText(`VAH ${vp.vahPrice.toFixed(decimals)}`, startX + 4, yVAH + 3.5);
+    }
+
+    // D. Draw VAL Boundary Line across chart
+    const yVAL = candleSeriesRef.current.priceToCoordinate(vp.valPrice);
+    if (yVAL != null && yVAL >= 0 && yVAL <= height) {
+      ctx.beginPath();
+      ctx.strokeStyle = '#2563eb';
+      ctx.lineWidth = 1.0;
+      ctx.setLineDash([5, 4]);
+      ctx.moveTo(startX, yVAL);
+      ctx.lineTo(width - 65, yVAL);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // VAL Tag at left corner
+      ctx.fillStyle = '#2563eb';
+      ctx.fillRect(startX, yVAL - 7, 68, 14);
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 8.5px monospace';
+      ctx.fillText(`VAL ${vp.valPrice.toFixed(decimals)}`, startX + 4, yVAL + 3.5);
+    }
+  }, [barsData, activeVP, showInChartProfile, decimals]);
 
   // Sync SD state with global prop
   useEffect(() => {
@@ -280,6 +414,9 @@ export default function CandleChart({
 
     chartRef.current = chart;
     candleSeriesRef.current = candleSeries;
+    prevBarsLengthRef.current = 0;
+    prevLastBarTimeRef.current = 0;
+    prevSymbolTfRef.current = '';
 
     // Crosshair move handler
     chart.subscribeCrosshairMove((param) => {
@@ -304,21 +441,7 @@ export default function CandleChart({
       renderInChartProfile();
     });
 
-    // Resize observer
-    const handleResize = () => {
-      if (chartContainerRef.current && chartRef.current) {
-        const newH = getResponsiveHeight();
-        chartRef.current.applyOptions({
-          width: chartContainerRef.current.clientWidth,
-          height: newH,
-        });
-        renderInChartProfile();
-      }
-    };
-    window.addEventListener('resize', handleResize);
-
     return () => {
-      window.removeEventListener('resize', handleResize);
       if (chartRef.current) {
         try {
           chartRef.current.remove();
@@ -326,141 +449,45 @@ export default function CandleChart({
         chartRef.current = null;
       }
     };
-  }, [decimals, chartView, isFullscreen]);
+  }, [decimals, chartView]);
 
-  // 3. Render Dynamic Session Volume Profile on the LEFT SIDE CORNER in Green & Red
-  const renderInChartProfile = useCallback(() => {
-    if (!profileCanvasRef.current || !candleSeriesRef.current || !chartContainerRef.current || !showInChartProfile) {
-      if (profileCanvasRef.current) {
-        const ctx = profileCanvasRef.current.getContext('2d');
-        ctx.clearRect(0, 0, profileCanvasRef.current.width, profileCanvasRef.current.height);
+  // Dedicated dynamic ResizeObserver: smoothly handles fullscreen and window resizes without losing chart state
+  useEffect(() => {
+    if (!chartContainerRef.current || !chartRef.current || chartView !== 'candles') return;
+
+    const applyResize = () => {
+      if (!chartContainerRef.current || !chartRef.current) return;
+      const w = chartContainerRef.current.clientWidth;
+      const h = isFullscreen ? Math.max(380, window.innerHeight - 65) : getResponsiveHeight();
+      if (w > 0 && h > 0) {
+        chartRef.current.applyOptions({ width: w, height: h });
+        if (profileCanvasRef.current) {
+          profileCanvasRef.current.width = w;
+          profileCanvasRef.current.height = h;
+        }
+        renderInChartProfile();
       }
-      return;
-    }
+    };
 
-    const canvas = profileCanvasRef.current;
-    const width = chartContainerRef.current.clientWidth;
-    const height = chartContainerRef.current.clientHeight;
+    applyResize();
+    const timer = setTimeout(applyResize, 60);
 
-    if (canvas.width !== width || canvas.height !== height) {
-      canvas.width = width;
-      canvas.height = height;
-    }
-
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, width, height);
-
-    if (!barsData || barsData.length === 0) return;
-
-    // Use activeVP if provided, otherwise compute from barsData
-    const vp = activeVP || calculateDynamicVolumeProfile(barsData, 55);
-    if (!vp) return;
-
-    // Anchor at LEFT SIDE CORNER (starting at x = 14)
-    const startX = 14;
-    const maxBarWidth = Math.min(230, width * 0.28);
-
-    // A. Draw Horizontal Volume Bars (Two-Tone Green & Red Candlestick Colors)
-    vp.bins.forEach((bin) => {
-      const y = candleSeriesRef.current.priceToCoordinate(bin.price);
-      if (y == null || y < -10 || y > height + 10) return;
-
-      const yTop = candleSeriesRef.current.priceToCoordinate(bin.high);
-      const yBtm = candleSeriesRef.current.priceToCoordinate(bin.low);
-      const barH = Math.max(3, Math.abs((yBtm || 0) - (yTop || 0)));
-
-      const totalW = (bin.totalVol / vp.maxVol) * maxBarWidth;
-      const buyW = (bin.buyVol / bin.totalVol) * totalW;
-      const sellW = Math.max(0, totalW - buyW);
-
-      if (bin.inVA) {
-        // Value Area (70% Volume Rule) - High Contrast Vivid Green & Red (Candlestick Colors)
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.85)'; // Up / Buy Vol (Green)
-        ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
-
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.85)'; // Down / Sell Vol (Red)
-        ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
-      } else {
-        // Outside Value Area (Tails / Rejection) - Translucent Soft Green & Red
-        ctx.fillStyle = 'rgba(16, 185, 129, 0.28)'; // Soft Green
-        ctx.fillRect(startX, y - barH / 2, buyW, barH - 0.7);
-
-        ctx.fillStyle = 'rgba(239, 68, 68, 0.28)'; // Soft Red
-        ctx.fillRect(startX + buyW, y - barH / 2, sellW, barH - 0.7);
-      }
-
-      // Highlight POC Bar with crisp outline
-      if (bin.isPOC) {
-        ctx.strokeStyle = '#ef4444';
-        ctx.lineWidth = 1.2;
-        ctx.strokeRect(startX, y - barH / 2, totalW, barH - 0.7);
-      }
+    const observer = new ResizeObserver(() => {
+      applyResize();
     });
+    observer.observe(chartContainerRef.current);
+    window.addEventListener('resize', applyResize);
 
-    // B. Draw Prominent Red POC Line across the chart
-    const yPOC = candleSeriesRef.current.priceToCoordinate(vp.pocPrice);
-    if (yPOC != null && yPOC >= 0 && yPOC <= height) {
-      // Solid Red Line across chart
-      ctx.beginPath();
-      ctx.strokeStyle = '#ef4444';
-      ctx.lineWidth = 1.6;
-      ctx.moveTo(startX, yPOC);
-      ctx.lineTo(width - 65, yPOC);
-      ctx.stroke();
+    return () => {
+      clearTimeout(timer);
+      observer.disconnect();
+      window.removeEventListener('resize', applyResize);
+    };
+  }, [isFullscreen, chartView, getResponsiveHeight, renderInChartProfile]);
 
-      // Red POC Tag at left corner
-      ctx.fillStyle = '#ef4444';
-      ctx.fillRect(startX, yPOC - 8, 74, 16);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 9px monospace';
-      ctx.fillText(`POC ${vp.pocPrice.toFixed(decimals)}`, startX + 4, yPOC + 3.5);
-    }
 
-    // C. Draw VAH Boundary Line across chart
-    const yVAH = candleSeriesRef.current.priceToCoordinate(vp.vahPrice);
-    if (yVAH != null && yVAH >= 0 && yVAH <= height) {
-      ctx.beginPath();
-      ctx.strokeStyle = '#2563eb';
-      ctx.lineWidth = 1.0;
-      ctx.setLineDash([5, 4]);
-      ctx.moveTo(startX, yVAH);
-      ctx.lineTo(width - 65, yVAH);
-      ctx.stroke();
-      ctx.setLineDash([]);
 
-      // VAH Tag at left corner
-      ctx.fillStyle = '#2563eb';
-      ctx.fillRect(startX, yVAH - 7, 68, 14);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 8.5px monospace';
-      ctx.fillText(`VAH ${vp.vahPrice.toFixed(decimals)}`, startX + 4, yVAH + 3.5);
-    }
-
-    // D. Draw VAL Boundary Line across chart
-    const yVAL = candleSeriesRef.current.priceToCoordinate(vp.valPrice);
-    if (yVAL != null && yVAL >= 0 && yVAL <= height) {
-      ctx.beginPath();
-      ctx.strokeStyle = '#2563eb';
-      ctx.lineWidth = 1.0;
-      ctx.setLineDash([5, 4]);
-      ctx.moveTo(startX, yVAL);
-      ctx.lineTo(width - 65, yVAL);
-      ctx.stroke();
-      ctx.setLineDash([]);
-
-      // VAL Tag at left corner
-      ctx.fillStyle = '#2563eb';
-      ctx.fillRect(startX, yVAL - 7, 68, 14);
-      ctx.fillStyle = '#ffffff';
-      ctx.font = 'bold 8.5px monospace';
-      ctx.fillText(`VAL ${vp.valPrice.toFixed(decimals)}`, startX + 4, yVAL + 3.5);
-    }
-  }, [barsData, activeVP, showInChartProfile, decimals]);
-
-  // Tracking refs for high-speed sub-millisecond updates
-  const prevSymbolTfRef = useRef('');
-  const prevBarsLengthRef = useRef(0);
-  const prevLastBarTimeRef = useRef(0);
+// Tracking refs for high-speed sub-millisecond updates (declared at component top)
 
   // 4. Set Candlestick Bar Data & Recalibrate Time Scale (Fast-Path GPU Updates)
   useEffect(() => {
@@ -953,7 +980,13 @@ export default function CandleChart({
 
         {/* View 1: Candlestick Chart + Left-Corner Volume Profile + Right Corner Countdown */}
         {chartView === 'candles' && (
-          <div className="flex-1 relative overflow-hidden" style={{ height: isFullscreen ? 'calc(100vh - 75px)' : `${getResponsiveHeight()}px` }}>
+          <div
+            className="flex-1 relative overflow-hidden w-full"
+            style={{
+              height: isFullscreen ? 'calc(100vh - 65px)' : `${getResponsiveHeight()}px`,
+              minHeight: isFullscreen ? 'calc(100vh - 65px)' : '420px',
+            }}
+          >
             {/* Pure Candlestick Canvas */}
             <div ref={chartContainerRef} className="w-full h-full" />
 
@@ -968,7 +1001,7 @@ export default function CandleChart({
               <div
                 className="absolute z-30 pointer-events-none transition-all duration-300 flex items-center"
                 style={{
-                  top: `${Math.max(15, Math.min(isFullscreen ? window.innerHeight - 150 : 500, currentPriceY - 11))}px`,
+                  top: `${Math.max(15, Math.min(isFullscreen ? window.innerHeight - 90 : 500, currentPriceY - 11))}px`,
                   right: '68px',
                 }}
               >
