@@ -39,9 +39,9 @@ export default function AuctionProfileMatrix({
 
   if (!profile || !profile.rows || profile.rows.length === 0) {
     return (
-      <div className="bg-[#0B0D11] border border-[#1E2430] rounded-[8px] p-6 text-center text-slate-400 font-sans">
-        <Columns3 className="w-6 h-6 mx-auto mb-2 text-slate-500 animate-pulse" />
-        <p className="text-xs font-mono">Computing Volume, Delta & TPO Profile Matrix...</p>
+      <div className="bg-white border border-[#0D0D0C]/10 rounded-[8px] p-6 text-center text-[#0D0D0C]/60 font-sans shadow-xs">
+        <Columns3 className="w-6 h-6 mx-auto mb-2 text-[#0D0D0C]/40 animate-pulse" />
+        <p className="text-xs font-mono font-medium">Computing Volume, Delta & TPO Profile Matrix...</p>
       </div>
     );
   }
@@ -60,60 +60,100 @@ export default function AuctionProfileMatrix({
     totalSessionVol,
   } = profile;
 
+  const livePriceNum = currentPrice != null ? Number(currentPrice) : null;
+  const distFromPoc = livePriceNum != null ? (livePriceNum - pocPrice) : null;
+
+  // Find the single closest price row to current live spot price
+  const closestRowIndex = useMemo(() => {
+    if (livePriceNum == null || !rows || rows.length === 0) return -1;
+    let minDiff = Infinity;
+    let closestIdx = -1;
+    rows.forEach((r) => {
+      const diff = Math.abs(livePriceNum - r.price);
+      if (diff < minDiff) {
+        minDiff = diff;
+        closestIdx = r.index;
+      }
+    });
+    return closestIdx;
+  }, [livePriceNum, rows]);
+
   return (
     <div
-      className={`bg-[#0A0C10] border border-[#1E2430] rounded-[8px] text-[#E2E8F0] shadow-[0_4px_24px_rgba(0,0,0,0.35)] overflow-hidden flex flex-col font-sans transition-all duration-300 ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none p-3 sm:p-5 overflow-y-auto' : 'relative'
+      className={`bg-white border border-[#0D0D0C]/10 rounded-[8px] text-[#0D0D0C] shadow-[0_2px_12px_rgba(13,13,12,0.05)] overflow-hidden flex flex-col font-sans transition-all duration-300 ${
+        isFullscreen ? 'fixed inset-0 z-50 rounded-none p-3 sm:p-5 overflow-y-auto bg-white' : 'relative'
       }`}
     >
-      {/* 1. Header Toolbar */}
-      <div className="px-4 py-3 border-b border-[#1E2430] flex flex-wrap items-center justify-between gap-3 bg-[#0E1117]">
+      {/* 1. Header Toolbar (Pure White Theme) */}
+      <div className="px-4 py-3 border-b border-[#0D0D0C]/10 flex flex-wrap items-center justify-between gap-3 bg-[#F8F9FA]">
         {/* Title & Brand */}
         <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-[5px] bg-[#1E2430] border border-slate-700/60 flex items-center justify-center shrink-0">
-            <Columns3 className="w-4 h-4 text-[#C564C4]" />
+          <div className="w-7 h-7 rounded-[5px] bg-[#0D0D0C] text-white flex items-center justify-center shrink-0 shadow-xs">
+            <Columns3 className="w-4 h-4 text-white" />
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-white font-headline uppercase">
+              <h2 className="text-xs sm:text-sm font-bold tracking-tight text-[#0D0D0C] font-headline uppercase">
                 AUCTION PROFILE MATRIX
               </h2>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-[#161B22] text-[#38BDF8] border border-[#1E2430]">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-white text-[#0D0D0C] border border-[#0D0D0C]/15 font-semibold shadow-2xs">
                 {symbol} • {viewScope === 'session' ? 'Active Session' : '24H Auction'}
               </span>
             </div>
-            <p className="text-[11px] text-slate-400 font-mono">
+            <p className="text-[11px] text-[#0D0D0C]/60 font-mono">
               Volume at Price • Bid/Ask Delta Divergence • Time Price Opportunity (TPO)
             </p>
           </div>
         </div>
 
-        {/* Live Metrics & Legend Tags */}
+        {/* Live Spot Price & Institutional Badges */}
         <div className="flex flex-wrap items-center gap-2 text-xs font-mono">
+          {/* Prominent Live Price Badge */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-[6px] bg-white border border-[#3FB874]/40 shadow-xs">
+            <span className="w-2.5 h-2.5 rounded-full bg-[#3FB874] animate-pulse"></span>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:gap-1.5 leading-none">
+              <span className="text-[10px] font-sans font-bold uppercase tracking-wider text-[#0D0D0C]/50">
+                LIVE PRICE
+              </span>
+              <span className="text-xs sm:text-sm font-mono font-black text-[#0D0D0C]">
+                ${livePriceNum != null ? livePriceNum.toFixed(decimals) : '—'}
+              </span>
+            </div>
+          </div>
+
           {/* POC Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#E024B7]/15 border border-[#E024B7]/40 text-[#FF2E93] font-bold">
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#E024B7]/10 border border-[#E024B7]/30 text-[#A21CAF] font-bold"
+            title={`Point of Control: High-Volume Acceptance Node (${distFromPoc != null ? `${distFromPoc >= 0 ? '+' : ''}${distFromPoc.toFixed(decimals)} from Live Price` : ''})`}
+          >
             <span className="w-2 h-2 rounded-full bg-[#E024B7]"></span>
             <span>POC: ${pocPrice.toFixed(decimals)}</span>
           </div>
 
           {/* Outlier Delta Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#00E676]/15 border border-[#00E676]/40 text-[#00E676] font-bold">
-            <span className="w-2 h-2 rounded-full bg-[#00E676] animate-pulse"></span>
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#16A34A]/10 border border-[#16A34A]/30 text-[#15803D] font-bold"
+            title="Outlier Delta: Concentrated Aggressive Order Flow"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#16A34A] animate-pulse"></span>
             <span>OUTLIER: ${outlierPrice.toFixed(decimals)}</span>
           </div>
 
           {/* Single Prints / LVN Badge */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-white/10 border border-white/20 text-white font-semibold">
-            <span className="w-2 h-2 rounded-full bg-white"></span>
+          <div
+            className="flex items-center gap-1.5 px-2.5 py-1 rounded-[5px] bg-[#0D0D0C]/06 border border-[#0D0D0C]/15 text-[#0D0D0C] font-semibold"
+            title="Low Volume Node: Rejection & Rapid Price Travel Pocket"
+          >
+            <span className="w-2 h-2 rounded-full bg-[#0D0D0C]"></span>
             <span>LVN: ${lvnPrice.toFixed(decimals)}</span>
           </div>
 
           {/* Scope Selector */}
-          <div className="flex items-center bg-[#161B22] p-0.5 rounded-[5px] border border-[#1E2430]">
+          <div className="flex items-center bg-[#F4F4F5] p-0.5 rounded-[5px] border border-[#0D0D0C]/10">
             <button
               onClick={() => setViewScope('session')}
               className={`px-2 py-0.5 rounded-[4px] text-[11px] font-medium transition cursor-pointer ${
-                viewScope === 'session' ? 'bg-[#2563EB] text-white font-bold' : 'text-slate-400 hover:text-white'
+                viewScope === 'session' ? 'bg-[#0D0D0C] text-white font-bold shadow-xs' : 'text-[#0D0D0C]/60 hover:text-[#0D0D0C]'
               }`}
             >
               Session
@@ -121,7 +161,7 @@ export default function AuctionProfileMatrix({
             <button
               onClick={() => setViewScope('daily')}
               className={`px-2 py-0.5 rounded-[4px] text-[11px] font-medium transition cursor-pointer ${
-                viewScope === 'daily' ? 'bg-[#2563EB] text-white font-bold' : 'text-slate-400 hover:text-white'
+                viewScope === 'daily' ? 'bg-[#0D0D0C] text-white font-bold shadow-xs' : 'text-[#0D0D0C]/60 hover:text-[#0D0D0C]'
               }`}
             >
               24H Day
@@ -132,7 +172,7 @@ export default function AuctionProfileMatrix({
           <button
             onClick={() => setIsFullscreen((prev) => !prev)}
             title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Profile Matrix'}
-            className="w-7 h-7 flex items-center justify-center rounded-[5px] bg-[#161B22] border border-[#1E2430] hover:bg-slate-700 text-slate-300 hover:text-white transition cursor-pointer"
+            className="w-7 h-7 flex items-center justify-center rounded-[5px] bg-white border border-[#0D0D0C]/15 hover:bg-[#F4F4F5] text-[#0D0D0C] transition cursor-pointer shadow-xs"
           >
             {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
           </button>
@@ -140,44 +180,46 @@ export default function AuctionProfileMatrix({
       </div>
 
       {/* 2. Three-Column Headers (Matching Reference: VOLUME | DELTA | TPO) */}
-      <div className="grid grid-cols-12 border-b border-[#1E2430] bg-[#0E1117] text-xs font-mono font-bold uppercase tracking-wider text-slate-400 py-2 px-3 sm:px-4">
+      <div className="grid grid-cols-12 border-b border-[#0D0D0C]/10 bg-[#F4F4F5] text-xs font-mono font-bold uppercase tracking-wider text-[#0D0D0C]/70 py-2.5 px-3 sm:px-4">
         {/* Price Tag Column */}
         <div className="col-span-2 text-left pl-1">PRICE</div>
         {/* Column 1: VOLUME */}
-        <div className="col-span-4 text-left pl-3 flex items-center gap-1.5 text-slate-300">
+        <div className="col-span-4 text-left pl-3 flex items-center gap-1.5 text-[#0D0D0C]">
           <span>VOLUME</span>
-          <span className="text-[10px] text-slate-500 font-normal">({totalSessionVol.toLocaleString()} lots)</span>
+          <span className="text-[10px] text-[#0D0D0C]/50 font-normal">({totalSessionVol.toLocaleString()} lots)</span>
         </div>
         {/* Column 2: DELTA */}
-        <div className="col-span-3 text-center flex items-center justify-center gap-1.5 text-slate-300">
+        <div className="col-span-3 text-center flex items-center justify-center gap-1.5 text-[#0D0D0C]">
           <span>DELTA</span>
-          <span className={`text-[10px] font-normal ${netCvd >= 0 ? 'text-[#00E676]' : 'text-[#8B5CF6]'}`}>
+          <span className={`text-[10px] font-normal ${netCvd >= 0 ? 'text-[#16A34A]' : 'text-[#7C3AED]'}`}>
             ({netCvd >= 0 ? `+${netCvd}` : netCvd})
           </span>
         </div>
         {/* Column 3: TPO */}
-        <div className="col-span-3 text-left pl-4 text-slate-300">
+        <div className="col-span-3 text-left pl-4 text-[#0D0D0C] flex items-center gap-1.5">
           <span>TPO</span>
+          <span className="text-[10px] text-[#0D0D0C]/50 font-normal">(Steidlmayer Profile)</span>
         </div>
       </div>
 
-      {/* 3. Main Synchronized Profile Grid Rows */}
-      <div className="divide-y divide-[#161B22] bg-[#08090C] overflow-x-auto select-none">
+      {/* 3. Main Synchronized Profile Grid Rows (Pure White Theme) */}
+      <div className="divide-y divide-[#0D0D0C]/06 bg-white overflow-x-auto select-none">
         {rows.map((row) => {
           const isHovered = hoveredRow === row.index;
-          const isNearCurrent = currentPrice != null && Math.abs(currentPrice - row.price) <= profile.binStep * 0.5;
+          // Exact single closest row to live spot price
+          const isClosestLive = row.index === closestRowIndex;
 
           // Bar width calculations (percentage)
           const volWidthPct = Math.max(3, (row.volume / maxVolume) * 100);
           const deltaWidthPct = Math.max(2, (Math.abs(row.delta) / maxAbsDelta) * 100);
 
-          // Volume Bar Color Theme (matching uploaded reference):
-          // Upper distribution: Slate Teal (#4A6B74)
+          // Volume Bar Color Theme (matching uploaded reference in pure white theme):
+          // Upper distribution: Slate Teal (#386B7A)
           // Lower distribution: Terracotta Orange (#C25E2E)
           // POC: Vivid Magenta (#E024B7)
-          let volBarColor = row.distribution === 'upper' ? 'bg-[#43646F]' : 'bg-[#C25E2E]';
+          let volBarColor = row.distribution === 'upper' ? 'bg-[#386B7A]' : 'bg-[#C25E2E]';
           if (row.isPoc) {
-            volBarColor = 'bg-[#E024B7] shadow-[0_0_12px_rgba(224,36,183,0.6)]';
+            volBarColor = 'bg-[#E024B7] shadow-sm';
           }
 
           return (
@@ -186,51 +228,61 @@ export default function AuctionProfileMatrix({
               onMouseEnter={() => setHoveredRow(row.index)}
               onMouseLeave={() => setHoveredRow(null)}
               className={`grid grid-cols-12 items-center py-1 sm:py-1.5 px-3 sm:px-4 text-xs font-mono transition-colors duration-150 relative ${
-                isHovered
-                  ? 'bg-white/10'
-                  : isNearCurrent
-                  ? 'bg-blue-500/10'
+                isClosestLive
+                  ? 'bg-[#2563EB]/08 ring-1 ring-[#2563EB]/40 font-semibold shadow-2xs'
+                  : isHovered
+                  ? 'bg-[#F4F4F5]'
                   : row.isPoc
-                  ? 'bg-[#E024B7]/08'
-                  : 'hover:bg-white/5'
+                  ? 'bg-[#E024B7]/05'
+                  : 'bg-white hover:bg-[#F8F9FA]'
               }`}
             >
               {/* Price Ladder Level */}
               <div className="col-span-2 flex items-center gap-1.5">
                 <span
-                  className={`text-[11px] sm:text-xs font-bold ${
-                    row.isPoc
-                      ? 'text-[#FF2E93]'
+                  className={`text-[11px] sm:text-xs font-mono font-bold ${
+                    isClosestLive
+                      ? 'text-[#1D4ED8] font-black'
+                      : row.isPoc
+                      ? 'text-[#A21CAF] font-black'
                       : row.isOutlier
-                      ? 'text-[#00E676]'
-                      : isNearCurrent
-                      ? 'text-[#38BDF8]'
-                      : 'text-slate-400'
+                      ? 'text-[#15803D]'
+                      : 'text-[#0D0D0C]/80'
                   }`}
                 >
                   ${row.price.toFixed(decimals)}
                 </span>
-                {isNearCurrent && (
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#38BDF8] animate-ping" title="Live Spot Price"></span>
+                {isClosestLive && (
+                  <span
+                    className="inline-flex items-center gap-1 px-1.5 py-0.2 rounded-[4px] bg-[#2563EB] text-white font-mono font-black text-[9px] shadow-sm tracking-wide"
+                    title={`Live Spot Price: $${livePriceNum?.toFixed(decimals)}`}
+                  >
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                    LIVE
+                  </span>
                 )}
               </div>
 
               {/* COLUMN 1: VOLUME PROFILE */}
               <div className="col-span-4 pl-3 relative flex items-center pr-2">
                 {/* Horizontal Volume Bar */}
-                <div className="w-full bg-slate-800/40 h-3.5 sm:h-4 rounded-[2px] overflow-visible relative flex items-center">
+                <div className="w-full bg-[#0D0D0C]/05 h-3.5 sm:h-4 rounded-[2px] overflow-visible relative flex items-center">
                   <div
                     className={`h-full rounded-[2px] transition-all duration-300 relative ${volBarColor}`}
                     style={{ width: `${volWidthPct}%` }}
                   >
-                    {/* Horizontal tick mark pointer for POC bar (just like reference image) */}
+                    {/* Horizontal tick mark pointer for POC bar (matching reference image) */}
                     {row.isPoc && (
-                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2 h-0.5 bg-white translate-x-full"></div>
+                      <div className="absolute right-0 top-1/2 -translate-y-1/2 w-2.5 h-0.5 bg-[#0D0D0C] translate-x-full"></div>
                     )}
                   </div>
 
-                  {/* Volume Number on Hover */}
-                  <span className="absolute left-1 text-[9px] font-bold text-white/90 drop-shadow">
+                  {/* Volume Number */}
+                  <span
+                    className={`absolute left-1.5 text-[9px] font-bold ${
+                      volWidthPct > 28 ? 'text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.5)]' : 'text-[#0D0D0C]/75'
+                    }`}
+                  >
                     {Math.round(row.volume).toLocaleString()}
                   </span>
                 </div>
@@ -238,7 +290,7 @@ export default function AuctionProfileMatrix({
                 {/* LVN Badge (Low Volume Node) positioned on the waist */}
                 {row.isLvn && (
                   <div className="absolute left-20 z-20">
-                    <span className="bg-white text-black font-extrabold text-[9px] px-2 py-0.5 rounded-[4px] shadow-[0_2px_8px_rgba(255,255,255,0.3)] tracking-wide border border-black/20">
+                    <span className="bg-[#0D0D0C] text-white font-black text-[9px] px-2 py-0.5 rounded-[4px] shadow-sm tracking-wide border border-[#0D0D0C]">
                       LVN
                     </span>
                   </div>
@@ -250,44 +302,44 @@ export default function AuctionProfileMatrix({
                 {/* Zero Center-Line Layout */}
                 <div className="w-full flex items-center h-3.5 sm:h-4 relative">
                   {/* Left Half: Negative Delta (Purple/Violet) */}
-                  <div className="w-1/2 h-full flex justify-end items-center pr-0.5 border-r border-slate-700">
+                  <div className="w-1/2 h-full flex justify-end items-center pr-0.5 border-r border-[#0D0D0C]/20 bg-[#0D0D0C]/02">
                     {row.delta < 0 && (
                       <div
-                        className="h-full bg-[#8B5CF6] rounded-l-[2px] transition-all duration-300"
+                        className="h-full bg-[#7C3AED] rounded-l-[2px] transition-all duration-300"
                         style={{ width: `${deltaWidthPct}%` }}
                         title={`Negative Delta: ${row.delta}`}
                       />
                     )}
                   </div>
 
-                  {/* Right Half: Positive Delta (Neon Green) */}
-                  <div className="w-1/2 h-full flex justify-start items-center pl-0.5">
+                  {/* Right Half: Positive Delta (Emerald Green) */}
+                  <div className="w-1/2 h-full flex justify-start items-center pl-0.5 bg-[#0D0D0C]/02">
                     {row.delta > 0 && (
                       <div
-                        className="h-full bg-[#00E676] rounded-r-[2px] transition-all duration-300"
+                        className="h-full bg-[#16A34A] rounded-r-[2px] transition-all duration-300"
                         style={{ width: `${deltaWidthPct}%` }}
                         title={`Positive Delta: +${row.delta}`}
                       />
                     )}
                   </div>
 
-                  {/* Delta Number on Hover */}
-                  {isHovered && (
+                  {/* Delta Number on Hover or Outlier */}
+                  {(isHovered || row.isOutlier) && (
                     <span
-                      className={`absolute inset-0 flex items-center justify-center text-[9px] font-bold ${
-                        row.delta >= 0 ? 'text-[#00E676]' : 'text-[#C084FC]'
+                      className={`absolute inset-0 flex items-center justify-center text-[9px] font-extrabold drop-shadow-xs ${
+                        row.delta >= 0 ? 'text-[#15803D]' : 'text-[#7C3AED]'
                       }`}
                     >
-                      {row.delta >= 0 ? `+${row.delta}` : row.delta}
+                      {row.delta >= 0 ? `+${Math.round(row.delta).toLocaleString()}` : Math.round(row.delta).toLocaleString()}
                     </span>
                   )}
                 </div>
 
-                {/* OUTLIER Pill Badge (Glowing Neon Green attached to outlier peak) */}
+                {/* OUTLIER Pill Badge (Emerald Pill attached to outlier peak) */}
                 {row.isOutlier && (
                   <div className="absolute right-1 z-20">
-                    <span className="bg-[#00E676] text-black font-black text-[9px] px-2 py-0.5 rounded-full shadow-[0_0_12px_#00E676] border border-black/30 tracking-wider flex items-center gap-1">
-                      <span className="w-1 h-1 rounded-full bg-black animate-ping"></span>
+                    <span className="bg-[#16A34A] text-white font-black text-[9px] px-2 py-0.5 rounded-full shadow-[0_2px_8px_rgba(22,163,74,0.35)] tracking-wider flex items-center gap-1 border border-white">
+                      <span className="w-1 h-1 rounded-full bg-white animate-ping"></span>
                       OUTLIER
                     </span>
                   </div>
@@ -295,29 +347,29 @@ export default function AuctionProfileMatrix({
               </div>
 
               {/* COLUMN 3: TPO (Time Price Opportunity Blocks) */}
-              <div className="col-span-3 pl-4 relative flex items-center gap-1 border-l border-slate-800">
+              <div className="col-span-3 pl-4 relative flex items-center gap-1 border-l border-[#0D0D0C]/10">
                 {/* Modular TPO Blocks Grid (Warm Camel/Wheat #D4A373) */}
                 <div className="flex items-center gap-0.5 overflow-hidden flex-wrap max-w-full">
                   {row.tpoLetters.slice(0, 16).map((letter, lIdx) => (
                     <div
                       key={lIdx}
-                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-[2px] bg-[#D4A373] text-[#1E1B18] font-bold text-[8.5px] sm:text-[9px] flex items-center justify-center shadow-xs select-none"
+                      className="w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-[2px] bg-[#D4A373] text-[#1E1B18] font-bold text-[8.5px] sm:text-[9px] flex items-center justify-center border border-[#B08968]/30 shadow-xs select-none"
                       title={`TPO Bracket: ${letter} at $${row.price.toFixed(decimals)}`}
                     >
                       {letter}
                     </div>
                   ))}
                   {row.tpoLetters.length > 16 && (
-                    <span className="text-[8px] text-slate-500 font-bold pl-0.5">
+                    <span className="text-[8px] text-[#0D0D0C]/50 font-bold pl-0.5">
                       +{row.tpoLetters.length - 16}
                     </span>
                   )}
                 </div>
 
-                {/* SINGLE PRINTS Pill Badge (White pill attached to single print corridor) */}
+                {/* SINGLE PRINTS Pill Badge (Attached to single print corridor) */}
                 {row.isSinglePrint && (
                   <div className="absolute left-10 z-20">
-                    <span className="bg-white text-black font-extrabold text-[9px] px-2 py-0.5 rounded-[4px] shadow-[0_2px_8px_rgba(255,255,255,0.35)] tracking-wide border border-black/20 whitespace-nowrap">
+                    <span className="bg-[#0D0D0C] text-white font-black text-[9px] px-2 py-0.5 rounded-[4px] shadow-sm tracking-wide border border-[#0D0D0C] whitespace-nowrap">
                       SINGLE PRINTS
                     </span>
                   </div>
@@ -329,25 +381,30 @@ export default function AuctionProfileMatrix({
       </div>
 
       {/* 4. Institutional Takeaways Footer */}
-      <div className="px-4 py-2.5 bg-[#0E1117] border-t border-[#1E2430] flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-slate-400">
+      <div className="px-4 py-2.5 bg-[#F8F9FA] border-t border-[#0D0D0C]/10 flex flex-wrap items-center justify-between gap-3 text-[11px] font-mono text-[#0D0D0C]/70">
         <div className="flex items-center gap-3">
-          <span className="flex items-center gap-1.5 text-white font-semibold">
+          <span className="flex items-center gap-1.5 text-[#0D0D0C] font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#E024B7]"></span>
-            POC: Maximum Accepted Auction Node
+            POC: Maximum Accepted Volume Node
           </span>
-          <span className="text-slate-600 hidden sm:inline">•</span>
-          <span className="flex items-center gap-1.5 text-[#00E676] font-semibold hidden md:inline-flex">
-            <span className="w-2 h-2 rounded-full bg-[#00E676]"></span>
-            Outlier Delta: Institutional Aggression
+          <span className="text-[#0D0D0C]/25 hidden sm:inline">•</span>
+          <span className="flex items-center gap-1.5 text-[#15803D] font-semibold hidden md:inline-flex">
+            <span className="w-2 h-2 rounded-full bg-[#16A34A]"></span>
+            Outlier Delta: Buyer Aggression
           </span>
-          <span className="text-slate-600 hidden md:inline">•</span>
-          <span className="flex items-center gap-1.5 text-white font-semibold hidden lg:inline-flex">
-            <span className="w-2 h-2 rounded-full bg-white"></span>
-            Single Prints: Fast Displacement Zone (Support/Resistance)
+          <span className="text-[#0D0D0C]/25 hidden md:inline">•</span>
+          <span className="flex items-center gap-1.5 text-[#0D0D0C] font-semibold hidden lg:inline-flex">
+            <span className="w-2 h-2 rounded-full bg-[#0D0D0C]"></span>
+            Single Prints: Fast Displacement Zone
+          </span>
+          <span className="text-[#0D0D0C]/25 hidden lg:inline">•</span>
+          <span className="flex items-center gap-1.5 text-[#1D4ED8] font-bold">
+            <span className="w-2 h-2 rounded-full bg-[#2563EB] animate-pulse"></span>
+            Live Spot: ${livePriceNum != null ? livePriceNum.toFixed(decimals) : '—'}
           </span>
         </div>
 
-        <div className="text-slate-500 text-[10px]">
+        <div className="text-[#0D0D0C]/50 text-[10px]">
           Auction Market Theory • J. Peter Steidlmayer TPO Standard
         </div>
       </div>
