@@ -3,6 +3,7 @@ import Header from './components/Header';
 import OrderFlowCards from './components/OrderFlowCards';
 import CandleChart from './components/CandleChart';
 import StandardDeviationMatrix from './components/StandardDeviationMatrix';
+import AuctionProfileMatrix from './components/AuctionProfileMatrix';
 import { calculateDynamicVolumeProfile } from './utils/volumeProfile';
 import { calculateDailyStandardDeviation } from './utils/standardDeviation';
 import {
@@ -24,6 +25,7 @@ export default function App() {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');
   const [timeframe, setTimeframe] = useState('1h');
   const [showStandardDeviation, setShowStandardDeviation] = useState(false); // Default OFF per user rule
+  const [showMarketProfile, setShowMarketProfile] = useState(false); // Default OFF: Volume • Delta • TPO Profile Matrix
   const [soundEnabled, setSoundEnabled] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [isConnected, setIsConnected] = useState(true);
@@ -183,6 +185,8 @@ export default function App() {
         onSelectTimeframe={handleSelectTimeframe}
         showStandardDeviation={showStandardDeviation}
         onToggleStandardDeviation={() => setShowStandardDeviation((v) => !v)}
+        showMarketProfile={showMarketProfile}
+        onToggleMarketProfile={() => setShowMarketProfile((v) => !v)}
         isConnected={isConnected}
         isLoading={isLoading}
         onRefresh={fetchAllData}
@@ -216,6 +220,17 @@ export default function App() {
           onSelectTimeframe={handleSelectTimeframe}
           decimals={decimals}
         />
+
+        {/* Institutional Auction Profile (Volume • Delta • TPO) Matrix */}
+        {showMarketProfile && (
+          <AuctionProfileMatrix
+            symbol={activeSymbol}
+            barsData={barsData}
+            footprintData={footprintData}
+            currentPrice={currentPrice}
+            decimals={decimals}
+          />
+        )}
 
         {/* Daily Standard Deviation Matrix (Conditional on SD Toggle) */}
         {showStandardDeviation && (

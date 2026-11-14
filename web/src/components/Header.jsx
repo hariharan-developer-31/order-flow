@@ -1,6 +1,7 @@
 import React from 'react';
 import {
   Activity,
+  Columns3,
   Volume2,
   VolumeX,
   RefreshCw,
@@ -20,6 +21,8 @@ export default function Header({
   onSelectTimeframe,
   showStandardDeviation = false,
   onToggleStandardDeviation,
+  showMarketProfile = false,
+  onToggleMarketProfile,
   isConnected = true,
   isLoading = false,
   onRefresh,
@@ -73,6 +76,23 @@ export default function Header({
               {currentPrice != null ? currentPrice.toFixed(decimals) : '---'}
             </span>
           </div>
+
+          {/* Institutional Auction Profile (Volume • Delta • TPO) Toggle */}
+          <button
+            onClick={onToggleMarketProfile}
+            title={showMarketProfile ? 'Auction Profile (Volume • Delta • TPO): ON' : 'Auction Profile (Volume • Delta • TPO): OFF'}
+            className={`h-8 px-2.5 sm:px-3 flex items-center gap-1.5 rounded-[5px] border text-xs font-mono font-medium transition-all duration-200 cursor-pointer ${
+              showMarketProfile
+                ? 'bg-[#0D0D0C] text-white border-[#0D0D0C] shadow-xs'
+                : 'bg-white text-[#0D0D0C]/60 border-[#0D0D0C]/15 hover:text-[#0D0D0C] hover:border-[#0D0D0C]/35'
+            }`}
+          >
+            <Columns3 className={`w-3.5 h-3.5 ${showMarketProfile ? 'text-[#C564C4]' : 'text-[#0D0D0C]/60'}`} />
+            <span className="hidden xs:inline">Profile:</span>
+            <span className={`font-bold ${showMarketProfile ? 'text-white' : 'text-[#0D0D0C]/60'}`}>
+              {showMarketProfile ? 'ON' : 'OFF'}
+            </span>
+          </button>
 
           {/* Daily Standard Deviation Toggle (Default: OFF) */}
           <button
