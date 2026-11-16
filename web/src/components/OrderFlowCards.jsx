@@ -10,7 +10,7 @@ export default function OrderFlowCards({
   showStandardDeviation = false,
 }) {
   const of = orderFlowData?.find((o) => o.symbol === symbol);
-  const dec = symbol === 'XAUUSD' ? 2 : 5;
+  const dec = (symbol === 'XAUUSD' || symbol === 'NAS100' || symbol === 'NASDAQ') ? 2 : 5;
 
   const poc = activeVP?.pocPrice ?? of?.pPOC ?? 0;
   const vah = activeVP?.vahPrice ?? of?.pVAH ?? 0;

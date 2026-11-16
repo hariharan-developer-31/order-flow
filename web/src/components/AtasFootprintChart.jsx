@@ -627,7 +627,7 @@ export default function AtasFootprintChart({
         <div className="flex items-center gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm tracking-tight text-[#0D0D0C] font-headline">
             <Flame className="w-4 h-4 text-[#E9C22E] fill-[#E9C22E] animate-pulse" />
-            <span>XAUUSD (Gold Spot)</span>
+            <span>{symbol === 'XAUUSD' ? 'XAUUSD (Gold Spot)' : (symbol === 'NAS100' || symbol === 'NASDAQ' ? 'NASDAQ 100 (E-MINI)' : symbol)}</span>
           </div>
 
           <span className="text-[10px] font-semibold px-2 py-0.5 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/12 uppercase font-mono">

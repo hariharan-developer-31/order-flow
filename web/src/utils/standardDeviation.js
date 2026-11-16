@@ -5,9 +5,10 @@
  */
 
 export function calculateDailyStandardDeviation(bars, livePrice, symbol = 'XAUUSD') {
+  const isIndex = symbol === 'NAS100' || symbol === 'NASDAQ';
   if (!bars || bars.length === 0) {
-    const fallbackPrice = livePrice || 4050.0;
-    const fallbackSd = symbol === 'XAUUSD' ? 22.50 : 0.0085;
+    const fallbackPrice = livePrice || (isIndex ? 27632.50 : 4050.0);
+    const fallbackSd = isIndex ? 140.0 : (symbol === 'XAUUSD' ? 22.50 : 0.0085);
     return generateStaticSdLevels(fallbackPrice, fallbackSd, symbol);
   }
 
@@ -48,13 +49,13 @@ export function calculateDailyStandardDeviation(bars, livePrice, symbol = 'XAUUS
   let stdDev = Math.sqrt(variance);
 
   // Fallback sanity floor based on asset ATR
-  const minSd = symbol === 'XAUUSD' ? 4.50 : 0.0015;
+  const minSd = isIndex ? 25.0 : (symbol === 'XAUUSD' ? 4.50 : 0.0015);
   if (!stdDev || stdDev < minSd || isNaN(stdDev)) {
     const avgRange = sessionBars.reduce((acc, b) => acc + (b.high - b.low), 0) / sessionBars.length;
     stdDev = Math.max(minSd, avgRange * 1.5);
   }
 
-  const dec = symbol === 'XAUUSD' ? 2 : 5;
+  const dec = (symbol === 'XAUUSD' || isIndex) ? 2 : 5;
   const current = Number(livePrice != null ? livePrice : sessionBars[sessionBars.length - 1].close);
 
   // 3. Compute Standard Deviation Levels (±0.5σ, ±1.0σ, ±1.5σ, ±2.0σ, ±3.0σ)
@@ -246,7 +247,8 @@ export function calculateDailyStandardDeviation(bars, livePrice, symbol = 'XAUUS
 }
 
 function generateStaticSdLevels(price, sd, symbol) {
-  const dec = symbol === 'XAUUSD' ? 2 : 5;
+  const isIndex = symbol === 'NAS100' || symbol === 'NASDAQ';
+  const dec = (symbol === 'XAUUSD' || isIndex) ? 2 : 5;
   const round = (val) => Number(val.toFixed(dec));
   const vwap = round(price);
   const stdDev = round(sd);

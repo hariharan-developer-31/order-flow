@@ -10,6 +10,8 @@
 
 const SYMBOL_MAPPINGS = {
   XAUUSD: { binance: 'PAXGUSDT', dec: 2, defaultPrice: 4026.50 },
+  NAS100: { binance: null, dec: 2, defaultPrice: 27632.50 },
+  NASDAQ: { binance: null, dec: 2, defaultPrice: 27632.50 },
 };
 
 const TIMEFRAME_MAP = {
@@ -106,36 +108,27 @@ export async function getLiveCandleBars(symbol = 'XAUUSD', timeframe = '1h', lim
     }
   }
 
-  // 3. Optional local/custom engine check (only if on localhost or non-localhost URL explicitly provided)
-  if (customApiUrl) {
-    const isLocalhostHost = typeof window !== 'undefined' &&
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    const isLocalhostTarget = customApiUrl.includes('localhost') || customApiUrl.includes('127.0.0.1');
-
-    // Only attempt localhost fetch if we are actually running on localhost
-    if (!isLocalhostTarget || isLocalhostHost) {
-      try {
-        const cleanUrl = customApiUrl.replace(/\/+$/, '');
-        const res = await fetch(`${cleanUrl}/api/bars?symbol=${sym}&timeframe=${timeframe}&limit=${limit}`, {
-          mode: 'cors',
-          signal: AbortSignal.timeout(400), // Strict 400ms cutoff to never lag chart!
-        });
-        if (res.ok) {
-          const json = await res.json();
-          if (Array.isArray(json.bars) && json.bars.length > 0) {
-            const result = {
-              bars: json.bars,
-              livePrice: json.live_price || json.bars[json.bars.length - 1].close,
-              source: 'Local/Custom Engine',
-            };
-            barsCache.set(cacheKey, result);
-            return result;
-          }
-        }
-      } catch (e) {
-        // Custom engine unavailable - continue instantly
+  // 3. Serverless Cloud Engine / Local Engine check (/api/bars)
+  const targetApiUrl = customApiUrl ? customApiUrl.replace(/\/+$/, '') : '';
+  try {
+    const res = await fetch(`${targetApiUrl}/api/bars?symbol=${sym}&timeframe=${timeframe}&limit=${limit}`, {
+      signal: AbortSignal.timeout(1200),
+    });
+    if (res.ok) {
+      const json = await res.json();
+      if (Array.isArray(json.bars) && json.bars.length > 0) {
+        const result = {
+          bars: json.bars,
+          livePrice: json.live_price || json.bars[json.bars.length - 1].close,
+          source: 'Vercel 24/7 Cloud Engine',
+        };
+        barsCache.set(cacheKey, result);
+        prefetchOtherTimeframes(sym, timeframe);
+        return result;
       }
     }
+  } catch (e) {
+    // Cloud engine unavailable or timed out - continue to fallback
   }
 
   // 4. Return existing cache if network was slow
@@ -311,7 +304,8 @@ function generateSyntheticBars(basePrice, dec, tf, count = 100) {
   const now = Math.floor(Date.now() / 1000);
   const bars = [];
   let price = basePrice;
-  const volMult = basePrice > 100 ? 100 : 0.001;
+  const isNasdaq = basePrice > 10000;
+  const volMult = isNasdaq ? 35 : (basePrice > 100 ? 5.5 : 0.001);
 
   for (let i = count; i >= 0; i--) {
     const time = now - i * stepSec;
@@ -320,7 +314,7 @@ function generateSyntheticBars(basePrice, dec, tf, count = 100) {
     const close = Number((price + micro).toFixed(dec));
     const high = Number((Math.max(open, close) + Math.random() * (volMult * 0.08)).toFixed(dec));
     const low = Number((Math.min(open, close) - Math.random() * (volMult * 0.08)).toFixed(dec));
-    const volume = Math.round(500 + Math.random() * 2500);
+    const volume = isNasdaq ? Math.round(1500 + Math.random() * 8500) : Math.round(500 + Math.random() * 2500);
     price = close;
 
     bars.push({ time, open, high, low, close, volume });
@@ -333,9 +327,9 @@ function generateSyntheticBars(basePrice, dec, tf, count = 100) {
  */
 export async function getLiveOrderFlow(symbols, activeBarsMap, currentPrices) {
   return symbols.map((sym) => {
-    const dec = sym === 'XAUUSD' ? 2 : 5;
-    const bars = activeBarsMap[sym] || [];
-    const livePrice = currentPrices[sym] || (sym === 'XAUUSD' ? 4026.50 : 1.1192);
+    const isDec2 = sym === 'XAUUSD' || sym === 'NAS100' || sym === 'NASDAQ';
+    const dec = isDec2 ? 2 : 5;
+    const livePrice = currentPrices[sym] || (sym === 'XAUUSD' ? 4026.50 : (isDec2 ? 27632.50 : 1.1192));
 
     if (bars.length === 0) {
       return {
@@ -391,7 +385,8 @@ export async function getLiveOrderFlow(symbols, activeBarsMap, currentPrices) {
  */
 export function getLiveFootprintClusters(bars, symbol, timeframe) {
   if (!bars || bars.length === 0) return [];
-  const dec = symbol === 'XAUUSD' ? 2 : 5;
+  const isIndex = symbol === 'NAS100' || symbol === 'NASDAQ';
+  const dec = (symbol === 'XAUUSD' || isIndex) ? 2 : 5;
   const isGold = symbol === 'XAUUSD';
 
   const recentBars = bars.slice(-32);
@@ -403,12 +398,14 @@ export function getLiveFootprintClusters(bars, symbol, timeframe) {
     const l = b.low;
     const c = b.close;
     const isBull = c >= o;
-    const range = Math.max(isGold ? 0.8 : 0.0004, h - l);
+    const range = Math.max(isIndex ? 4.0 : (isGold ? 0.8 : 0.0004), h - l);
 
     // Ensure volume is authentic institutional scale (800 - 5,500 lots)
-    let vol = b.volume || 1200;
+    let vol = b.volume || (isIndex ? 4500 : 1200);
     if (isGold && vol < 300) {
       vol = Math.round(vol * 50 + range * 115 + 850);
+    } else if (isIndex && vol < 500) {
+      vol = Math.round(vol * 80 + range * 25 + 1500);
     }
 
     // Adaptive cluster count for crystal-clear legibility (7 to 11 clusters per bar)
@@ -419,7 +416,9 @@ export function getLiveFootprintClusters(bars, symbol, timeframe) {
     else if (timeframe === '4h') targetLevels = 12;
 
     const rawStep = range / Math.max(1, targetLevels - 1);
-    const step = isGold
+    const step = isIndex
+      ? Math.max(1.0, Math.round(rawStep)) // Clean steps of $1, $2, etc. for NASDAQ
+      : isGold
       ? Math.max(0.5, Math.round(rawStep * 2) / 2) // Clean steps of $0.50, $1.00, etc.
       : Number(rawStep.toFixed(5));
 

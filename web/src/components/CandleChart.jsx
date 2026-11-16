@@ -136,7 +136,7 @@ export default function CandleChart({
   const [drawingDraft, setDrawingDraft] = useState(null);
 
   const of = orderFlowData?.find((o) => o.symbol === symbol);
-  const symbolDisplay = symbol === 'XAUUSD' ? 'XAUUSD (OANDA)' : symbol;
+  const symbolDisplay = symbol === 'XAUUSD' ? 'XAUUSD (OANDA)' : (symbol === 'NAS100' || symbol === 'NASDAQ' ? 'NASDAQ 100 (E-MINI)' : symbol);
 
   const getResponsiveHeight = useCallback(() => {
     if (isFullscreen) {
@@ -661,7 +661,7 @@ export default function CandleChart({
       ]);
       setActiveTool('cursor');
     } else if (activeTool === 'long') {
-      const riskDistance = symbol === 'XAUUSD' ? 6.0 : 0.0025;
+      const riskDistance = symbol === 'XAUUSD' ? 6.0 : (symbol === 'NAS100' || symbol === 'NASDAQ' ? 35.0 : 0.0025);
       const entry = price;
       const sl = entry - riskDistance;
       const tp1 = entry + riskDistance;
@@ -680,7 +680,7 @@ export default function CandleChart({
       ]);
       setActiveTool('cursor');
     } else if (activeTool === 'short') {
-      const riskDistance = symbol === 'XAUUSD' ? 6.0 : 0.0025;
+      const riskDistance = symbol === 'XAUUSD' ? 6.0 : (symbol === 'NAS100' || symbol === 'NASDAQ' ? 35.0 : 0.0025);
       const entry = price;
       const sl = entry + riskDistance;
       const tp1 = entry - riskDistance;

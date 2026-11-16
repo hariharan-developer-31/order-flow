@@ -6,13 +6,16 @@
 
 const YAHOO_MAP = {
   XAUUSD: 'GC=F',
+  NAS100: 'NQ=F',
+  NASDAQ: 'NQ=F',
+  US100: 'NQ=F',
   EURUSD: 'EURUSD=X',
   GBPUSD: 'GBPUSD=X',
   AUDUSD: 'AUDUSD=X',
   USDCAD: 'USDCAD=X',
 };
 
-const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'AUDUSD', 'USDCAD'];
+const SYMBOLS = ['XAUUSD', 'NAS100', 'EURUSD', 'GBPUSD', 'AUDUSD', 'USDCAD'];
 
 // In-memory cache for serverless execution
 const cache = {
@@ -54,7 +57,7 @@ export async function fetchLiveBars(symbol = 'XAUUSD', timeframe = '1h', limit =
     ySym
   )}?interval=${interval}&range=${range}`;
 
-  const dec = sym === 'XAUUSD' ? 2 : 5;
+  const dec = (sym === 'XAUUSD' || sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100') ? 2 : 5;
 
   try {
     const res = await fetch(url, {
@@ -156,7 +159,7 @@ export async function fetchLiveOrderFlow() {
         const barData = await fetchLiveBars(sym, '1h', 48);
         const bars = barData.bars || [];
         const livePrice = barData.live_price;
-        const dec = sym === 'XAUUSD' ? 2 : 5;
+        const dec = (sym === 'XAUUSD' || sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100') ? 2 : 5;
 
         let minP = Infinity;
         let maxP = -Infinity;
@@ -505,7 +508,7 @@ export function fetchLiveSignals(spotPrice = null) {
 }
 
 function generateFallbackLiveBars(sym, tf, limit) {
-  const dec = sym === 'XAUUSD' ? 2 : 5;
+  const dec = (sym === 'XAUUSD' || sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100') ? 2 : 5;
   const base = sym === 'XAUUSD' ? 4034.4 : 1.1191;
   const now = Math.floor(Date.now() / 1000);
   const stepSec = tf === '5m' ? 300 : tf === '15m' ? 900 : tf === '4h' ? 14400 : 3600;

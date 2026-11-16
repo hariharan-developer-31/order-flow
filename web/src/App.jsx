@@ -19,7 +19,7 @@ import {
   getFallbackFootprint,
 } from './data/mockData';
 
-const SYMBOLS = ['XAUUSD'];
+const SYMBOLS = ['XAUUSD', 'NAS100'];
 
 export default function App() {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');
@@ -33,7 +33,8 @@ export default function App() {
   // Instant cache retrieval or realistic mocks
   const [barsData, setBarsData] = useState(() => {
     const cached = getCachedBars('XAUUSD', '1h');
-    return cached && cached.length > 0 ? cached : getFallbackBars('XAUUSD', '1h');
+    const bars = cached?.bars || cached;
+    return bars && bars.length > 0 ? bars : getFallbackBars('XAUUSD', '1h');
   });
 
   const [currentPrice, setCurrentPrice] = useState(() => {
@@ -42,21 +43,52 @@ export default function App() {
 
   const [orderFlowData, setOrderFlowData] = useState(() => getFallbackOrderFlow());
   const [footprintData, setFootprintData] = useState(() => {
-    const initBars = getCachedBars('XAUUSD', '1h') || getFallbackBars('XAUUSD', '1h');
+    const cached = getCachedBars('XAUUSD', '1h');
+    const initBars = cached?.bars || cached || getFallbackBars('XAUUSD', '1h');
     return getLiveFootprintClusters(initBars, 'XAUUSD', '1h');
   });
+
+  // Instant Symbol Switching (XAUUSD <-> NASDAQ)
+  const handleSelectSymbol = useCallback((sym) => {
+    if (sym !== activeSymbol) {
+      setActiveSymbol(sym);
+      const cached = getCachedBars(sym, timeframe);
+      const bars = cached?.bars || cached;
+      if (bars && bars.length > 0) {
+        setBarsData(bars);
+        if (cached?.livePrice != null) {
+          setCurrentPrice(cached.livePrice);
+        } else if (bars[bars.length - 1]?.close != null) {
+          setCurrentPrice(bars[bars.length - 1].close);
+        }
+        setFootprintData(getLiveFootprintClusters(bars, sym, timeframe));
+      } else {
+        const fb = getFallbackBars(sym, 100, timeframe);
+        if (fb && fb.length > 0) {
+          setBarsData(fb);
+          if (fb[fb.length - 1]?.close != null) {
+            setCurrentPrice(fb[fb.length - 1].close);
+          }
+          setFootprintData(getLiveFootprintClusters(fb, sym, timeframe));
+        }
+      }
+    }
+  }, [activeSymbol, timeframe]);
 
   // Timeframe change with instant Cache sync
   const handleSelectTimeframe = useCallback((tf) => {
     if (tf !== timeframe) {
       setTimeframe(tf);
       const cached = getCachedBars(activeSymbol, tf);
-      if (cached && cached.length > 0) {
-        setBarsData(cached);
-        if (cached[cached.length - 1]?.close != null) {
-          setCurrentPrice(cached[cached.length - 1].close);
+      const bars = cached?.bars || cached;
+      if (bars && bars.length > 0) {
+        setBarsData(bars);
+        if (cached?.livePrice != null) {
+          setCurrentPrice(cached.livePrice);
+        } else if (bars[bars.length - 1]?.close != null) {
+          setCurrentPrice(bars[bars.length - 1].close);
         }
-        setFootprintData(getLiveFootprintClusters(cached, activeSymbol, tf));
+        setFootprintData(getLiveFootprintClusters(bars, activeSymbol, tf));
       } else {
         const fb = getFallbackBars(activeSymbol, 100, tf);
         if (fb && fb.length > 0) {
@@ -163,7 +195,8 @@ export default function App() {
     }
   }, []);
 
-  const decimals = activeSymbol === 'XAUUSD' ? 2 : 5;
+  const isDec2 = activeSymbol === 'XAUUSD' || activeSymbol === 'NAS100' || activeSymbol === 'NASDAQ';
+  const decimals = isDec2 ? 2 : 5;
 
   // Dynamic Volume Profile directly calculated from bars
   const activeVP = useMemo(() => {
@@ -180,6 +213,7 @@ export default function App() {
       {/* 1. Super Minimal Top Navigation */}
       <Header
         activeSymbol={activeSymbol}
+        onSelectSymbol={handleSelectSymbol}
         currentPrice={currentPrice}
         timeframe={timeframe}
         onSelectTimeframe={handleSelectTimeframe}

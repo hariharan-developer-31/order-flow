@@ -17,6 +17,30 @@ const BASE_SPECS = {
     pdl: 4012.0,
     typicalVolume: 24000,
   },
+  NAS100: {
+    basePrice: 27632.5,
+    volatility: 55.0,
+    decimals: 2,
+    tickSize: 1.0,
+    poc: 27620.0,
+    vah: 27685.0,
+    val: 27550.0,
+    pdh: 27740.0,
+    pdl: 27490.0,
+    typicalVolume: 65000,
+  },
+  NASDAQ: {
+    basePrice: 27632.5,
+    volatility: 55.0,
+    decimals: 2,
+    tickSize: 1.0,
+    poc: 27620.0,
+    vah: 27685.0,
+    val: 27550.0,
+    pdh: 27740.0,
+    pdl: 27490.0,
+    typicalVolume: 65000,
+  },
 };
 
 const TF_MAP = {
@@ -85,7 +109,7 @@ export function getFallbackBars(symbol = 'XAUUSD', count = 100, timeframe = '1h'
  * Generate complete Order Flow & 24H Volume Profile data
  */
 export function getFallbackOrderFlow(activeSymbol = 'XAUUSD') {
-  const symbols = ['XAUUSD'];
+  const symbols = ['XAUUSD', 'NAS100'];
 
   return symbols.map((sym) => {
     const spec = BASE_SPECS[sym] || BASE_SPECS.XAUUSD;
