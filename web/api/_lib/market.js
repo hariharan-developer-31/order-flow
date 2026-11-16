@@ -121,10 +121,12 @@ export async function fetchLiveBars(symbol = 'XAUUSD', timeframe = '1h', limit =
       }
     }
 
+    const isNasdaq = sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100';
+    const fallbackDefault = sym === 'XAUUSD' ? 4034.4 : isNasdaq ? 27580.0 : 1.1191;
     const livePrice =
       meta.regularMarketPrice != null
         ? Number(meta.regularMarketPrice.toFixed(dec))
-        : finalBars[finalBars.length - 1]?.close || (sym === 'XAUUSD' ? 4034.4 : 1.1191);
+        : finalBars[finalBars.length - 1]?.close || fallbackDefault;
 
     const sliced = finalBars.slice(-limit);
 
@@ -472,8 +474,9 @@ export function fetchLiveSignals(spotPrice = null) {
 }
 
 function generateFallbackLiveBars(sym, tf, limit) {
-  const dec = (sym === 'XAUUSD' || sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100') ? 2 : 5;
-  const base = sym === 'XAUUSD' ? 4034.4 : 1.1191;
+  const isNasdaq = sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100';
+  const dec = (sym === 'XAUUSD' || isNasdaq) ? 2 : 5;
+  const base = sym === 'XAUUSD' ? 4034.4 : isNasdaq ? 27580.0 : 1.1191;
   const now = Math.floor(Date.now() / 1000);
   const stepSec = tf === '5m' ? 300 : tf === '15m' ? 900 : tf === '4h' ? 14400 : 3600;
 
@@ -482,11 +485,12 @@ function generateFallbackLiveBars(sym, tf, limit) {
 
   for (let i = limit; i >= 0; i--) {
     const t = now - i * stepSec;
-    const delta = (Math.random() - 0.48) * (sym === 'XAUUSD' ? 4.5 : 0.0015);
+    const delta = (Math.random() - 0.48) * (isNasdaq ? 35.0 : sym === 'XAUUSD' ? 4.5 : 0.0015);
     const o = cur;
     const c = cur + delta;
-    const h = Math.max(o, c) + Math.random() * (sym === 'XAUUSD' ? 2.5 : 0.0008);
-    const l = Math.min(o, c) - Math.random() * (sym === 'XAUUSD' ? 2.5 : 0.0008);
+    const wickSpread = isNasdaq ? 18.0 : sym === 'XAUUSD' ? 2.5 : 0.0008;
+    const h = Math.max(o, c) + Math.random() * wickSpread;
+    const l = Math.min(o, c) - Math.random() * wickSpread;
     cur = c;
 
     bars.push({
@@ -495,7 +499,7 @@ function generateFallbackLiveBars(sym, tf, limit) {
       high: Number(h.toFixed(dec)),
       low: Number(l.toFixed(dec)),
       close: Number(c.toFixed(dec)),
-      volume: Math.round(800 + Math.random() * 3500),
+      volume: isNasdaq ? Math.round(2500 + Math.random() * 8500) : Math.round(800 + Math.random() * 3500),
     });
   }
 

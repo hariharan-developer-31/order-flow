@@ -6,13 +6,16 @@
 
 const YAHOO_MAP = {
   XAUUSD: 'GC=F',
+  NAS100: 'NQ=F',
+  NASDAQ: 'NQ=F',
+  US100: 'NQ=F',
   EURUSD: 'EURUSD=X',
   GBPUSD: 'GBPUSD=X',
   AUDUSD: 'AUDUSD=X',
   USDCAD: 'USDCAD=X',
 };
 
-const SYMBOLS = ['XAUUSD', 'EURUSD', 'GBPUSD', 'AUDUSD', 'USDCAD'];
+const SYMBOLS = ['XAUUSD', 'NAS100', 'EURUSD', 'GBPUSD', 'AUDUSD', 'USDCAD'];
 
 // In-memory cache for serverless execution
 const cache = {
@@ -54,7 +57,7 @@ export async function fetchLiveBars(symbol = 'XAUUSD', timeframe = '1h', limit =
     ySym
   )}?interval=${interval}&range=${range}`;
 
-  const dec = sym === 'XAUUSD' ? 2 : 5;
+  const dec = (sym === 'XAUUSD' || sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100') ? 2 : 5;
 
   try {
     const res = await fetch(url, {
@@ -118,10 +121,12 @@ export async function fetchLiveBars(symbol = 'XAUUSD', timeframe = '1h', limit =
       }
     }
 
+    const isNasdaq = sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100';
+    const fallbackDefault = sym === 'XAUUSD' ? 4034.4 : isNasdaq ? 27580.0 : 1.1191;
     const livePrice =
       meta.regularMarketPrice != null
         ? Number(meta.regularMarketPrice.toFixed(dec))
-        : finalBars[finalBars.length - 1]?.close || (sym === 'XAUUSD' ? 4034.4 : 1.1191);
+        : finalBars[finalBars.length - 1]?.close || fallbackDefault;
 
     const sliced = finalBars.slice(-limit);
 
@@ -156,7 +161,7 @@ export async function fetchLiveOrderFlow() {
         const barData = await fetchLiveBars(sym, '1h', 48);
         const bars = barData.bars || [];
         const livePrice = barData.live_price;
-        const dec = sym === 'XAUUSD' ? 2 : 5;
+        const dec = (sym === 'XAUUSD' || sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100') ? 2 : 5;
 
         let minP = Infinity;
         let maxP = -Infinity;
@@ -390,17 +395,17 @@ export function fetchLiveSignals(spotPrice = null) {
   }) + ' IST';
 
   const p = Number(spotPrice || 4008.50);
-  const isBuy = p < 4014.50; // Below POC (AMT 80% Rule rotation to POC)
+  const isBuy = p < 4014.50; // Institutional POI demand vs supply zone
   const dec = 2;
 
   const activeTrade = {
     id: `TB-XAUUSD-${d.toISOString().slice(0, 10)}`,
     sym: 'XAUUSD',
     side: isBuy ? 'BUY' : 'SELL',
-    strategy: '1. AMT 80% Value Area Rule',
+    strategy: 'UOT-Inspired Institutional Analysis Engine',
     setup: isBuy
-      ? 'Failed Breakdown Below VAL (Rotation to POC 4014.50)'
-      : 'Failed Auction Breakout above VAH (Rotation to POC)',
+      ? 'Demand Zone Mitigation + Bullish CHOCH + Discount Retracement'
+      : 'Supply Zone Mitigation + Bearish CHOCH + Premium Retracement',
     entry: Number(p.toFixed(dec)),
     sl: Number((isBuy ? p - 6.00 : p + 6.00).toFixed(dec)),
     tp1: Number((isBuy ? p + 6.00 : p - 6.00).toFixed(dec)),
@@ -426,8 +431,7 @@ export function fetchLiveSignals(spotPrice = null) {
     max_trades: 99,
     today_pnl: '+0.00%',
     pnl_pct: 0.0,
-    daily_target: '+2.0% - 3.0%',
-    capital_guard: '-2.5%',
+    daily_target: 'Unlimited',
     is_flat: true,
     market_state: '100% FLAT (Scanning for Institutional Setups)',
     active_trades: [],
@@ -442,21 +446,20 @@ export function fetchLiveSignals(spotPrice = null) {
       account: 'TRADING BOY ACCOUNT',
       asset: 'XAUUSD (Gold Spot Exclusively)',
       risk_per_trade: '0.5%',
-      daily_target: '+2.0% - 3.0%',
-      capital_guard: '-2.5% Safe Limit',
+      strategy: 'UOT-Inspired Institutional Analysis Engine',
       max_trades_per_day: 'Uncapped (All High-Probability Setups)',
       rr_order_a: '1:1 (70% Scale-Out at POC)',
       rr_order_b: '1:2.3 (30% Runner with SL at Breakeven)',
     },
     signals_stream: [
       {
-        id: 'amt_80',
-        strategy_id: 'amt_80',
-        strategy_name: '1. AMT 80% Value Area Rule',
+        id: 'uot_inst_1',
+        strategy_id: 'uot_engine',
+        strategy_name: 'UOT Institutional Multi-Timeframe Engine',
         symbol: 'XAUUSD',
         side: 'SELL',
-        setup: 'Failed Auction Breakout above VAH (Rotation to POC)',
-        timeframe: '5M Footprint / 15M Profile',
+        setup: 'Liquidity Sweep + Lower High BOS + Supply Zone Mitigation (Daily -1.5σ Confluence)',
+        timeframe: '1D / 4H / 1H / 15M / 5M',
         entry: 4028.5,
         sl: 4034.5,
         tp1: 4022.5,
@@ -466,47 +469,14 @@ export function fetchLiveSignals(spotPrice = null) {
         target_risk: '0.5% risk | $6.00 Stop',
         time: istTimeStr,
       },
-      {
-        id: 'vwap_fade',
-        strategy_id: 'vwap_fade',
-        strategy_name: '2. VWAP 2-SD Absorption Fade',
-        symbol: 'XAUUSD',
-        side: 'SELL',
-        setup: '+2σ VWAP Band Exhaustion with CVD Divergence',
-        timeframe: '5M Footprint + CVD',
-        entry: 4030.0,
-        sl: 4033.0,
-        tp1: 4024.5,
-        tp2: 4023.0,
-        status: 'WATCHLIST_LEVELS',
-        is_triggered: false,
-        target_risk: '0.5% risk | $3.00 Stop',
-        time: istTimeStr,
-      },
-      {
-        id: 'lvn_pullback',
-        strategy_id: 'lvn_pullback',
-        strategy_name: '3. LVN Trend Pullback',
-        symbol: 'XAUUSD',
-        side: 'BUY',
-        setup: 'Trend Day LVN Valley Reload with 300%+ Stacked Imbalance',
-        timeframe: '15M Profile / 5M Footprint',
-        entry: 4026.7,
-        sl: 4024.2,
-        tp1: 4031.7,
-        tp2: 4036.2,
-        status: 'WATCHLIST_LEVELS',
-        is_triggered: false,
-        target_risk: '0.5% risk | $2.50 Stop',
-        time: istTimeStr,
-      },
     ],
   };
 }
 
 function generateFallbackLiveBars(sym, tf, limit) {
-  const dec = sym === 'XAUUSD' ? 2 : 5;
-  const base = sym === 'XAUUSD' ? 4034.4 : 1.1191;
+  const isNasdaq = sym === 'NAS100' || sym === 'NASDAQ' || sym === 'US100';
+  const dec = (sym === 'XAUUSD' || isNasdaq) ? 2 : 5;
+  const base = sym === 'XAUUSD' ? 4034.4 : isNasdaq ? 27580.0 : 1.1191;
   const now = Math.floor(Date.now() / 1000);
   const stepSec = tf === '5m' ? 300 : tf === '15m' ? 900 : tf === '4h' ? 14400 : 3600;
 
@@ -515,11 +485,12 @@ function generateFallbackLiveBars(sym, tf, limit) {
 
   for (let i = limit; i >= 0; i--) {
     const t = now - i * stepSec;
-    const delta = (Math.random() - 0.48) * (sym === 'XAUUSD' ? 4.5 : 0.0015);
+    const delta = (Math.random() - 0.48) * (isNasdaq ? 35.0 : sym === 'XAUUSD' ? 4.5 : 0.0015);
     const o = cur;
     const c = cur + delta;
-    const h = Math.max(o, c) + Math.random() * (sym === 'XAUUSD' ? 2.5 : 0.0008);
-    const l = Math.min(o, c) - Math.random() * (sym === 'XAUUSD' ? 2.5 : 0.0008);
+    const wickSpread = isNasdaq ? 18.0 : sym === 'XAUUSD' ? 2.5 : 0.0008;
+    const h = Math.max(o, c) + Math.random() * wickSpread;
+    const l = Math.min(o, c) - Math.random() * wickSpread;
     cur = c;
 
     bars.push({
@@ -528,7 +499,7 @@ function generateFallbackLiveBars(sym, tf, limit) {
       high: Number(h.toFixed(dec)),
       low: Number(l.toFixed(dec)),
       close: Number(c.toFixed(dec)),
-      volume: Math.round(800 + Math.random() * 3500),
+      volume: isNasdaq ? Math.round(2500 + Math.random() * 8500) : Math.round(800 + Math.random() * 3500),
     });
   }
 

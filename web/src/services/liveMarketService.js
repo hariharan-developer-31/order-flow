@@ -112,7 +112,7 @@ export async function getLiveCandleBars(symbol = 'XAUUSD', timeframe = '1h', lim
   const targetApiUrl = customApiUrl ? customApiUrl.replace(/\/+$/, '') : '';
   try {
     const res = await fetch(`${targetApiUrl}/api/bars?symbol=${sym}&timeframe=${timeframe}&limit=${limit}`, {
-      signal: AbortSignal.timeout(1200),
+      signal: AbortSignal.timeout(6000),
     });
     if (res.ok) {
       const json = await res.json();
