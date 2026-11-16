@@ -140,7 +140,7 @@ export default function CandleChart({
 
   const getResponsiveHeight = useCallback(() => {
     if (isFullscreen) {
-      return Math.max(380, (typeof window !== 'undefined' ? window.innerHeight : 900) - 65);
+      return Math.max(380, (typeof window !== 'undefined' ? window.innerHeight : 900) - 52);
     }
     const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
     if (w >= 2560) return 740; // 4K / Ultrawide
@@ -458,7 +458,7 @@ export default function CandleChart({
     const applyResize = () => {
       if (!chartContainerRef.current || !chartRef.current) return;
       const w = chartContainerRef.current.clientWidth;
-      const h = isFullscreen ? Math.max(380, window.innerHeight - 65) : getResponsiveHeight();
+      const h = isFullscreen ? Math.max(380, window.innerHeight - 52) : getResponsiveHeight();
       if (w > 0 && h > 0) {
         chartRef.current.applyOptions({ width: w, height: h });
         if (profileCanvasRef.current) {
@@ -628,6 +628,17 @@ export default function CandleChart({
     setIsFullscreen((prev) => !prev);
   };
 
+  // Lock background body scroll while in fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      const origOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = origOverflow;
+      };
+    }
+  }, [isFullscreen]);
+
   useEffect(() => {
     const handleKeyDown = (e) => {
       if (e.key === 'Escape' && isFullscreen) {
@@ -737,7 +748,7 @@ export default function CandleChart({
     <div
       ref={chartWrapperRef}
       className={`bg-white border border-[#0D0D0C]/15 rounded-[7px] shadow-[0_2px_12px_rgba(13,13,12,0.04)] overflow-hidden flex flex-col transition-all font-sans ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none p-4' : 'relative'
+        isFullscreen ? 'fixed inset-0 z-[99999] rounded-none border-none p-0 m-0 w-screen h-screen bg-white overscroll-none overflow-hidden' : 'relative'
       }`}
     >
       {/* 1. Chart Toolbar & Timeframe Controls */}
@@ -829,23 +840,6 @@ export default function CandleChart({
               {showSdLevels ? <Eye className="w-3 h-3 text-[#3FB874]" /> : <EyeOff className="w-3 h-3" />}
             </button>
           )}
-
-          {/* OHLC Bar Legend & Active Timeframe Badge */}
-          {chartView === 'candles' && displayBar && (
-            <div className="hidden xl:flex items-center gap-2.5 text-xs font-mono text-slate-500">
-              <span className="text-[10px] font-bold text-blue-700 bg-blue-50 px-2 py-0.5 rounded border border-blue-200 uppercase">
-                {timeframe} Candle
-              </span>
-              <span>O: <b className="text-slate-900">{displayBar.open?.toFixed(decimals)}</b></span>
-              <span>H: <b className="text-emerald-700">{displayBar.high?.toFixed(decimals)}</b></span>
-              <span>L: <b className="text-rose-700">{displayBar.low?.toFixed(decimals)}</b></span>
-              <span>C: <b className="text-slate-900">{displayBar.close?.toFixed(decimals)}</b></span>
-              <span className="flex items-center gap-1.5 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 shadow-xs">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-                LIVE STREAM
-              </span>
-            </div>
-          )}
         </div>
 
         {/* Right: Candle Countdown Timer & Fullscreen Toggle */}
@@ -890,101 +884,13 @@ export default function CandleChart({
 
       {/* 2. Main Chart Layout */}
       <div className="flex-1 flex items-stretch relative min-h-[500px]">
-        {/* TradingView Left Drawing Toolbar */}
-        {chartView === 'candles' && (
-          <div className="w-11 border-r border-[#0D0D0C]/12 bg-white p-1 flex flex-col items-center gap-1 z-20">
-            <button
-              onClick={() => setActiveTool('cursor')}
-              title="Cursor / Crosshair"
-              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
-                activeTool === 'cursor' ? 'bg-[#0D0D0C] text-white' : 'text-[#0D0D0C]/70 hover:bg-[#F4F4F5]'
-              }`}
-            >
-              <Crosshair className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => setActiveTool('trendline')}
-              title="Trendline Tool (Click 2 points)"
-              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
-                activeTool === 'trendline' ? 'bg-[#0D0D0C] text-white' : 'text-[#0D0D0C]/70 hover:bg-[#F4F4F5]'
-              }`}
-            >
-              <TrendingUp className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => setActiveTool('horizontal')}
-              title="Horizontal Support/Resistance Line"
-              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
-                activeTool === 'horizontal' ? 'bg-[#0D0D0C] text-white' : 'text-[#0D0D0C]/70 hover:bg-[#F4F4F5]'
-              }`}
-            >
-              <Minus className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => setActiveTool('fib')}
-              title="Fibonacci Retracement (Low to High)"
-              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
-                activeTool === 'fib' ? 'bg-[#0D0D0C] text-white' : 'text-[#0D0D0C]/70 hover:bg-[#F4F4F5]'
-              }`}
-            >
-              <Layers className="w-4 h-4" />
-            </button>
-
-            <div className="w-6 h-px bg-[#0D0D0C]/15 my-1" />
-
-            <button
-              onClick={() => setActiveTool('long')}
-              title="Long Position Tool (1:1 + 1:2 Twin RR Box)"
-              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
-                activeTool === 'long' ? 'bg-[#0D0D0C] text-[#3FB874]' : 'text-[#0D0D0C]/70 hover:bg-[#F4F4F5]'
-              }`}
-            >
-              <ArrowUpRight className="w-4 h-4" />
-            </button>
-
-            <button
-              onClick={() => setActiveTool('short')}
-              title="Short Position Tool (1:1 + 1:2 Twin RR Box)"
-              className={`w-8 h-8 rounded-[5px] flex items-center justify-center transition duration-300 ${
-                activeTool === 'short' ? 'bg-[#0D0D0C] text-[#F2772F]' : 'text-[#0D0D0C]/70 hover:bg-[#F4F4F5]'
-              }`}
-            >
-              <ArrowDownRight className="w-4 h-4" />
-            </button>
-
-            <div className="mt-auto flex flex-col gap-1 pb-1">
-              {drawings.length > 0 && (
-                <>
-                  <button
-                    onClick={handleUndoDrawing}
-                    title="Undo Drawing"
-                    className="w-8 h-8 rounded-[5px] flex items-center justify-center text-[#0D0D0C]/56 hover:bg-[#F4F4F5] transition"
-                  >
-                    <Undo2 className="w-3.5 h-3.5" />
-                  </button>
-                  <button
-                    onClick={handleClearDrawings}
-                    title="Clear All Drawings"
-                    className="w-8 h-8 rounded-[5px] flex items-center justify-center text-[#F2772F] hover:bg-[#F8DCC7] transition"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-
         {/* View 1: Candlestick Chart + Left-Corner Volume Profile + Right Corner Countdown */}
         {chartView === 'candles' && (
           <div
             className="flex-1 relative overflow-hidden w-full"
             style={{
-              height: isFullscreen ? 'calc(100vh - 65px)' : `${getResponsiveHeight()}px`,
-              minHeight: isFullscreen ? 'calc(100vh - 65px)' : '420px',
+              height: isFullscreen ? 'calc(100vh - 52px)' : `${getResponsiveHeight()}px`,
+              minHeight: isFullscreen ? 'calc(100vh - 52px)' : '420px',
             }}
           >
             {/* Pure Candlestick Canvas */}

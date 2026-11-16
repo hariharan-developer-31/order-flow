@@ -25,6 +25,17 @@ export default function AuctionProfileMatrix({
   const [viewScope, setViewScope] = useState('session'); // 'session' | 'daily'
   const [isFullscreen, setIsFullscreen] = useState(false);
 
+  // Lock background body scroll on fullscreen
+  useEffect(() => {
+    if (isFullscreen) {
+      const origOverflow = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = origOverflow;
+      };
+    }
+  }, [isFullscreen]);
+
   // Slice bars according to selected scope
   const targetBars = useMemo(() => {
     if (!barsData || barsData.length === 0) return [];
@@ -81,7 +92,7 @@ export default function AuctionProfileMatrix({
   return (
     <div
       className={`bg-white border border-[#0D0D0C]/10 rounded-[8px] text-[#0D0D0C] shadow-[0_2px_12px_rgba(13,13,12,0.05)] overflow-hidden flex flex-col font-sans transition-all duration-300 ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none p-3 sm:p-5 overflow-y-auto bg-white' : 'relative'
+        isFullscreen ? 'fixed inset-0 z-[99999] rounded-none p-0 m-0 w-screen h-screen overflow-y-auto bg-white overscroll-none' : 'relative'
       }`}
     >
       {/* 1. Header Toolbar (Pure White Theme) */}

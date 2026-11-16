@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import Header from './components/Header';
-import OrderFlowCards from './components/OrderFlowCards';
 import CandleChart from './components/CandleChart';
 import StandardDeviationMatrix from './components/StandardDeviationMatrix';
 import AuctionProfileMatrix from './components/AuctionProfileMatrix';
@@ -230,16 +229,6 @@ export default function App() {
 
       {/* 2. Main Minimal Workspace */}
       <main className="flex-1 max-w-full 2xl:max-w-[2100px] mx-auto px-2.5 sm:px-6 py-2.5 sm:py-3.5 w-full space-y-2.5 sm:space-y-3.5">
-        {/* Minimal Metric Strip */}
-        <OrderFlowCards
-          symbol={activeSymbol}
-          orderFlowData={orderFlowData}
-          livePrice={currentPrice}
-          activeVP={activeVP}
-          dailySD={dailySD}
-          showStandardDeviation={showStandardDeviation}
-        />
-
         {/* Central High-Performance Chart (Candlestick + Footprint + In-Chart VP) */}
         <CandleChart
           symbol={activeSymbol}
@@ -276,19 +265,6 @@ export default function App() {
           />
         )}
       </main>
-
-      {/* 3. Minimal 1-Line Footer */}
-      <footer className="bg-white border-t border-[#0D0D0C]/10 py-2.5 px-3 sm:px-6 text-[11px] font-mono text-[#0D0D0C]/45 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#3FB874]"></span>
-          <span className="font-semibold text-[#0D0D0C]">TRADING BOY</span>
-          <span>•</span>
-          <span>XAUUSD Live Auction</span>
-        </div>
-        <div>
-          <span>Institutional Gold Terminal</span>
-        </div>
-      </footer>
     </div>
   );
 }

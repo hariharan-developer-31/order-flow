@@ -618,7 +618,7 @@ export default function AtasFootprintChart({
     <div
       ref={containerRef}
       className={`bg-white text-[#0D0D0C] border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col transition-all shadow-[0_2px_12px_rgba(13,13,12,0.04)] font-sans ${
-        isFullscreen ? 'fixed inset-0 z-50 rounded-none border-none' : 'relative'
+        isFullscreen ? 'fixed inset-0 z-[99999] rounded-none border-none p-0 m-0 w-screen h-screen bg-white overscroll-none overflow-hidden' : 'relative'
       }`}
     >
       {/* 1. Footprint Header & Control Toolbar */}
