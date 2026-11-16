@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-  Activity,
   Columns3,
   Volume2,
   VolumeX,
@@ -90,23 +89,6 @@ export default function Header({
             <span className="hidden xs:inline">Profile:</span>
             <span className={`font-bold ${showMarketProfile ? 'text-white' : 'text-[#0D0D0C]/60'}`}>
               {showMarketProfile ? 'ON' : 'OFF'}
-            </span>
-          </button>
-
-          {/* Daily Standard Deviation Toggle (Default: OFF) */}
-          <button
-            onClick={onToggleStandardDeviation}
-            title={showStandardDeviation ? 'Daily Standard Deviation: ON' : 'Daily Standard Deviation: OFF'}
-            className={`h-8 px-2.5 sm:px-3 flex items-center gap-1.5 rounded-[5px] border text-xs font-mono font-medium transition-all duration-200 cursor-pointer ${
-              showStandardDeviation
-                ? 'bg-[#0D0D0C] text-white border-[#0D0D0C] shadow-xs'
-                : 'bg-white text-[#0D0D0C]/60 border-[#0D0D0C]/15 hover:text-[#0D0D0C] hover:border-[#0D0D0C]/35'
-            }`}
-          >
-            <Activity className={`w-3.5 h-3.5 ${showStandardDeviation ? 'text-[#3FB874]' : 'text-[#0D0D0C]/60'}`} />
-            <span className="hidden xs:inline">SD:</span>
-            <span className={`font-bold ${showStandardDeviation ? 'text-white' : 'text-[#0D0D0C]/60'}`}>
-              {showStandardDeviation ? 'ON' : 'OFF'}
             </span>
           </button>
 
