@@ -619,48 +619,17 @@ export default function AtasFootprintChart({
     touchStartDistRef.current = 0;
   };
 
-  // Summary Metrics of the Latest Active Candle
-  const latestBar = effectiveFootprint && effectiveFootprint.length > 0 ? effectiveFootprint[effectiveFootprint.length - 1] : null;
-  const latestDelta = latestBar?.delta ?? 0;
-  const latestVol = latestBar?.volume ? Math.round(latestBar.volume).toLocaleString() : '---';
-
   return (
     <div
       ref={containerRef}
       className="bg-white text-[#0D0D0C] overflow-hidden flex flex-col w-full h-full relative font-sans"
     >
-      {/* 1. Top Metric Ribbon */}
-      <div className="bg-[#F4F4F5] border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono w-full">
-        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-          <span className="text-[11px] text-[#0D0D0C]/56 font-sans">Active Candle:</span>
-          <span className={`font-bold ${latestDelta >= 0 ? 'text-[#3FB874]' : 'text-[#F2772F]'}`}>
-            Δ {latestDelta >= 0 ? `+${latestDelta}` : latestDelta}
-          </span>
-          <span className="text-[#0D0D0C]/25">|</span>
-          <span className="text-[#0D0D0C]/75">Vol: <b className="text-[#0D0D0C]">{latestVol} lots</b></span>
-          <span className="text-[#0D0D0C]/25">|</span>
-          <span className="text-[#0D0D0C] font-semibold">⭐ POC Active</span>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2 text-[10px] font-sans text-[#0D0D0C]/60">
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-[#F2772F]"></span> Bid (Sellers)
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-[#3FB874]"></span> Ask (Buyers)
-          </span>
-          <span className="flex items-center gap-1">
-            <span className="w-2 h-2 rounded-sm bg-[#E9C22E]"></span> POC Magnet
-          </span>
-        </div>
-      </div>
-
-      {/* 3. Interactive HTML5 Canvas (Touch action none for smooth pinch & drag) */}
+      {/* Interactive HTML5 Canvas (Touch action none for smooth pinch & drag) */}
       <div
         className="relative bg-white overflow-hidden select-none w-full max-w-full shrink-0"
         style={{
-          height: isFullscreen ? 'calc(100vh - 110px)' : `${height}px`,
-          minHeight: isFullscreen ? 'calc(100vh - 110px)' : `${height}px`,
+          height: isFullscreen ? 'calc(100vh - 52px)' : `${height}px`,
+          minHeight: isFullscreen ? 'calc(100vh - 52px)' : `${height}px`,
           cursor: isCursorGrabbing ? 'grabbing' : 'grab',
           touchAction: 'none',
         }}
@@ -677,15 +646,6 @@ export default function AtasFootprintChart({
           onTouchEnd={handleTouchEnd}
           className="absolute inset-0 block w-full h-full"
         />
-
-        {/* Live Interaction Helper Overlay Badge */}
-        <div className="absolute top-2 left-3 pointer-events-none z-10 flex items-center gap-2 bg-white/90 backdrop-blur-xs px-2.5 py-1 rounded-md border border-slate-200 shadow-xs text-[10px] text-slate-500 font-mono">
-          <span>Zoom: {Math.round(zoom * 100)}%</span>
-          <span>•</span>
-          <span>Scroll to Zoom</span>
-          <span>•</span>
-          <span>Drag to Pan</span>
-        </div>
       </div>
     </div>
   );
