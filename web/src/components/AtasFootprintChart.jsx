@@ -1,10 +1,5 @@
 import React, { useRef, useEffect, useState, useCallback, useMemo } from 'react';
 import {
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Maximize2,
-  Minimize2,
   Flame,
   Layers,
   ArrowUp,
@@ -28,6 +23,8 @@ export default function AtasFootprintChart({
   onToggleFullscreen = null,
   height = 560,
   barsData = [],
+  displayMode: propDisplayMode,
+  controlsRef,
 }) {
   const containerRef = useRef(null);
   const canvasRef = useRef(null);
@@ -40,7 +37,9 @@ export default function AtasFootprintChart({
   }, [footprintData, barsData, symbol, timeframe]);
 
   // View modes: 'bid_ask' (ATAS classic side-by-side) | 'delta' (net delta) | 'volume' (total volume)
-  const [displayMode, setDisplayMode] = useState('bid_ask');
+  const [internalDisplayMode, setInternalDisplayMode] = useState('bid_ask');
+  const displayMode = propDisplayMode !== undefined ? propDisplayMode : internalDisplayMode;
+  const setDisplayMode = setInternalDisplayMode;
 
   // Interactive Zoom & Pan State (Centered, fluid navigation)
   const [zoom, setZoom] = useState(1.15);
@@ -70,20 +69,31 @@ export default function AtasFootprintChart({
   }, [symbol, timeframe]);
 
   // Smooth Zoom In / Out / Reset
-  const handleZoomIn = () => {
+  const handleZoomIn = useCallback(() => {
     setZoom((z) => Math.min(3.5, Number((z * 1.25).toFixed(2))));
-  };
+  }, []);
 
-  const handleZoomOut = () => {
+  const handleZoomOut = useCallback(() => {
     setZoom((z) => Math.max(0.55, Number((z / 1.25).toFixed(2))));
-  };
+  }, []);
 
-  const handleResetView = () => {
+  const handleResetView = useCallback(() => {
     setZoom(1.15);
     setPanX(0);
     setPanY(0);
     setHoveredCluster(null);
-  };
+  }, []);
+
+  // Expose zoom/pan controls to parent CandleChart toolbar
+  useEffect(() => {
+    if (controlsRef) {
+      controlsRef.current = {
+        zoomIn: handleZoomIn,
+        zoomOut: handleZoomOut,
+        resetView: handleResetView,
+      };
+    }
+  }, [controlsRef, handleZoomIn, handleZoomOut, handleResetView]);
 
   // Main Canvas Render Loop (60 FPS, High-DPI Retina, Pure White Theme)
   const drawChart = useCallback(() => {
@@ -617,127 +627,9 @@ export default function AtasFootprintChart({
   return (
     <div
       ref={containerRef}
-      className={`bg-white text-[#0D0D0C] border border-[#0D0D0C]/15 rounded-[7px] overflow-hidden flex flex-col transition-all shadow-[0_2px_12px_rgba(13,13,12,0.04)] font-sans ${
-        isFullscreen ? 'fixed inset-0 z-[99999] rounded-none border-none p-0 m-0 w-screen h-screen bg-white overscroll-none overflow-hidden' : 'relative'
-      }`}
+      className="bg-white text-[#0D0D0C] overflow-hidden flex flex-col w-full h-full relative font-sans"
     >
-      {/* 1. Footprint Header & Control Toolbar */}
-      <div className="bg-white border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 sm:gap-3 shrink-0">
-        {/* Left: Title & Live Pill */}
-        <div className="flex items-center gap-2 sm:gap-3">
-          <div className="flex items-center gap-1.5 font-semibold text-xs sm:text-sm tracking-tight text-[#0D0D0C] font-headline">
-            <Flame className="w-4 h-4 text-[#E9C22E] fill-[#E9C22E] animate-pulse" />
-            <span>{symbol === 'XAUUSD' ? 'XAUUSD (Gold Spot)' : (symbol === 'NAS100' || symbol === 'NASDAQ' ? 'NASDAQ 100 (E-MINI)' : symbol)}</span>
-          </div>
-
-          <span className="text-[10px] font-semibold px-2 py-0.5 rounded-[5px] bg-[#F4F4F5] text-[#0D0D0C] border border-[#0D0D0C]/12 uppercase font-mono">
-            {timeframe} Footprint
-          </span>
-
-          <span className="hidden md:inline-flex items-center gap-1 text-[10px] font-medium text-[#0D0D0C] bg-[#DFE9D4] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#3FB874] animate-ping"></span>
-            ATAS ORDER FLOW (50ms Live)
-          </span>
-        </div>
-
-        {/* Center: Timeframe Switcher */}
-        {onSelectTimeframe && (
-          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4F4F5] text-xs font-medium">
-            {['5m', '15m', '1h', '4h'].map((tf) => (
-              <button
-                key={tf}
-                onClick={() => onSelectTimeframe(tf)}
-                className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
-                  timeframe.toLowerCase() === tf
-                    ? 'bg-[#0D0D0C] text-white font-semibold'
-                    : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
-                }`}
-              >
-                {tf.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        )}
-
-        {/* Right: Display Mode, Zoom Controls, Reset */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          {/* Display Mode: Bid x Ask vs Delta vs Volume */}
-          <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4F4F5] text-[11px] font-medium">
-            <button
-              onClick={() => setDisplayMode('bid_ask')}
-              className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
-                displayMode === 'bid_ask'
-                  ? 'bg-[#0D0D0C] text-white font-semibold'
-                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
-              }`}
-              title="Show Bid x Ask Volume"
-            >
-              Bid × Ask
-            </button>
-            <button
-              onClick={() => setDisplayMode('delta')}
-              className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
-                displayMode === 'delta'
-                  ? 'bg-[#0D0D0C] text-white font-semibold'
-                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
-              }`}
-              title="Show Cluster Net Delta"
-            >
-              Delta
-            </button>
-            <button
-              onClick={() => setDisplayMode('volume')}
-              className={`px-2 py-0.5 rounded-[4px] transition duration-300 ${
-                displayMode === 'volume'
-                  ? 'bg-[#0D0D0C] text-white font-semibold'
-                  : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
-              }`}
-              title="Show Total Volume"
-            >
-              Volume
-            </button>
-          </div>
-
-          {/* Zoom Buttons */}
-          <div className="flex items-center gap-0.5 bg-[#F4F4F5] p-0.5 rounded-[5px] border border-[#0D0D0C]/12">
-            <button
-              onClick={handleZoomIn}
-              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-white transition"
-              title="Zoom In"
-            >
-              <ZoomIn className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={handleZoomOut}
-              className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-white transition"
-              title="Zoom Out"
-            >
-              <ZoomOut className="w-3.5 h-3.5" />
-            </button>
-            <button
-              onClick={handleResetView}
-              className="px-1.5 h-7 flex items-center gap-1 rounded-[4px] text-[10px] font-semibold text-[#0D0D0C] hover:bg-white transition"
-              title="Reset View"
-            >
-              <RotateCcw className="w-3 h-3" />
-              <span className="hidden sm:inline">Reset</span>
-            </button>
-          </div>
-
-          {/* Fullscreen Toggle */}
-          {onToggleFullscreen && (
-            <button
-              onClick={onToggleFullscreen}
-              className="p-1.5 rounded-[5px] border border-[#0D0D0C]/15 bg-[#F4F4F5] text-[#0D0D0C] hover:bg-[#0D0D0C] hover:text-white transition duration-300"
-              title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen Footprint'}
-            >
-              {isFullscreen ? <Minimize2 className="w-3.5 h-3.5" /> : <Maximize2 className="w-3.5 h-3.5" />}
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* 2. Top Metric Ribbon */}
+      {/* 1. Top Metric Ribbon */}
       <div className="bg-[#F4F4F5] border-b border-[#0D0D0C]/12 px-3 sm:px-5 py-1.5 flex flex-wrap items-center justify-between gap-2 text-xs font-mono w-full">
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <span className="text-[11px] text-[#0D0D0C]/56 font-sans">Active Candle:</span>

@@ -18,6 +18,9 @@ import {
   ArrowUp,
   ArrowDown,
   Activity,
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
 } from 'lucide-react';
 
 import { calculateDynamicVolumeProfile } from '../utils/volumeProfile';
@@ -120,6 +123,8 @@ export default function CandleChart({
 
   // States
   const [chartView, setChartView] = useState('candles'); // 'candles' | 'footprint'
+  const [footprintMode, setFootprintMode] = useState('bid_ask'); // 'bid_ask' | 'delta' | 'volume'
+  const footprintControlsRef = useRef(null);
   const [showInChartProfile, setShowInChartProfile] = useState(true);
   const [showSdLevels, setShowSdLevels] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -841,8 +846,75 @@ export default function CandleChart({
           )}
         </div>
 
-        {/* Right: Fullscreen Toggle */}
+        {/* Right: Footprint Controls (when in footprint view) + Fullscreen */}
         <div className="flex items-center gap-2">
+          {chartView === 'footprint' && (
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Display Mode: Bid x Ask vs Delta vs Volume */}
+              <div className="flex items-center p-0.5 rounded-[5px] border border-[#0D0D0C]/12 bg-[#F4F4F5] text-[11px] font-medium font-sans">
+                <button
+                  onClick={() => setFootprintMode('bid_ask')}
+                  className={`px-2 py-0.5 rounded-[4px] transition duration-200 cursor-pointer ${
+                    footprintMode === 'bid_ask'
+                      ? 'bg-[#0D0D0C] text-white font-semibold shadow-xs'
+                      : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
+                  }`}
+                  title="Show Bid × Ask Volume"
+                >
+                  Bid × Ask
+                </button>
+                <button
+                  onClick={() => setFootprintMode('delta')}
+                  className={`px-2 py-0.5 rounded-[4px] transition duration-200 cursor-pointer ${
+                    footprintMode === 'delta'
+                      ? 'bg-[#0D0D0C] text-white font-semibold shadow-xs'
+                      : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
+                  }`}
+                  title="Show Cluster Net Delta"
+                >
+                  Delta
+                </button>
+                <button
+                  onClick={() => setFootprintMode('volume')}
+                  className={`px-2 py-0.5 rounded-[4px] transition duration-200 cursor-pointer ${
+                    footprintMode === 'volume'
+                      ? 'bg-[#0D0D0C] text-white font-semibold shadow-xs'
+                      : 'text-[#0D0D0C]/70 hover:text-[#0D0D0C]'
+                  }`}
+                  title="Show Total Volume"
+                >
+                  Volume
+                </button>
+              </div>
+
+              {/* Zoom Buttons */}
+              <div className="flex items-center gap-0.5 bg-[#F4F4F5] p-0.5 rounded-[5px] border border-[#0D0D0C]/12">
+                <button
+                  onClick={() => footprintControlsRef.current?.zoomIn()}
+                  className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-white transition cursor-pointer"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => footprintControlsRef.current?.zoomOut()}
+                  className="w-7 h-7 flex items-center justify-center rounded-[4px] text-[#0D0D0C] hover:bg-white transition cursor-pointer"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => footprintControlsRef.current?.resetView()}
+                  className="px-1.5 h-7 flex items-center gap-1 rounded-[4px] text-[10px] font-semibold text-[#0D0D0C] hover:bg-white transition cursor-pointer"
+                  title="Reset View"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span className="hidden sm:inline">Reset</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Full Screen Toggle Button */}
           <button
             onClick={toggleFullscreen}
@@ -1039,6 +1111,8 @@ export default function CandleChart({
               isFullscreen={isFullscreen}
               onToggleFullscreen={toggleFullscreen}
               height={getResponsiveHeight()}
+              displayMode={footprintMode}
+              controlsRef={footprintControlsRef}
             />
           </div>
         )}
