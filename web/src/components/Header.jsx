@@ -74,34 +74,8 @@ export default function Header({
           </div>
         </div>
 
-        {/* Center: Timeframe Selector */}
-        <div className="flex items-center bg-[#F4F4F5] p-0.5 rounded-[5px] border border-[#0D0D0C]/10 text-xs font-mono">
-          {TIMEFRAMES.map((tf) => (
-            <button
-              key={tf.id}
-              onClick={() => onSelectTimeframe && onSelectTimeframe(tf.id)}
-              className={`px-2.5 py-1 rounded-[4px] font-medium transition-all duration-200 cursor-pointer ${
-                timeframe === tf.id
-                  ? 'bg-[#0D0D0C] text-white font-semibold shadow-xs'
-                  : 'text-[#0D0D0C]/60 hover:text-[#0D0D0C]'
-              }`}
-            >
-              {tf.label}
-            </button>
-          ))}
-        </div>
-
-        {/* Right: Live Price, Daily SD Toggle & Minimal Controls */}
+        {/* Right: Daily SD Toggle & Minimal Controls */}
         <div className="flex items-center gap-2 shrink-0">
-          {/* Live Price Tag */}
-          <div className="flex items-center gap-1.5 bg-[#F8F9FA] border border-[#0D0D0C]/10 px-2 sm:px-2.5 py-1 rounded-[5px] shadow-2xs">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#3FB874] animate-pulse"></span>
-            <span className="text-[10px] uppercase font-sans text-[#0D0D0C]/50 font-semibold hidden xs:inline">LIVE:</span>
-            <span className="text-xs sm:text-sm font-bold font-mono text-[#0D0D0C]">
-              ${currentPrice != null ? currentPrice.toFixed(decimals) : '---'}
-            </span>
-          </div>
-
           {/* Institutional Auction Profile (Volume • Delta • TPO) Toggle */}
           <button
             onClick={onToggleMarketProfile}
