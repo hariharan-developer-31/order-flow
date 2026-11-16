@@ -17,7 +17,6 @@ import {
   Flame,
   ArrowUp,
   ArrowDown,
-  Clock,
   Activity,
 } from 'lucide-react';
 
@@ -842,35 +841,8 @@ export default function CandleChart({
           )}
         </div>
 
-        {/* Right: Candle Countdown Timer & Fullscreen Toggle */}
+        {/* Right: Fullscreen Toggle */}
         <div className="flex items-center gap-2">
-          {/* Live Candle Countdown Pill (Top Right Corner - Clean, no IST text) */}
-          <div
-            className="flex items-center gap-1.5 font-mono text-xs font-semibold text-[#0D0D0C] bg-[#F4F4F5] px-2.5 py-1 rounded-[5px] border border-[#0D0D0C]/15"
-            title={`Time remaining until current ${timeframe.toUpperCase()} candle closes`}
-          >
-            <Clock className="w-3.5 h-3.5 text-[#0D0D0C] animate-pulse" />
-            <span className="text-[10px] font-medium text-[#0D0D0C]/56 uppercase">{timeframe}:</span>
-            <span className="text-[#0D0D0C] font-bold">{countdownText}</span>
-          </div>
-
-          {chartView === 'candles' && (
-            <div className="hidden md:flex items-center gap-2 text-[11px] font-medium font-sans">
-              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#DFE9D4] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12">
-                <span className="w-2 h-2 bg-[#3FB874] rounded-sm"></span> Buy Vol
-              </span>
-              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#F8DCC7] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12">
-                <span className="w-2 h-2 bg-[#F2772F] rounded-sm"></span> Sell Vol
-              </span>
-              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#FEF9C3] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono">
-                <span className="w-2.5 h-0.5 bg-[#E9C22E] rounded"></span> POC Line
-              </span>
-              <span className="flex items-center gap-1 text-[#0D0D0C] bg-[#ECD6E2] px-2 py-0.5 rounded-[5px] border border-[#0D0D0C]/12 font-mono">
-                <span className="w-2.5 h-0.5 bg-[#C564C4] rounded"></span> 70% VA
-              </span>
-            </div>
-          )}
-
           {/* Full Screen Toggle Button */}
           <button
             onClick={toggleFullscreen}
