@@ -45,18 +45,13 @@ if os.path.exists(_env_file):
 TELEGRAM_BOT_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN", "")
 TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "")
 LEARNING_CHANNEL_ID = os.getenv("LEARNING_CHANNEL_ID", "")
-ACCOUNT_BALANCE = float(os.getenv("ACCOUNT_BALANCE", "5000.0"))                 # $5,000 FundingPips Account
-TARGET_RISK_PER_TRADE_PCT = float(os.getenv("TARGET_RISK_PER_TRADE_PCT", "1.0"))   # 1.0% risk per trade ($50.00)
-TARGET_RISK_DOLLARS = (ACCOUNT_BALANCE * TARGET_RISK_PER_TRADE_PCT) / 100.0         # Exactly $50.00 / trade
-TARGET_RISK_PER_TRADE = TARGET_RISK_DOLLARS                                        # Lot sizing based on exact $50 risk
+ACCOUNT_BALANCE = float(os.getenv("ACCOUNT_BALANCE", "5000.0"))
+TARGET_RISK_PER_TRADE_PCT = float(os.getenv("TARGET_RISK_PER_TRADE_PCT", "1.0"))
+TARGET_RISK_DOLLARS = (ACCOUNT_BALANCE * TARGET_RISK_PER_TRADE_PCT) / 100.0
+TARGET_RISK_PER_TRADE = TARGET_RISK_DOLLARS
 MAX_DAILY_TRADES = int(os.getenv("MAX_DAILY_TRADES", "999"))                     # Uncapped: all high-probability setups
 TRADING_HOURS_START_IST = 6.0                                                     # 6:00 AM IST (Indian Standard Time)
 TRADING_HOURS_END_IST = 23.0                                                      # 11:00 PM IST (Indian Standard Time)
-DAILY_LOSS_LIMIT_PCT = float(os.getenv("DAILY_LOSS_LIMIT_PCT", "-2.5"))           # Capital Guard Safe Limit: -2.5%
-DAILY_PROFIT_TARGET_MIN_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MIN_PCT", "2.0")) # Daily Target: +2.0% - 3.0%
-DAILY_PROFIT_TARGET_MAX_PCT = float(os.getenv("DAILY_PROFIT_TARGET_MAX_PCT", "3.0"))
-DAILY_LOSS_LIMIT = DAILY_LOSS_LIMIT_PCT
-DAILY_PROFIT_TARGET = DAILY_PROFIT_TARGET_MAX_PCT
 PORT = int(os.getenv("PORT", "8080"))
 RENDER_EXTERNAL_URL = os.getenv("RENDER_EXTERNAL_URL", "")
 WEBAPP_URL = os.getenv("WEBAPP_URL") or "https://order-flow-ashen.vercel.app"
@@ -150,8 +145,6 @@ def sync_trade_to_webapp(state_data: Dict[str, Any]) -> None:
                 "pnl": state_data.get("pnl", 0.0),
                 "pnl_pct": state_data.get("pnl_pct", 0.0),
                 "today_pnl": f"{state_data.get('pnl_pct', 0.0):+.2f}%",
-                "daily_target": "+2.0% - 3.0%",
-                "capital_guard": "-2.5%",
                 "is_flat": len([at for at in state_data.get("active_trades", []) if not at.get("closed", False)]) == 0,
                 "active_trades": [at for at in state_data.get("active_trades", []) if not at.get("closed", False)],
                 "latest_lifecycle_event": state_data.get("latest_lifecycle_event"),
@@ -679,554 +672,6 @@ def fetch_tradingview_consensus() -> Dict[str, Dict[str, Any]]:
     return out
 
 
-def evaluate_confluence(bars: List[Dict[str, Any]], idx: int, dec: int, sym: str, of_data: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
-    # Only Gold XAUUSD is traded across the entire project
-    if sym != "XAUUSD" or idx < 30:
-        return None
-
-    b = bars[idx]
-    prev = bars[idx - 1]
-    atr = b.get("atr14") or 4.5
-    close, open_p, high, low = b["close"], b["open"], b["high"], b["low"]
-    rng = high - low + 1e-9
-    lower_wick = (min(open_p, close) - low) / rng
-    upper_wick = (high - max(open_p, close)) / rng
-
-    # Context Order Flow Levels (Value Area High, Low, POC)
-    p_poc = of_data.get("pPOC") if of_data else None
-    p_val = of_data.get("pVAL") if of_data else None
-    p_vah = of_data.get("pVAH") if of_data else None
-
-    # Calculate Session VWAP and Standard Deviation Bands (+/- 2 SD)
-    vwap_sum_pv = sum(x["close"] * (x.get("volume", 1.0) or 1.0) for x in bars[max(0, idx - 24) : idx + 1])
-    vwap_sum_v = sum(x.get("volume", 1.0) or 1.0 for x in bars[max(0, idx - 24) : idx + 1]) + 1e-9
-    session_vwap = vwap_sum_pv / vwap_sum_v
-    variance = sum(((x["close"] - session_vwap) ** 2) * (x.get("volume", 1.0) or 1.0) for x in bars[max(0, idx - 24) : idx + 1]) / vwap_sum_v
-    sd = math.sqrt(max(0.1, variance))
-    vwap_upper_2sd = session_vwap + 2.0 * sd
-    vwap_lower_2sd = session_vwap - 2.0 * sd
-
-    # -------------------------------------------------------------
-    # STRATEGY 1: AMT 80% Value Area Rule (Highest Win Rate: 76%–82%)
-    # Failed auction outside Value Area rotating back to POC and opposite VA
-    # -------------------------------------------------------------
-    if p_vah and p_val and p_poc:
-        # Gate 1: Institutional Session Timing (Active Trading Window: 6:00 AM - 11:00 PM IST)
-        ist_dt = b["time"] + dt.timedelta(hours=5, minutes=30)
-        ist_time_dec = ist_dt.hour + ist_dt.minute / 60.0
-        if 6.0 <= ist_time_dec < 13.0:
-            session_tag = "Asian / London Pre-Market"
-        elif 13.0 <= ist_time_dec < 17.5:
-            session_tag = "London Open Killzone"
-        elif 17.5 <= ist_time_dec <= 23.0:
-            session_tag = "NY Session Overlap"
-        else:
-            session_tag = "Overnight Session"
-
-        # Gate 3: 4H Higher Timeframe Alignment (EMA200 on 1H = 4H EMA50)
-        ema200 = b.get("ema200") or close
-
-        # Bearish Failed Breakout above VAH (Sell setup)
-        # Gate 2: Footprint selling absorption required (upper wick >= 20% or bearish candle close)
-        if (high > p_vah or prev["high"] > p_vah) and close < p_vah and prev["close"] >= p_vah * 0.999 and (upper_wick >= 0.20 or close <= open_p):
-            sl_dist = 6.00  # $6.00 defined risk per ounce
-            entry = close
-            sl = round(entry + sl_dist, dec)
-            tp1 = round(p_poc, dec) if p_poc < entry else round(entry - 6.00, dec)
-            tp2 = round(p_val, dec) if p_val < tp1 else round(entry - 13.80, dec)
-            is_htf_aligned = (close <= ema200)
-            htf_tag = "4H Trend Aligned (Bearish)" if is_htf_aligned else "4H Counter-Trend Scalp"
-            return {
-                "side": "SELL",
-                "entry": entry,
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "strategy_number": "1",
-                "title": "1. AMT 80% Value Area Rule (SELL Rotation to POC)",
-                "target1_name": "Rotation to POC (70% Scale-Out)",
-                "target2_name": "Opposite VA Rotation (30% Runner)",
-                "win_rate_poc": "88%",
-                "win_rate_full": "82%",
-                "avg_rr": "1 : 2.3",
-                "is_reversal": True,
-                "session_tag": session_tag,
-                "htf_tag": htf_tag,
-                "is_htf_aligned": is_htf_aligned,
-                "confluences": f"⚡ {session_tag} | 📊 Footprint Absorption (≥300%) | 🏛️ {htf_tag}",
-            }
-
-        # Bullish Failed Breakdown below VAL (Buy setup)
-        # Gate 2: Footprint buying absorption required (lower wick >= 20% or bullish candle close)
-        if (low < p_val or prev["low"] < p_val) and close > p_val and prev["close"] <= p_val * 1.001 and (lower_wick >= 0.20 or close >= open_p):
-            sl_dist = 6.00  # $6.00 defined risk per ounce
-            entry = close
-            sl = round(entry - sl_dist, dec)
-            tp1 = round(p_poc, dec) if p_poc > entry else round(entry + 6.00, dec)
-            tp2 = round(p_vah, dec) if p_vah > tp1 else round(entry + 13.80, dec)
-            is_htf_aligned = (close >= ema200)
-            htf_tag = "4H Trend Aligned (Bullish)" if is_htf_aligned else "4H Counter-Trend Scalp"
-            return {
-                "side": "BUY",
-                "entry": entry,
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "strategy_number": "1",
-                "title": "1. AMT 80% Value Area Rule (BUY Rotation to POC)",
-                "target1_name": "Rotation to POC (70% Scale-Out)",
-                "target2_name": "Opposite VA Rotation (30% Runner)",
-                "win_rate_poc": "88%",
-                "win_rate_full": "82%",
-                "avg_rr": "1 : 2.3",
-                "is_reversal": True,
-                "session_tag": session_tag,
-                "htf_tag": htf_tag,
-                "is_htf_aligned": is_htf_aligned,
-                "confluences": f"⚡ {session_tag} | 📊 Footprint Absorption (≥300%) | 🏛️ {htf_tag}",
-            }
-
-    # -------------------------------------------------------------
-    # STRATEGY 2: VWAP 2-SD Absorption Fade (Win Rate: 70%–75%)
-    # Intraday overextension exhaustion at +/- 2 SD VWAP bands
-    # -------------------------------------------------------------
-    # Short Fade at +2 SD VWAP Band
-    if (high >= vwap_upper_2sd or prev["high"] >= vwap_upper_2sd) and close < vwap_upper_2sd and upper_wick >= 0.28:
-        sl_dist = 3.00  # $3.00 defined risk
-        entry = close
-        sl = round(entry + sl_dist, dec)
-        tp1 = round(session_vwap, dec) if session_vwap < entry else round(entry - 5.50, dec)
-        tp2 = round(session_vwap - 1.0 * sd, dec) if session_vwap - 1.0 * sd < tp1 else round(entry - 7.00, dec)
-        return {
-            "side": "SELL",
-            "entry": entry,
-            "sl": sl,
-            "tp1": tp1,
-            "tp2": tp2,
-            "strategy_number": "2",
-            "title": "2. VWAP 2-SD Absorption Fade (SELL to VWAP)",
-            "target1_name": "Central VWAP Line (70% Scale-Out)",
-            "target2_name": "Opposite -1σ Band (30% Runner)",
-            "win_rate_poc": "75%",
-            "win_rate_full": "68%",
-            "avg_rr": "1 : 1.8 to 1 : 2.2",
-            "is_reversal": True,
-        }
-
-    # Long Fade at -2 SD VWAP Band
-    if (low <= vwap_lower_2sd or prev["low"] <= vwap_lower_2sd) and close > vwap_lower_2sd and lower_wick >= 0.28:
-        sl_dist = 3.00  # $3.00 defined risk
-        entry = close
-        sl = round(entry - sl_dist, dec)
-        tp1 = round(session_vwap, dec) if session_vwap > entry else round(entry + 5.50, dec)
-        tp2 = round(session_vwap + 1.0 * sd, dec) if session_vwap + 1.0 * sd > tp1 else round(entry + 7.00, dec)
-        return {
-            "side": "BUY",
-            "entry": entry,
-            "sl": sl,
-            "tp1": tp1,
-            "tp2": tp2,
-            "strategy_number": "2",
-            "title": "2. VWAP 2-SD Absorption Fade (BUY to VWAP)",
-            "target1_name": "Central VWAP Line (70% Scale-Out)",
-            "target2_name": "Opposite +1σ Band (30% Runner)",
-            "win_rate_poc": "75%",
-            "win_rate_full": "68%",
-            "avg_rr": "1 : 1.8 to 1 : 2.2",
-            "is_reversal": True,
-        }
-
-    # -------------------------------------------------------------
-    # STRATEGY 3: LVN Trend Pullback (Win Rate: 58%–65% | Highest R:R: 1:2.5 to 1:4.0+)
-    # Trend day continuation reload into Low Volume Node (LVN) valleys
-    # -------------------------------------------------------------
-    ema20 = b.get("ema20")
-    ema50 = b.get("ema50")
-    ema200 = b.get("ema200")
-    if ema20 and ema50 and ema200:
-        # Bullish Trend Pullback Reload
-        if ema20 > ema50 > ema200 and low <= ema20 and close > ema20 and lower_wick >= 0.30 and close > open_p:
-            sl_dist = 2.50  # Tight $2.50 risk below LVN valley
-            entry = close
-            sl = round(entry - sl_dist, dec)
-            tp1 = round(entry + 5.00, dec)   # Swing high retest
-            tp2 = round(entry + 9.50, dec)   # 1:3.8 R:R Trend expansion
-            return {
-                "side": "BUY",
-                "entry": entry,
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "strategy_number": "3",
-                "title": "3. LVN Trend Pullback (BUY Continuation)",
-                "target1_name": "Recent Swing High (70% Scale-Out)",
-                "target2_name": "Trend Expansion Wave (30% Runner)",
-                "win_rate_poc": "65%",
-                "win_rate_full": "58%",
-                "avg_rr": "1 : 2.5 to 1 : 4.0+",
-                "is_reversal": False,
-            }
-
-        # Bearish Trend Pullback Reload
-        if ema20 < ema50 < ema200 and high >= ema20 and close < ema20 and upper_wick >= 0.30 and close < open_p:
-            sl_dist = 2.50  # Tight $2.50 risk above LVN valley
-            entry = close
-            sl = round(entry + sl_dist, dec)
-            tp1 = round(entry - 5.00, dec)   # Swing low retest
-            tp2 = round(entry - 9.50, dec)   # 1:3.8 R:R Trend expansion
-            return {
-                "side": "SELL",
-                "entry": entry,
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "strategy_number": "3",
-                "title": "3. LVN Trend Pullback (SELL Continuation)",
-                "target1_name": "Recent Swing Low (70% Scale-Out)",
-                "target2_name": "Trend Expansion Wave (30% Runner)",
-                "win_rate_poc": "65%",
-                "win_rate_full": "58%",
-                "avg_rr": "1 : 2.5 to 1 : 4.0+",
-                "is_reversal": False,
-            }
-
-    return None
-
-
-def evaluate_pre_alert(bars: List[Dict[str, Any]], dec: int, sym: str, of_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
-    """Evaluates probability of an institutional setup forming in the next ~30 mins on developing 1H bar."""
-    if len(bars) < 2 or not of_data:
-        return None
-
-    curr = bars[-1]
-    prev = bars[-2]
-    live_p = curr["close"]
-    curr_high = curr["high"]
-    curr_low = curr["low"]
-    curr_open = curr["open"]
-
-    now_utc = dt.datetime.now(dt.timezone.utc)
-    ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
-    minute = now_utc.minute
-    mins_remaining = max(1, 60 - minute) if minute > 0 else 60
-    trigger_dt = ist_time + dt.timedelta(minutes=mins_remaining)
-    trigger_time_str = trigger_dt.strftime("%I:%M %p IST")
-
-    # Session Timing (Active Trading Window: 6:00 AM - 11:00 PM IST)
-    ist_dec = ist_time.hour + ist_time.minute / 60.0
-    if 6.0 <= ist_dec < 13.0:
-        session_tag = "Asian / London Pre-Market"
-    elif 13.0 <= ist_dec < 17.5:
-        session_tag = "London Open Killzone"
-    elif 17.5 <= ist_dec <= 23.0:
-        session_tag = "NY Session Overlap"
-    else:
-        session_tag = "Overnight Session"
-
-    p_vah = of_data.get("pVAH")
-    p_val = of_data.get("pVAL")
-    p_poc = of_data.get("pPOC")
-
-    # 1. AMT 80% Rule (Developing Sell Setup at VAH)
-    if p_vah and p_poc and p_val:
-        tested_vah = (curr_high >= p_vah - 1.50 or prev["high"] >= p_vah - 1.00)
-        if tested_vah and live_p <= p_vah + 3.00:
-            sl_dist = 6.00
-            sl = round(live_p + sl_dist, dec)
-            tp1 = round(p_poc, dec) if p_poc < live_p else round(live_p - 6.00, dec)
-            tp2 = round(p_val, dec) if p_val < tp1 else round(live_p - 13.80, dec)
-            return {
-                "side": "SELL",
-                "sym": sym,
-                "strategy": "1. AMT 80% Value Area Rule",
-                "win_rate_oos": "90.9%",
-                "profit_factor": "2.71",
-                "current_price": live_p,
-                "key_level": p_vah,
-                "level_name": "Prior Day VAH",
-                "distance": round(abs(live_p - p_vah), 2),
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "mins_remaining": mins_remaining,
-                "trigger_time_str": trigger_time_str,
-                "session_tag": session_tag,
-                "reason": f"Gold is testing the VAH auction boundary (${p_vah:.2f}). If this candle closes back below VAH in ~{mins_remaining} mins, an 80% Rule rotation to POC (${p_poc:.2f}) triggers!",
-            }
-
-        # 1. AMT 80% Rule (Developing Buy Setup at VAL)
-        tested_val = (curr_low <= p_val + 1.50 or prev["low"] <= p_val + 1.00)
-        if tested_val and live_p >= p_val - 3.00:
-            sl_dist = 6.00
-            sl = round(live_p - sl_dist, dec)
-            tp1 = round(p_poc, dec) if p_poc > live_p else round(live_p + 6.00, dec)
-            tp2 = round(p_vah, dec) if p_vah > tp1 else round(live_p + 13.80, dec)
-            return {
-                "side": "BUY",
-                "sym": sym,
-                "strategy": "1. AMT 80% Value Area Rule",
-                "win_rate_oos": "90.9%",
-                "profit_factor": "2.71",
-                "current_price": live_p,
-                "key_level": p_val,
-                "level_name": "Prior Day VAL",
-                "distance": round(abs(live_p - p_val), 2),
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "mins_remaining": mins_remaining,
-                "trigger_time_str": trigger_time_str,
-                "session_tag": session_tag,
-                "reason": f"Gold is testing the VAL auction boundary (${p_val:.2f}). If this candle closes back above VAL in ~{mins_remaining} mins, an 80% Rule rotation to POC (${p_poc:.2f}) triggers!",
-            }
-
-    # 2. VWAP 2-SD Absorption Fade (Developing)
-    idx = len(bars) - 1
-    vwap_sum_pv = sum(x["close"] * (x.get("volume", 1.0) or 1.0) for x in bars[max(0, idx - 24) : idx + 1])
-    vwap_sum_v = sum(x.get("volume", 1.0) or 1.0 for x in bars[max(0, idx - 24) : idx + 1]) + 1e-9
-    session_vwap = vwap_sum_pv / vwap_sum_v
-    variance = sum(((x["close"] - session_vwap) ** 2) * (x.get("volume", 1.0) or 1.0) for x in bars[max(0, idx - 24) : idx + 1]) / vwap_sum_v
-    sd = math.sqrt(max(1.5, variance))
-    vwap_upper_2sd = session_vwap + 2.0 * sd
-    vwap_lower_2sd = session_vwap - 2.0 * sd
-
-    if (curr_high >= vwap_upper_2sd - 0.75 or live_p >= vwap_upper_2sd - 0.75) and live_p >= session_vwap + 2.50:
-        sl_dist = 3.00
-        sl = round(live_p + sl_dist, dec)
-        tp1 = round(session_vwap, dec)
-        tp2 = round(session_vwap - 1.0 * sd, dec)
-        return {
-            "side": "SELL",
-            "sym": sym,
-            "strategy": "2. VWAP 2-SD Absorption Fade",
-            "win_rate_oos": "82.4%",
-            "profit_factor": "2.35",
-            "current_price": live_p,
-            "key_level": vwap_upper_2sd,
-            "level_name": "+2σ VWAP Band",
-            "distance": round(abs(live_p - vwap_upper_2sd), 2),
-            "sl": sl,
-            "tp1": tp1,
-            "tp2": tp2,
-            "mins_remaining": mins_remaining,
-            "trigger_time_str": trigger_time_str,
-            "session_tag": session_tag,
-            "reason": f"Gold has extended into the upper +2σ VWAP band (${vwap_upper_2sd:.2f}). Potential mean-reversion fade back to Central VWAP (${session_vwap:.2f}) forming!",
-        }
-
-    if (curr_low <= vwap_lower_2sd + 0.75 or live_p <= vwap_lower_2sd + 0.75) and live_p <= session_vwap - 2.50:
-        sl_dist = 3.00
-        sl = round(live_p - sl_dist, dec)
-        tp1 = round(session_vwap, dec)
-        tp2 = round(session_vwap + 1.0 * sd, dec)
-        return {
-            "side": "BUY",
-            "sym": sym,
-            "strategy": "2. VWAP 2-SD Absorption Fade",
-            "win_rate_oos": "82.4%",
-            "profit_factor": "2.35",
-            "current_price": live_p,
-            "key_level": vwap_lower_2sd,
-            "level_name": "-2σ VWAP Band",
-            "distance": round(abs(live_p - vwap_lower_2sd), 2),
-            "sl": sl,
-            "tp1": tp1,
-            "tp2": tp2,
-            "mins_remaining": mins_remaining,
-            "trigger_time_str": trigger_time_str,
-            "session_tag": session_tag,
-            "reason": f"Gold has extended into the lower -2σ VWAP band (${vwap_lower_2sd:.2f}). Potential mean-reversion fade back to Central VWAP (${session_vwap:.2f}) forming!",
-        }
-
-    # 3. LVN Trend Pullback (Developing)
-    ema20 = curr.get("ema20")
-    ema50 = curr.get("ema50")
-    ema200 = curr.get("ema200")
-    if ema20 and ema50 and ema200:
-        if ema20 > ema50 > ema200 and curr_low <= ema20 + 0.50 and live_p >= ema20 - 1.50:
-            sl_dist = 2.50
-            sl = round(live_p - sl_dist, dec)
-            tp1 = round(live_p + 5.00, dec)
-            tp2 = round(live_p + 9.50, dec)
-            return {
-                "side": "BUY",
-                "sym": sym,
-                "strategy": "3. LVN Trend Pullback",
-                "win_rate_oos": "72.8%",
-                "profit_factor": "2.91",
-                "current_price": live_p,
-                "key_level": ema20,
-                "level_name": "EMA20 / LVN Reload",
-                "distance": round(abs(live_p - ema20), 2),
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "mins_remaining": mins_remaining,
-                "trigger_time_str": trigger_time_str,
-                "session_tag": session_tag,
-                "reason": f"Gold uptrend is pulling back into the EMA20 / LVN reload zone (${ema20:.2f}). Potential trend continuation reload forming!",
-            }
-        elif ema20 < ema50 < ema200 and curr_high >= ema20 - 0.50 and live_p <= ema20 + 1.50:
-            sl_dist = 2.50
-            sl = round(live_p + sl_dist, dec)
-            tp1 = round(live_p - 5.00, dec)
-            tp2 = round(live_p - 9.50, dec)
-            return {
-                "side": "SELL",
-                "sym": sym,
-                "strategy": "3. LVN Trend Pullback",
-                "win_rate_oos": "72.8%",
-                "profit_factor": "2.91",
-                "current_price": live_p,
-                "key_level": ema20,
-                "level_name": "EMA20 / LVN Reload",
-                "distance": round(abs(live_p - ema20), 2),
-                "sl": sl,
-                "tp1": tp1,
-                "tp2": tp2,
-                "mins_remaining": mins_remaining,
-                "trigger_time_str": trigger_time_str,
-                "session_tag": session_tag,
-                "reason": f"Gold downtrend is pulling back into the EMA20 / LVN reload zone (${ema20:.2f}). Potential trend continuation reload forming!",
-            }
-
-    return None
-
-
-def check_pre_entry_alert(is_manual_check: bool = False) -> Optional[str]:
-    """Scans for developing setups ~30 mins before 1H candle close and reminds trader on Telegram."""
-    global daily_state
-
-    # Time and circuit breaker checks
-    now_utc = dt.datetime.now(dt.timezone.utc)
-    ist_time = now_utc + dt.timedelta(hours=5, minutes=30)
-    ist_hour_dec = ist_time.hour + ist_time.minute / 60.0
-
-    # Active Trading Hours Filter: 6:00 AM to 11:00 PM IST
-    if not (TRADING_HOURS_START_IST <= ist_hour_dec <= TRADING_HOURS_END_IST) and not is_manual_check:
-        return None
-
-    pnl_pct = daily_state.get("pnl_pct", 0.0)
-    if (pnl_pct <= DAILY_LOSS_LIMIT_PCT or pnl_pct >= DAILY_PROFIT_TARGET_MIN_PCT) and not is_manual_check:
-        return None
-
-    # For automatic background scheduler: verify we are in the mid-candle developing window (~20-48 mins)
-    if not is_manual_check:
-        if not (20 <= now_utc.minute <= 48):
-            return None
-
-    for sym, dec, y_sym, pip_val, is_gold in INSTRUMENTS:
-        if sym != "XAUUSD":
-            continue
-        try:
-            bars, live_tick = fetch_1h_bars(y_sym, dec)
-            if len(bars) < 60:
-                continue
-            enrich_bars(bars)
-            of_data = compute_order_flow_profile(bars, dec, is_gold)
-
-            pre_setup = evaluate_pre_alert(bars, dec, sym, of_data)
-            if not pre_setup:
-                if is_manual_check:
-                    msg = (
-                        f"ℹ️ <b>PRE-ALERT SCAN STATUS ({ist_time.strftime('%I:%M %p IST')}):</b>\n\n"
-                        f"• <b>Gold XAUUSD:</b> <code>${live_tick:.{dec}f}</code>\n"
-                        f"• <b>Status:</b> Safe inside Value Area. No imminent trade entry in the next ~30 mins.\n"
-                        f"• <i>Next automatic pre-check will run ~30 mins before the next 1H candle close.</i>"
-                    )
-                    send_telegram(msg)
-                    return msg
-                continue
-
-            # Anti-spam deduplication check
-            curr_candle_ts = bars[-1].get("ts")
-            last_alerted_candle = daily_state.get("last_pre_alert_candle")
-            last_alerted_ts = daily_state.get("last_pre_alert_ts", 0)
-
-            if not is_manual_check:
-                if last_alerted_candle == curr_candle_ts or (time.time() - last_alerted_ts) < 2100:
-                    print(f"[PRE-ALERT SKIP] Already alerted for candle {curr_candle_ts}.")
-                    return None
-
-            # Calculate MT5 lot sizes
-            dist = abs(pre_setup["current_price"] - pre_setup["sl"])
-            raw_lots = TARGET_RISK_PER_TRADE / (dist * 100.0) if dist > 0 else 0.08
-            floored_lots = math.floor(raw_lots * 100.0) / 100.0
-            total_lots = round(max(0.01, min(0.15, floored_lots)), 2)
-            half1 = round(total_lots * 0.65, 2)
-            if half1 < 0.01 or total_lots <= 0.01:
-                half1 = total_lots
-                half2 = 0.0
-            else:
-                half2 = round(total_lots - half1, 2)
-
-            side_emoji = "🟢 BUY" if pre_setup["side"] == "BUY" else "🔴 SELL"
-            mins_rem = pre_setup["mins_remaining"]
-
-            win_rate = pre_setup.get("win_rate_oos", "90.9%")
-            pf = pre_setup.get("profit_factor", "2.71")
-            tg_msg = (
-                f"📊 {sym} | {pre_setup['side']}\n\n"
-                f"🏆 Win Rate (OOS): {win_rate}\n"
-                f"📈 Profit Factor: {pf}\n\n"
-                f"💰 Price: <code>{pre_setup['current_price']:.{dec}f}</code>\n"
-                f"🛑 SL: <code>{pre_setup['sl']:.{dec}f}</code>\n"
-                f"🎯 TP1: <code>{pre_setup['tp1']:.{dec}f}</code>\n"
-                f"🎯 TP2: <code>{pre_setup['tp2']:.{dec}f}</code>\n\n"
-                f"⏳ Status: WAIT — Confirmation Required"
-            )
-
-            send_telegram(tg_msg)
-            print(f"[PRE-ALERT SENT TO TELEGRAM] {pre_setup['side']} {sym} in ~{mins_rem} mins")
-
-            # Broadcast to subscribers
-            with state_lock:
-                extra_subs = [s for s in daily_state.get("subscribers", []) if str(s) != str(TELEGRAM_CHAT_ID)]
-            for sub_id in extra_subs:
-                try:
-                    send_telegram(tg_msg, target_chat=str(sub_id))
-                except Exception:
-                    pass
-
-            # Save state and sync to webapp
-            with state_lock:
-                daily_state["last_pre_alert_candle"] = curr_candle_ts
-                daily_state["last_pre_alert_ts"] = time.time()
-                daily_state["pre_alert"] = {
-                    "active": True,
-                    "sym": sym,
-                    "side": pre_setup["side"],
-                    "strategy": pre_setup["strategy"],
-                    "current_price": pre_setup["current_price"],
-                    "key_level": pre_setup["key_level"],
-                    "level_name": pre_setup["level_name"],
-                    "est_time": f"~{mins_rem} mins ({pre_setup['trigger_time_str']})",
-                    "lots_a": half1,
-                    "lots_b": half2,
-                    "tp1": pre_setup["tp1"],
-                    "tp2": pre_setup["tp2"],
-                    "sl": pre_setup["sl"],
-                    "timestamp": int(time.time()),
-                }
-                daily_state["latest_lifecycle_event"] = {
-                    "type": "PRE_ALERT",
-                    "trade_id": "PRE-XAUUSD",
-                    "sym": sym,
-                    "side": pre_setup["side"],
-                    "price": pre_setup["current_price"],
-                    "time": ist_time.strftime("%I:%M %p IST"),
-                    "headline": f"⏳ 30-MIN PRE-ENTRY NOTICE: Probable {pre_setup['side']} {sym} in ~{mins_rem} mins",
-                    "subtext": f"Testing {pre_setup['level_name']} (${pre_setup['key_level']:.2f}). Free yourself & open MT5 to prepare orders!",
-                }
-                save_daily_state()
-
-            return tg_msg
-        except Exception as e:
-            print(f"[PRE-ALERT SCAN ERROR] {e}")
-
-    return None
-
-
 def generate_order_flow_map() -> str:
     """Generates complete Institutional Order Flow Level Map for Gold XAUUSD."""
     lines = [
@@ -1283,23 +728,8 @@ def run_hourly_scan(is_user_request: bool = False) -> str:
 
     # Active Trading Hours Filter: 6:00 AM to 11:00 PM IST (Indian Standard Time)
     if not (TRADING_HOURS_START_IST <= ist_hour_dec <= TRADING_HOURS_END_IST) and not is_user_request:
-        msg = f"🌙 <b>OVERNIGHT STAND-DOWN ({ist_time.strftime('%I:%M %p IST')})</b>\nBot gives signals strictly between <b>6:00 AM – 11:00 PM IST</b> to preserve capital during low-liquidity overnight spreads. Resuming scan at 6:00 AM IST."
+        msg = f"🌙 <b>OVERNIGHT STAND-DOWN ({ist_time.strftime('%I:%M %p IST')})</b>\nBot gives signals strictly between <b>6:00 AM – 11:00 PM IST</b>. Resuming scan at 6:00 AM IST."
         print(f"[TIME GATE] {ist_time.strftime('%I:%M %p IST')} is outside active trading window (6:00 AM - 11:00 PM IST). Standing aside.")
-        return msg
-
-    pnl_pct = daily_state.get("pnl_pct", 0.0)
-
-    # Circuit breaker checks (Percentage based: Target +2.0%-3.0%/day, Capital Guard: -2.5%)
-    if pnl_pct <= DAILY_LOSS_LIMIT_PCT:
-        msg = f"🛑 <b>CAPITAL GUARD CIRCUIT BREAKER ACTIVE</b>\nDaily Drawdown: <code>{pnl_pct:+.2f}%</code> (Limit: {DAILY_LOSS_LIMIT_PCT:.1f}%). Trading halted for today to protect capital."
-        if is_user_request:
-            send_telegram(msg)
-        return msg
-
-    if pnl_pct >= DAILY_PROFIT_TARGET_MIN_PCT:
-        msg = f"🎯 <b>DAILY PROFIT TARGET REACHED</b>\nDaily Profit: <code>+{pnl_pct:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%). Target locked! Standing aside until tomorrow."
-        if is_user_request:
-            send_telegram(msg)
         return msg
 
     # Run the UOT 18-Module Analysis Engine
@@ -1440,7 +870,7 @@ def telegram_listener() -> None:
 
                     cmd = text.split("@")[0].strip()
 
-                    # 1. Welcome Message for ANY user (New Joiner or Existing) when clicking START
+                    # 1. Welcome Message for ANY user when clicking START
                     if cmd in ("/start", "start"):
                         user_info = msg.get("from", {})
                         first_name = user_info.get("first_name", "Trader")
@@ -1449,19 +879,16 @@ def telegram_listener() -> None:
                             "Your institutional trading assistant is <b>ONLINE & ACTIVE 24/7</b>.\n\n"
                             "🏛️ <b>Account:</b> TRADING BOY ACCOUNT\n"
                             "📊 <b>Watchlist:</b> XAUUSD (Gold Spot Exclusively)\n"
-                            "⚡ <b>Strategies:</b> 1. AMT 80% Rule | 2. VWAP 2-SD Fade | 3. LVN Pullback\n"
-                            "🛡️ <b>Risk per Trade:</b> 0.5% - 1.0%\n"
-                            "🎯 <b>Daily Target:</b> +2.0% - 3.0% / Day\n"
-                            "🛡️ <b>Capital Guard:</b> Safe Limit (-2.5% Daily Drawdown Limit)\n"
-                            "🔒 <b>Max Trades/Day:</b> 3 (Hard Cap)\n"
-                            "⚖️ <b>Twin-Order Model:</b> Order A (70% @ POC 1:1R) + Order B (30% @ Opposite VA 1:2R)\n\n"
+                            "⚡ <b>Engine:</b> UOT Institutional Analysis Engine (Modules 1–18)\n"
+                            "⏰ <b>Active Hours:</b> 6:00 AM – 11:00 PM IST (Indian Standard Time)\n"
+                            "🎯 <b>Trades/Day:</b> Uncapped (All High-Probability Setups)\n"
+                            "🔍 <b>Confirmation:</b> Multi-Timeframe Sequential System (SD Levels, S&D, Liquidity Sweeps, BOS, CHOCH, FVG, Fibonacci)\n\n"
                             "━━━━━━━━━━━━━━━━━━━━━\n"
                             "🤖 <b>Available Interactive Commands:</b>\n"
-                            "• <b>/status</b> or <b>/scan</b>: Check live market scan & active trades\n"
-                            "• <b>/levels</b>: View Institutional Order Flow Map (POC & Value Area)\n"
+                            "• <b>/status</b> or <b>/scan</b>: Run live UOT institutional scan on Gold XAUUSD\n"
                             "• <b>/chart gold</b>: Instant 1H chart with TP & SL lines\n"
                             "• <b>/help</b>: View complete interactive guide\n\n"
-                            "🚀 <i>You will automatically receive trade execution tickets whenever an A+ setup confirms at :31 past the hour!</i>"
+                            "🚀 <i>You will automatically receive trade execution tickets whenever an A+ setup confirms!</i>"
                         )
                         send_telegram(welcome_text, target_chat=chat_id)
                         print(f"[NEW JOINER] Welcomed {first_name} (Chat ID: {chat_id})")
@@ -1478,22 +905,16 @@ def telegram_listener() -> None:
                     if cmd in ("/help", "help"):
                         help_text = (
                             "🤖 <b>TRADING BOY AI Bot Interactive Menu:</b>\n\n"
-                            "• <b>status</b> or <b>scan</b>: Live scan on Gold XAUUSD Order Flow + view active trades\n"
-                            "• <b>prealert</b> or <b>remind</b>: Instant ~30-min advance setup check & MT5 prep guide\n"
+                            "• <b>status</b> or <b>scan</b>: Live UOT institutional scan on Gold XAUUSD + view active trades\n"
                             "• <b>chart gold</b>: Instant 1H chart snapshot with exact TP/SL levels\n"
-                            "• <b>levels</b>: View Institutional Order Flow Map (POC & Value Area)\n"
-                            "• <b>close [gold/all]</b>: Manually mark open position closed to unlock next setup\n"
-                            "• <b>win</b>: Record a winning trade (+1.15% account gain)\n"
-                            "• <b>loss</b>: Record a losing trade (-0.50% loss)\n"
-                            "• <b>be</b>: Record a breakeven trade (+0.35% banked)\n"
-                            "• <b>reset</b>: Reset today's counter to 0/3\n\n"
+                            "• <b>close [gold/all]</b>: Manually mark open position closed\n"
+                            "• <b>reset</b>: Reset today's counter\n\n"
                             "📋 <b>Your Trading Rules:</b>\n"
-                            "• Asset: <b>XAUUSD (Gold Spot Exclusively)</b>\n• Active Hours: <b>6:00 AM – 11:00 PM IST</b>\n"
-                            "• Risk per Trade: <b>0.5% - 1.0%</b>\n"
-                            "• Max Trades/Day: <b>Uncapped (All High-Probability Setups)</b>\n"
-                            "• Daily Target: <b>+2.0% - 3.0% / Day</b>\n"
-                            "• Capital Guard: <b>Safe (Daily Limit: -2.5%)</b>\n\n"
-                            "⚡ Scans automatically at <b>:31 past every hour</b> (24/7 on cloud)."
+                            "• Asset: <b>XAUUSD (Gold Spot Exclusively)</b>\n"
+                            "• Active Hours: <b>6:00 AM – 11:00 PM IST</b>\n"
+                            "• Strategy: <b>UOT Institutional Trading Engine</b>\n"
+                            "• Trades: <b>All High-Probability Setups (Uncapped)</b>\n\n"
+                            "⚡ Scans automatically on closed candles (6:00 AM - 11:00 PM IST)."
                         )
                         send_telegram(help_text, target_chat=chat_id)
                         continue
@@ -1512,10 +933,6 @@ def telegram_listener() -> None:
                         report = generate_order_flow_map()
                         send_telegram(report)
 
-                    elif cmd in ("/prealert", "prealert", "/remind", "remind", "headsup", "alert"):
-                        send_telegram("⏳ <i>Running instant ~30-min advance pre-alert probability check for Gold XAUUSD...</i>")
-                        check_pre_entry_alert(is_manual_check=True)
-
                     elif cmd in ("/tp1", "tp1"):
                         now_ist_str = dt.datetime.now(dt.timezone(dt.timedelta(hours=5, minutes=30))).strftime("%I:%M:%S %p IST")
                         with state_lock:
@@ -1527,7 +944,7 @@ def telegram_listener() -> None:
                                     "id": f"TB-XAUUSD-{int(time.time())}",
                                     "sym": "XAUUSD",
                                     "side": "SELL",
-                                    "strategy": "1. AMT 80% Value Area Rule",
+                                    "strategy": "UOT-Inspired Institutional Analysis Engine",
                                     "entry": round(spot_p, 2),
                                     "sl": round(spot_p + 6.00, 2),
                                     "tp1": round(spot_p - 6.00, 2),
@@ -1581,7 +998,7 @@ def telegram_listener() -> None:
                             f"🎯 <b>Price Hit POC:</b> <code>{open_trade['tp1']}</code> (Target 1 Reached)\n"
                             f"📈 <b>Order A Banked (70% Scale-Out):</b> <b>+{gain_order_a:.2f}% Net Gain</b>!\n"
                             f"⏰ <b>Execution Time:</b> <code>{now_ist_str}</code>\n"
-                            f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n\n"
+                            f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> \n\n"
                             f"👉 <b>MANDATORY ACTION REQUIRED IN MT5:</b>\n"
                             f"Modify <b>Order B</b> and change its Stop Loss to <b>Breakeven (<code>{open_trade['entry']}</code>)</b>.\n\n"
                             f"🛡️ <i>Your trade is now 100% RISK-FREE. Order B runner is targeting TP2 (<code>{open_trade['tp2']}</code>)!</i>"
@@ -1599,7 +1016,7 @@ def telegram_listener() -> None:
                                     "id": f"TB-XAUUSD-{int(time.time())}",
                                     "sym": "XAUUSD",
                                     "side": "SELL",
-                                    "strategy": "1. AMT 80% Value Area Rule",
+                                    "strategy": "UOT-Inspired Institutional Analysis Engine",
                                     "entry": round(spot_p, 2),
                                     "sl": round(spot_p + 6.00, 2),
                                     "tp1": round(spot_p - 6.00, 2),
@@ -1639,8 +1056,6 @@ def telegram_listener() -> None:
                             save_daily_state()
 
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
-                        rem_needed = max(0.0, DAILY_PROFIT_TARGET_MIN_PCT - cur_pnl)
-                        status_note = "✅ ACHIEVED! Target locked for today!" if cur_pnl >= DAILY_PROFIT_TARGET_MIN_PCT else f"Need +{rem_needed:.2f}% more"
                         tp2_msg = (
                             f"🏆 <b>FULL VALUE AREA ROTATION TARGET 2 HIT!</b>\n"
                             f"<b>Asset:</b> {open_trade['side']} <b>{open_trade['sym']}</b>\n\n"
@@ -1649,8 +1064,7 @@ def telegram_listener() -> None:
                             f"🎉 <b>Total Trade Profit:</b> <b>+{tot_gain:.2f}% Net Gain</b>!\n"
                             f"⏰ <b>Completion Time:</b> <code>{now_ist_str}</code>\n\n"
                             f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code>\n"
-                            f"🎯 <b>Daily Target:</b> +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}% ({status_note})\n"
-                            f"🛡️ <i>Symbol position closed. Active Position Guard cleared for next session!</i>"
+                            f"🛡️ <i>Symbol position closed. Position cleared for next session!</i>"
                         )
                         send_telegram(tp2_msg)
 
@@ -1691,19 +1105,13 @@ def telegram_listener() -> None:
                             save_daily_state()
 
                         cur_pnl = daily_state.get("pnl_pct", 0.0)
-                        buffer_pct = cur_pnl - DAILY_LOSS_LIMIT_PCT
-                        guard_note = ""
-                        if daily_state["consecutive_losses"] >= 2:
-                            guard_note = "\n\n🛡️ <b>FREQTRADE STOPLOSS GUARD ACTIVATED:</b> 2 consecutive losses. Global trading paused for 120 minutes."
                         send_telegram(
                             f"🛑 <b>TRADE HIT STOP LOSS: {open_trade['side']} {open_trade['sym']}</b>\n\n"
                             f"• <b>Exit Price:</b> <code>{open_trade['sl']}</code>\n"
                             f"• <b>Loss:</b> -{loss_pct:.2f}% (-1.0R)\n"
                             f"• <b>Time:</b> <code>{now_ist_str}</code>\n"
                             f"• <b>Today's Net P&L:</b> <code>{cur_pnl:+.2f}%</code>\n"
-                            f"• <b>Capital Guard Buffer:</b> <code>{buffer_pct:.2f}%</code> to Safe Limit ({DAILY_LOSS_LIMIT_PCT:.1f}%)\n"
-                            + guard_note
-                            + "\n🛡️ <i>Active position closed. Cooldown initiated. Active Position Guard cleared.</i>"
+                            f"🛡️ <i>Active position closed. Cooldown initiated.</i>"
                         )
 
                     elif cmd in ("/be", "be", "breakeven"):
@@ -1758,7 +1166,7 @@ def telegram_listener() -> None:
                                 "id": f"TB-XAUUSD-{int(time.time())}",
                                 "sym": "XAUUSD",
                                 "side": "SELL",
-                                "strategy": "1. AMT 80% Value Area Rule",
+                                "strategy": "UOT-Inspired Institutional Analysis Engine",
                                 "entry": round(spot_p, 2),
                                 "sl": round(spot_p + 6.00, 2),
                                 "tp1": round(spot_p - 6.00, 2),
@@ -1915,10 +1323,8 @@ def background_scheduler() -> None:
         "• <b>Watchlist:</b> XAUUSD (Gold Spot Exclusively)\n"
         "• <b>Active Hours:</b> <b>6:00 AM – 11:00 PM IST</b> (Indian Time)\n"
         "• <b>Max Trades/Day:</b> <b>Uncapped</b> (All High-Probability Setups)\n"
-        "• <b>Risk Per Trade:</b> 0.5% - 1.0%\n"
-        "• <b>Daily Target:</b> +2.0% - 3.0% / Day\n"
-        "• <b>Capital Guard:</b> Safe Limit (-2.5% Daily Drawdown Limit)\n"
-        "• <b>Order Flow Engine:</b> Active (Volume Profile, POC & 70% Value Area)\n"
+        "• <b>Strategy:</b> <b>UOT-Inspired Institutional Analysis Engine</b> (18-Module Multi-Timeframe)\n"
+        "• <b>Execution:</b> Closed-Candle Sequential Confluence Confirmation\n"
         "• <b>Interactive Control:</b> Send <b>status</b> or <b>levels</b> anytime!\n"
         "• <b>Cloud Status:</b> 100% Online & Self-Kept Awake 24/7."
     )
@@ -1960,11 +1366,7 @@ def background_scheduler() -> None:
                 except Exception as bar_err:
                     print(f"[SCHEDULER CANDLE CHECK WARNING] {bar_err}")
 
-                # 2. Pre-Alert Scanner (~30 minutes before 1H candle close)
-                # Evaluates every 3 minutes between minute 20 and 48 of the hour
-                if (20 <= now_utc.minute <= 48) and (time.time() - last_pre_alert_check_ts > 180):
-                    last_pre_alert_check_ts = time.time()
-                    check_pre_entry_alert(is_manual_check=False)
+
 
             else:
                 # Outside active trading window (11:00 PM - 6:00 AM IST) - preserve capital & sleep
@@ -2378,8 +1780,7 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
                     "pnl": daily_state["pnl"],
                     "pnl_pct": daily_state.get("pnl_pct", 0.0),
                     "today_pnl": f"{daily_state.get('pnl_pct', 0.0):+.2f}%",
-                    "daily_target": f"+{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%",
-                    "capital_guard": f"{DAILY_LOSS_LIMIT_PCT:.1f}%",
+                    "daily_target": "Unlimited",
                     "is_flat": len(active_list) == 0,
                     "latest_summary": latest_status_summary,
                     "latest_lifecycle_event": daily_state.get("latest_lifecycle_event"),
@@ -2389,8 +1790,7 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
                     "rules": {
                         "account": "TRADING BOY ACCOUNT",
                         "risk_per_trade": f"{TARGET_RISK_PER_TRADE_PCT:.1f}%",
-                        "daily_target": "+2.0% - 3.0%",
-                        "capital_guard": "-2.5%",
+                        "daily_target": "Unlimited",
                         "max_trades_per_day": MAX_DAILY_TRADES,
                         "rr_order_a": "1:1 (70% Scale-Out)",
                         "rr_order_b": "1:2.3 (30% Runner with SL @ BE)",
@@ -2440,7 +1840,7 @@ class APIServerHandler(http.server.BaseHTTPRequestHandler):
 def breakeven_monitor() -> None:
     """Continuously monitors live prices of active trades every 10 seconds.
     Tracks the complete trade lifecycle and pushes instant real-time Telegram updates:
-      1. Initial Stop Loss: If price hits SL before TP1, marks closed (-0.50%), alerts Telegram, checks Capital Guard (-2.5%).
+      1. Initial Stop Loss: If price hits SL before TP1, marks closed (-0.50%), alerts Telegram.
       2. TP1 (POC): When price touches TP1, banks Order A (+0.70%), alerts Telegram to pull Order B SL to Breakeven in MT5.
       3. TP2 (Opposite Value Area Full Rotation): When price touches TP2, banks Order B (+0.45%), alerts Telegram (+1.15% Total Win).
       4. Breakeven Retest: If Order B retraces to Entry after TP1, exits at $0.00 loss, preserves Order A +0.70% gain, alerts Telegram.
@@ -2555,18 +1955,14 @@ def breakeven_monitor() -> None:
                             save_daily_state()
 
                         sl_pnl = daily_state.get("pnl_pct", 0.0)
-                        buffer_pct = sl_pnl - DAILY_LOSS_LIMIT_PCT
                         loss_msg = (
                             f"🛑 <b>TRADE HIT STOP LOSS: {side} {sym}</b>\n\n"
                             f"• <b>Exit Price:</b> <code>{exit_sl_price:.{dec}f}</code> (SL: <code>{sl:.{dec}f}</code>)\n"
                             f"• <b>Loss:</b> -{loss_pct:.2f}% (-1.0R)\n"
                             f"• <b>Time:</b> <code>{now_ist_str}</code>\n"
                             f"• <b>Today's Net P&L:</b> <code>{sl_pnl:+.2f}%</code>\n"
-                            f"• <b>Capital Guard Safe:</b> -2.5% Safe Limit\n"
-                            f"🛡️ <i>Symbol {sym} placed in 60-min cooldown. Active Position Guard cleared.</i>"
+                            f"🛡️ <i>Symbol {sym} placed in 60-min cooldown.</i>"
                         )
-                        if daily_state["consecutive_losses"] >= 2:
-                            loss_msg += "\n\n⚠️ <b>FREQTRADE STOPLOSS GUARD:</b> 2 consecutive losses. Global trading paused for 120 minutes."
                         broadcast_telegram(loss_msg)
                         print(f"[SL HIT] {side} {sym} stopped out at {live_p}. Position closed.")
                         continue
@@ -2615,7 +2011,7 @@ def breakeven_monitor() -> None:
                                 f"✅ <b>Price Hit POC:</b> <code>{live_p:.{dec}f}</code> (TP1: <code>{tp1:.{dec}f}</code>)\n"
                                 f"💰 <b>Order A Banked (70% Scale-Out):</b> +{diff_pips:.1f} {unit} (+{gain_order_a:.2f}%)!\n"
                                 f"🕒 <b>Execution Time:</b> <code>{now_ist_str}</code>\n"
-                                f"📈 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n\n"
+                                f"📈 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> \n\n"
                                 f"👉 <b>MANDATORY ACTION REQUIRED IN MT5:</b>\n"
                                 f"Modify <b>Order B</b> and change its Stop Loss to <b>Breakeven (<code>{entry:.{dec}f}</code>)</b>.\n\n"
                                 f"🛡️ <i>Your trade is now 100% RISK-FREE. Order B runner is targeting TP2 (<code>{tp2:.{dec}f}</code>)!</i>"
@@ -2677,7 +2073,7 @@ def breakeven_monitor() -> None:
                             f"💵 <b>Order B Banked:</b> <b>+{gain_order_b:.2f}%</b>\n"
                             f"📈 <b>Total Trade Profit:</b> <b>+{tot_gain:.2f}% Net Gain</b>\n"
                             f"🕒 <b>Completion Time:</b> <code>{now_ist_str}</code>\n\n"
-                            f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> (Daily Target: +{DAILY_PROFIT_TARGET_MIN_PCT:.1f}% - {DAILY_PROFIT_TARGET_MAX_PCT:.1f}%)\n"
+                            f"📊 <b>Today's Net P&L:</b> <code>+{cur_pnl:.2f}%</code> \n"
                             f"🛡️ <i>Symbol {sym} position closed. Active Position Guard cleared for next session!</i>"
                         )
                         broadcast_telegram(tp2_msg)

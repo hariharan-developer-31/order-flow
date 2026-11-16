@@ -1,5 +1,5 @@
 import React from 'react';
-import { Target, Layers, Flame, Shield, Activity } from 'lucide-react';
+import { Target, Layers, Flame, Activity } from 'lucide-react';
 
 export default function OrderFlowCards({
   symbol = 'XAUUSD',
@@ -26,8 +26,14 @@ export default function OrderFlowCards({
     vaProgress = Math.max(0, Math.min(100, ((livePrice - val) / (vah - val)) * 100));
   }
 
+  const hasSdCard = showStandardDeviation && dailySD && dailySD.stdDev;
+
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-2.5 sm:gap-3.5 font-sans">
+    <div
+      className={`grid gap-2.5 sm:gap-3.5 font-sans ${
+        hasSdCard ? 'grid-cols-2 lg:grid-cols-4' : 'grid-cols-1 sm:grid-cols-3'
+      }`}
+    >
       {/* 1. Point of Control (POC) */}
       <div className="bg-white border border-[#0D0D0C]/10 rounded-[6px] p-3 sm:p-3.5 flex flex-col justify-between hover:border-[#0D0D0C]/25 transition">
         <div className="flex items-center justify-between gap-1 mb-1">
@@ -102,8 +108,8 @@ export default function OrderFlowCards({
         <div className="w-full h-1 mt-2"></div>
       </div>
 
-      {/* 4. Contextual Metric: Daily Std Dev (when ON) OR Capital Guard (when OFF) */}
-      {showStandardDeviation && dailySD && dailySD.stdDev ? (
+      {/* 4. Daily Std Dev (when SD toggle is ON) */}
+      {hasSdCard && (
         <div className="bg-white border border-[#0D0D0C]/10 rounded-[6px] p-3 sm:p-3.5 flex flex-col justify-between hover:border-[#0D0D0C]/25 transition">
           <div className="flex items-center justify-between gap-1 mb-1">
             <span className="text-xs font-semibold text-[#0D0D0C]/70 flex items-center gap-1.5 uppercase tracking-wider font-mono">
@@ -126,29 +132,6 @@ export default function OrderFlowCards({
             <div className="text-right">
               <span className="text-[9px] text-[#0D0D0C]/50 block font-sans">+1.0σ</span>
               <span className="font-bold text-[#0D0D0C]">{dailySD.sd1Upper ? dailySD.sd1Upper.toFixed(dec) : '---'}</span>
-            </div>
-          </div>
-          <div className="w-full h-1 mt-2"></div>
-        </div>
-      ) : (
-        <div className="bg-white border border-[#0D0D0C]/10 rounded-[6px] p-3 sm:p-3.5 flex flex-col justify-between hover:border-[#0D0D0C]/25 transition">
-          <div className="flex items-center justify-between gap-1 mb-1">
-            <span className="text-xs font-semibold text-[#0D0D0C]/70 flex items-center gap-1.5 uppercase tracking-wider font-mono">
-              <Shield className="w-3.5 h-3.5 text-[#3FB874]" />
-              Capital Guard
-            </span>
-            <span className="text-[10px] font-mono font-medium px-1.5 py-0.5 rounded bg-[#F8F9FA] text-[#0D0D0C]/70 border border-[#0D0D0C]/08">
-              Safe: -2.5%
-            </span>
-          </div>
-          <div className="flex items-baseline justify-between font-mono mt-1 text-xs sm:text-sm">
-            <div>
-              <span className="text-[9px] text-[#0D0D0C]/50 block font-sans">Risk / Trade</span>
-              <span className="font-bold text-[#0D0D0C]">0.5% - 1.0%</span>
-            </div>
-            <div className="text-right">
-              <span className="text-[9px] text-[#0D0D0C]/50 block font-sans">Daily Target</span>
-              <span className="font-bold text-[#3FB874]">+2.0% - 3.0%</span>
             </div>
           </div>
           <div className="w-full h-1 mt-2"></div>
