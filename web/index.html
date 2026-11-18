@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, viewport-fit=cover" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no, viewport-fit=cover" />
     <title>TRADING BOY | Live Order Flow, Volume Profile & Footprint Terminal</title>
 
     <!-- PWA & Mobile Meta Tags -->
@@ -124,6 +124,15 @@
         background-color: #FFFFFF;
         color: #0D0D0C;
         font-family: 'Inter Tight', 'Inter', sans-serif;
+        touch-action: pan-x pan-y;
+        -webkit-text-size-adjust: 100%;
+        text-size-adjust: 100%;
+      }
+      /* Prevent iPhone / iOS Safari auto-zoom when focusing inputs */
+      @media (max-width: 1024px), (pointer: coarse) {
+        input, textarea, select {
+          font-size: 16px !important;
+        }
       }
       #root {
         overflow-x: hidden !important;
@@ -329,6 +338,23 @@
     <!-- SVG Grain Texture Overlay (18% Opacity with multiply) -->
     <!-- Clean White Background -->
     <div id="root" class="w-full max-w-full overflow-x-hidden relative z-10"></div>
+    <script>
+      (function () {
+        // Block iOS Safari pinch-to-zoom gestures on page viewport
+        document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('gesturechange', function (e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('gestureend', function (e) { e.preventDefault(); }, { passive: false });
+        document.addEventListener('touchmove', function (e) {
+          if (e.touches && e.touches.length > 1) {
+            var el = e.target;
+            var isChartCanvas = el && (el.tagName === 'CANVAS' || (el.closest && el.closest('.tv-lightweight-charts')));
+            if (!isChartCanvas) {
+              e.preventDefault();
+            }
+          }
+        }, { passive: false });
+      })();
+    </script>
     <script type="module" src="/src/main.jsx"></script>
   </body>
 </html>

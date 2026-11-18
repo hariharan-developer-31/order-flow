@@ -180,7 +180,7 @@ export default function AuthGate({ onAuthSuccess, initialMessage = null }) {
                       onChange={(e) => setName(e.target.value)}
                       placeholder="Your name"
                       autoComplete="name"
-                      className="w-full h-9 pl-9 pr-3 text-xs rounded-[6px] border border-[#0D0D0C]/15 bg-white text-[#0D0D0C] placeholder:text-[#0D0D0C]/35 focus:outline-none focus:border-[#0D0D0C]"
+                      className="w-full h-10 sm:h-9 pl-9 pr-3 text-[16px] sm:text-xs rounded-[6px] border border-[#0D0D0C]/15 bg-white text-[#0D0D0C] placeholder:text-[#0D0D0C]/35 focus:outline-none focus:border-[#0D0D0C]"
                     />
                   </div>
                 </div>
@@ -199,7 +199,9 @@ export default function AuthGate({ onAuthSuccess, initialMessage = null }) {
                     onChange={(e) => setUsername(e.target.value)}
                     placeholder={mode === 'login' ? 'Enter ID' : 'Choose a User ID'}
                     autoComplete="username"
-                    className="w-full h-9 pl-9 pr-3 text-xs font-mono rounded-[6px] border border-[#0D0D0C]/15 bg-white text-[#0D0D0C] placeholder:text-[#0D0D0C]/35 focus:outline-none focus:border-[#0D0D0C]"
+                    autoCapitalize="none"
+                    autoCorrect="off"
+                    className="w-full h-10 sm:h-9 pl-9 pr-3 text-[16px] sm:text-xs font-mono rounded-[6px] border border-[#0D0D0C]/15 bg-white text-[#0D0D0C] placeholder:text-[#0D0D0C]/35 focus:outline-none focus:border-[#0D0D0C]"
                   />
                 </div>
               </div>
@@ -217,7 +219,7 @@ export default function AuthGate({ onAuthSuccess, initialMessage = null }) {
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter password"
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
-                    className="w-full h-9 pl-9 pr-9 text-xs font-mono rounded-[6px] border border-[#0D0D0C]/15 bg-white text-[#0D0D0C] placeholder:text-[#0D0D0C]/35 focus:outline-none focus:border-[#0D0D0C]"
+                    className="w-full h-10 sm:h-9 pl-9 pr-9 text-[16px] sm:text-xs font-mono rounded-[6px] border border-[#0D0D0C]/15 bg-white text-[#0D0D0C] placeholder:text-[#0D0D0C]/35 focus:outline-none focus:border-[#0D0D0C]"
                   />
                   <button
                     type="button"
@@ -233,7 +235,7 @@ export default function AuthGate({ onAuthSuccess, initialMessage = null }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full h-9 mt-2 rounded-[6px] bg-[#0D0D0C] text-white text-xs font-semibold hover:bg-[#0D0D0C]/90 transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
+                className="w-full h-10 sm:h-9 mt-2 rounded-[6px] bg-[#0D0D0C] text-white text-xs font-semibold hover:bg-[#0D0D0C]/90 transition disabled:opacity-50 flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 {loading ? (
                   <span className="font-mono">Please wait...</span>

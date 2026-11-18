@@ -218,7 +218,7 @@ export default function AdminPanel({ onClose, onLogout, onPendingCountChange }) 
                 value={newName}
                 onChange={(e) => setNewName(e.target.value)}
                 placeholder="Full Name"
-                className="h-9 px-3 text-xs rounded-[5px] border border-[#0D0D0C]/15 bg-white focus:outline-none focus:border-[#0D0D0C]"
+                className="h-10 sm:h-9 px-3 text-[16px] sm:text-xs rounded-[5px] border border-[#0D0D0C]/15 bg-white focus:outline-none focus:border-[#0D0D0C]"
               />
               <input
                 type="text"
@@ -226,7 +226,9 @@ export default function AdminPanel({ onClose, onLogout, onPendingCountChange }) 
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
                 placeholder="User ID (e.g. trader1)"
-                className="h-9 px-3 text-xs font-mono rounded-[5px] border border-[#0D0D0C]/15 bg-white focus:outline-none focus:border-[#0D0D0C]"
+                autoCapitalize="none"
+                autoCorrect="off"
+                className="h-10 sm:h-9 px-3 text-[16px] sm:text-xs font-mono rounded-[5px] border border-[#0D0D0C]/15 bg-white focus:outline-none focus:border-[#0D0D0C]"
               />
               <input
                 type="password"
@@ -234,7 +236,7 @@ export default function AdminPanel({ onClose, onLogout, onPendingCountChange }) 
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="Password (min 4 chars)"
-                className="h-9 px-3 text-xs font-mono rounded-[5px] border border-[#0D0D0C]/15 bg-white focus:outline-none focus:border-[#0D0D0C]"
+                className="h-10 sm:h-9 px-3 text-[16px] sm:text-xs font-mono rounded-[5px] border border-[#0D0D0C]/15 bg-white focus:outline-none focus:border-[#0D0D0C]"
               />
             </div>
             <div className="flex justify-end">
