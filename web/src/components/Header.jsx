@@ -4,6 +4,8 @@ import {
   Volume2,
   VolumeX,
   RefreshCw,
+  Shield,
+  LogOut,
 } from 'lucide-react';
 
 const TIMEFRAMES = [
@@ -28,6 +30,10 @@ export default function Header({
   onRefresh,
   soundEnabled = true,
   onToggleSound,
+  authUser = null,
+  pendingCount = 0,
+  onOpenAdmin,
+  onLogout,
 }) {
   const isDec2 = activeSymbol === 'XAUUSD' || activeSymbol === 'NAS100' || activeSymbol === 'NASDAQ';
   const decimals = isDec2 ? 2 : 5;
@@ -115,11 +121,39 @@ export default function Header({
             <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           </button>
 
+          {/* Admin Panel Button (Admin Only) */}
+          {authUser?.role === 'admin' && onOpenAdmin && (
+            <button
+              onClick={onOpenAdmin}
+              title="Open Admin Panel (Approve / Reject Users)"
+              className="h-8 px-2.5 flex items-center gap-1.5 rounded-[5px] border border-[#0D0D0C]/15 bg-white hover:bg-[#0D0D0C] hover:text-white text-[#0D0D0C] text-xs font-mono font-semibold transition duration-200 cursor-pointer relative"
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span className="hidden sm:inline">Admin</span>
+              {pendingCount > 0 && (
+                <span className="px-1.5 py-0.2 rounded-full bg-amber-500 text-white text-[10px] font-bold leading-tight">
+                  {pendingCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Live Status Indicator */}
-          <div className="flex items-center gap-1.5 pl-1.5">
+          <div className="flex items-center gap-1.5 pl-1">
             <span className="w-2 h-2 rounded-full bg-[#3FB874] animate-pulse"></span>
             <span className="text-[11px] font-mono text-[#0D0D0C]/70 hidden md:inline">LIVE</span>
           </div>
+
+          {/* Logout Button */}
+          {onLogout && (
+            <button
+              onClick={onLogout}
+              title={`Sign Out (${authUser?.username || 'user'})`}
+              className="w-8 h-8 flex items-center justify-center rounded-[5px] border border-[#0D0D0C]/15 bg-white hover:bg-red-50 hover:text-red-600 hover:border-red-200 text-[#0D0D0C]/70 transition duration-200 cursor-pointer"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+            </button>
+          )}
         </div>
       </div>
     </header>

@@ -3,6 +3,8 @@ import Header from './components/Header';
 import CandleChart from './components/CandleChart';
 import StandardDeviationMatrix from './components/StandardDeviationMatrix';
 import AuctionProfileMatrix from './components/AuctionProfileMatrix';
+import AuthGate from './components/AuthGate';
+import AdminPanel from './components/AdminPanel';
 import { calculateDynamicVolumeProfile } from './utils/volumeProfile';
 import { calculateDailyStandardDeviation } from './utils/standardDeviation';
 import {
@@ -13,6 +15,11 @@ import {
   subscribeLiveMarketTicks,
 } from './services/liveMarketService';
 import {
+  verifySession,
+  clearSession,
+  getStoredToken,
+} from './services/authService';
+import {
   getFallbackBars,
   getFallbackOrderFlow,
   getFallbackFootprint,
@@ -20,7 +27,7 @@ import {
 
 const SYMBOLS = ['XAUUSD', 'NAS100'];
 
-export default function App() {
+function TradingTerminal({ authUser, pendingCount, onOpenAdmin, onLogout }) {
   const [activeSymbol, setActiveSymbol] = useState('XAUUSD');
   const [timeframe, setTimeframe] = useState('1h');
   const [showStandardDeviation, setShowStandardDeviation] = useState(false); // Default OFF per user rule
@@ -225,6 +232,10 @@ export default function App() {
         onRefresh={fetchAllData}
         soundEnabled={soundEnabled}
         onToggleSound={() => setSoundEnabled((v) => !v)}
+        authUser={authUser}
+        pendingCount={pendingCount}
+        onOpenAdmin={onOpenAdmin}
+        onLogout={onLogout}
       />
 
       {/* 2. Main Minimal Workspace */}
@@ -266,5 +277,114 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+export default function App() {
+  const [authChecked, setAuthChecked] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
+  const [pendingCount, setPendingCount] = useState(0);
+  const [showAdminPanel, setShowAdminPanel] = useState(false);
+  const [authNotice, setAuthNotice] = useState('');
+
+  // Verify existing session on mount
+  useEffect(() => {
+    let active = true;
+    const check = async () => {
+      const token = getStoredToken();
+      if (!token) {
+        if (active) {
+          setAuthUser(null);
+          setAuthChecked(true);
+        }
+        return;
+      }
+      const res = await verifySession();
+      if (!active) return;
+      if (res.ok && res.user) {
+        setAuthUser(res.user);
+        setPendingCount(res.pendingCount || 0);
+      } else {
+        setAuthUser(null);
+        if (res.status === 'rejected' || res.status === 'pending') {
+          setAuthNotice(res.error || '');
+        }
+      }
+      setAuthChecked(true);
+    };
+    check();
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  // Periodic live session & pending-request sync (every 30s)
+  useEffect(() => {
+    if (!authUser) return;
+    const timer = setInterval(async () => {
+      const res = await verifySession();
+      if (res.ok && res.user) {
+        setAuthUser(res.user);
+        if (res.user.role === 'admin') {
+          setPendingCount(res.pendingCount || 0);
+        }
+      } else if (!res.networkError) {
+        setAuthUser(null);
+        setShowAdminPanel(false);
+        setAuthNotice(res.error || 'Your session ended.');
+      }
+    }, 30000);
+    return () => clearInterval(timer);
+  }, [authUser]);
+
+  const handleAuthSuccess = useCallback((user, initialPendingCount = 0) => {
+    setAuthNotice('');
+    setAuthUser(user);
+    setPendingCount(initialPendingCount || 0);
+    setShowAdminPanel(false);
+  }, []);
+
+  const handleLogout = useCallback(() => {
+    clearSession();
+    setAuthUser(null);
+    setPendingCount(0);
+    setShowAdminPanel(false);
+    setAuthNotice('');
+  }, []);
+
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen bg-white text-[#0D0D0C] flex items-center justify-center font-mono text-xs">
+        <div className="flex items-center gap-2 text-[#0D0D0C]/60">
+          <span className="w-2 h-2 rounded-full bg-[#0D0D0C] animate-pulse"></span>
+          <span>Verifying access...</span>
+        </div>
+      </div>
+    );
+  }
+
+  // Strictly block all data/charts until authenticated & approved
+  if (!authUser) {
+    return <AuthGate onAuthSuccess={handleAuthSuccess} initialMessage={authNotice} />;
+  }
+
+  // Dedicated Admin Panel View
+  if (authUser.role === 'admin' && showAdminPanel) {
+    return (
+      <AdminPanel
+        onClose={() => setShowAdminPanel(false)}
+        onLogout={handleLogout}
+        onPendingCountChange={setPendingCount}
+      />
+    );
+  }
+
+  return (
+    <TradingTerminal
+      authUser={authUser}
+      pendingCount={pendingCount}
+      onOpenAdmin={() => setShowAdminPanel(true)}
+      onLogout={handleLogout}
+    />
   );
 }
